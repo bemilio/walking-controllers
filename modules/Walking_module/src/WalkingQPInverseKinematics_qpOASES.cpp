@@ -23,21 +23,23 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> M
 
 bool WalkingQPIK_qpOASES::initializeMatrices(const yarp::os::Searchable& config)
 {
-    yarp::os::Value tempValue;
 
+    int CoMVectorDimension = m_useCoMHeight? 3 : 2;
+
+    yarp::os::Value tempValue;
     // evaluate constant sub-matrix of the hessian matrix
     // get the CoM weight
     if(!m_useCoMAsConstraint)
     {
         tempValue = config.find("comWeightTriplets");
         iDynTree::Triplets comWeightMatrix;
-        if(!iDynTreeHelper::Triplets::getTripletsFromValues(tempValue, 3, comWeightMatrix))
+        if(!iDynTreeHelper::Triplets::getTripletsFromValues(tempValue, CoMVectorDimension, comWeightMatrix))
         {
             yError() << "Initialization failed while reading comWeightTriplets vector.";
             return false;
         }
 
-        m_comWeightMatrix.resize(3, 3);
+        m_comWeightMatrix.resize(CoMVectorDimension, CoMVectorDimension);
         m_comWeightMatrix.setFromConstTriplets(comWeightMatrix);
     }
 
@@ -72,10 +74,15 @@ bool WalkingQPIK_qpOASES::initializeMatrices(const yarp::os::Searchable& config)
         m_jointRegulatizationGradient(i + 6, i) = jointRegularizationWeights(i);
 
     // resize matrices
-    m_comJacobian.resize(3, m_numberOfVariables);
+    m_comJacobian.resize(CoMVectorDimension, m_numberOfVariables);
     m_neckJacobian.resize(3, m_numberOfVariables);
     m_leftFootJacobian.resize(6, m_numberOfVariables);
     m_rightFootJacobian.resize(6, m_numberOfVariables);
+
+    // resize vectors
+    m_comVelocity.resize(CoMVectorDimension);
+    m_desiredComPosition.resize(CoMVectorDimension);
+    m_comPosition.resize(CoMVectorDimension);
 
     tempValue = config.find("jointRegularizationGains");
     iDynTree::VectorDynSize jointRegularizationGains(m_actuatedDOFs);
@@ -160,6 +167,10 @@ bool WalkingQPIK_qpOASES::initialize(const yarp::os::Searchable& config,
 
     m_useCoMAsConstraint = config.check("useCoMAsConstraint", yarp::os::Value(false)).asBool();
 
+    // check if the height of the CoM is taken into account
+    m_useCoMHeight = config.check("useCoMHeight", yarp::os::Value(false)).asBool();
+    int CoMVectorDimension = m_useCoMHeight ? 3 : 2;
+
     // TODO in the future the number of constraints should be added inside
     // the configuration file
     // set the number of variables and the number of constraints
@@ -170,7 +181,7 @@ bool WalkingQPIK_qpOASES::initialize(const yarp::os::Searchable& config,
     // the number of constraints is equal to the number of joints plus
     // 12 (position + attitude) of the left and right feet
     if(m_useCoMAsConstraint)
-        m_numberOfConstraints = 6 + 6 + 3;
+        m_numberOfConstraints = 6 + 6 + CoMVectorDimension;
     else
         m_numberOfConstraints = 6 + 6;
 
@@ -216,11 +227,9 @@ bool WalkingQPIK_qpOASES::initialize(const yarp::os::Searchable& config,
         return false;
     }
 
-    //
-
+    // set the optimizer
     m_optimizer = std::make_shared<qpOASES::SQProblem>(m_numberOfVariables,
                                                        m_numberOfConstraints);
-
     m_optimizer->setPrintLevel(qpOASES::PL_LOW);
 
     m_isFirstTime = true;
@@ -245,7 +254,11 @@ bool WalkingQPIK_qpOASES::setRobotState(const iDynTree::VectorDynSize& jointPosi
     m_leftFootToWorldTransform = leftFootToWorldTransform;
     m_rightFootToWorldTransform = rightFootToWorldTransform;
     m_neckOrientation = neckOrientation;
-    m_comPosition = comPosition;
+
+    if(!m_useCoMHeight)
+        iDynTree::toEigen(m_comPosition) = iDynTree::toEigen(comPosition).block(0,0,2,1);
+    else
+        iDynTree::toEigen(m_comPosition) = iDynTree::toEigen(comPosition);
 
     return true;
 }
@@ -267,7 +280,12 @@ bool WalkingQPIK_qpOASES::setCoMJacobian(const iDynTree::MatrixDynSize& comJacob
         yError() << "[setCoMJacobian] the number of rows has to be equal to" << m_actuatedDOFs + 6;
         return false;
     }
-    m_comJacobian = comJacobian;
+
+    if(!m_useCoMHeight)
+        iDynTree::toEigen(m_comJacobian) = iDynTree::toEigen(comJacobian).block(0, 0, 2,
+                                                                                m_actuatedDOFs + 6);
+    else
+        m_comJacobian = comJacobian;
 
     return true;
 }
@@ -410,6 +428,11 @@ bool WalkingQPIK_qpOASES::setLinearConstraintMatrix()
 
 bool WalkingQPIK_qpOASES::setBounds()
 {
+
+    int comVectorDimension = 3;
+    if(!m_useCoMHeight)
+        comVectorDimension = 2;
+
     Eigen::VectorXd leftFootCorrection(6);
     leftFootCorrection.block(0,0,3,1) = m_kPosFoot * iDynTree::toEigen((m_leftFootToWorldTransform.getPosition() -
                                                                         m_desiredLeftFootToWorldTransform.getPosition()));
@@ -445,7 +468,7 @@ bool WalkingQPIK_qpOASES::setBounds()
       - leftFootCorrection;
     Eigen::Map<MatrixXd>(m_upperBound.data(), m_numberOfConstraints, 1).block(0, 0, 6, 1) = iDynTree::toEigen(m_leftFootTwist)
       - leftFootCorrection;
-    
+
     // if((m_rightFootTwist(0) == m_rightFootTwist(1)) && (m_rightFootTwist(0) == 0))
     // {
     //     Eigen::Map<MatrixXd>(m_lowerBound.data(), m_numberOfConstraints, 1).block(6, 0, 6, 1) = iDynTree::toEigen(m_rightFootTwist);
@@ -467,9 +490,9 @@ bool WalkingQPIK_qpOASES::setBounds()
 
     if(m_useCoMAsConstraint)
     {
-        Eigen::Map<MatrixXd>(m_lowerBound.data(), m_numberOfConstraints, 1).block(12, 0, 3, 1) = iDynTree::toEigen(m_comVelocity)
+        Eigen::Map<MatrixXd>(m_lowerBound.data(), m_numberOfConstraints, 1).block(12, 0, comVectorDimension, 1) = iDynTree::toEigen(m_comVelocity)
             - m_kCom * (iDynTree::toEigen(m_comPosition) -  iDynTree::toEigen(m_desiredComPosition));
-        Eigen::Map<MatrixXd>(m_upperBound.data(), m_numberOfConstraints, 1).block(12, 0, 3, 1) = iDynTree::toEigen(m_comVelocity)
+        Eigen::Map<MatrixXd>(m_upperBound.data(), m_numberOfConstraints, 1).block(12, 0, comVectorDimension, 1) = iDynTree::toEigen(m_comVelocity)
             - m_kCom * (iDynTree::toEigen(m_comPosition) -  iDynTree::toEigen(m_desiredComPosition));
     }
 
@@ -505,12 +528,20 @@ void WalkingQPIK_qpOASES::setDesiredFeetTwist(const iDynTree::Twist& leftFootTwi
 
 void WalkingQPIK_qpOASES::setDesiredCoMVelocity(const iDynTree::Vector3& comVelocity)
 {
-    m_comVelocity = comVelocity;
+    // take only the x and y coordinates if the CoM height is not taken into account
+    if(!m_useCoMHeight)
+        iDynTree::toEigen(m_comVelocity) = iDynTree::toEigen(comVelocity).block(0,0,2,1);
+    else
+        iDynTree::toEigen(m_comVelocity) = iDynTree::toEigen(comVelocity);
 }
 
 void WalkingQPIK_qpOASES::setDesiredCoMPosition(const iDynTree::Position& desiredComPosition)
 {
-    m_desiredComPosition = desiredComPosition;
+    // take only the x and y coordinates if the CoM height is not taken into account
+    if(!m_useCoMHeight)
+        iDynTree::toEigen(m_desiredComPosition) = iDynTree::toEigen(desiredComPosition).block(0,0,2,1);
+    else
+        iDynTree::toEigen(m_desiredComPosition) = iDynTree::toEigen(desiredComPosition);
 }
 
 bool WalkingQPIK_qpOASES::solve()

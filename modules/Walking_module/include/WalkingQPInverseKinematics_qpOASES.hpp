@@ -45,8 +45,8 @@ class WalkingQPIK_qpOASES
 
     iDynTree::Twist m_leftFootTwist; /**< Desired Twist of the left foot. */
     iDynTree::Twist m_rightFootTwist; /**< Desired Twist of the right foot. */
-    iDynTree::Vector3 m_comVelocity; /**< Desired Linear velocity of the CoM. */
-    iDynTree::Position m_desiredComPosition; /**< Desired Linear velocity of the CoM. */
+    iDynTree::VectorDynSize m_comVelocity; /**< Desired Linear velocity of the CoM. */
+    iDynTree::VectorDynSize m_desiredComPosition; /**< Desired Linear velocity of the CoM. */
     iDynTree::Transform m_desiredLeftFootToWorldTransform; /**< Desired left foot to world transformation.*/
     iDynTree::Transform m_desiredRightFootToWorldTransform; /**< Desired right foot to world transformation.*/
     iDynTree::Rotation m_desiredNeckOrientation; /**< Desired neck orientation.*/
@@ -55,7 +55,7 @@ class WalkingQPIK_qpOASES
 
     iDynTree::VectorDynSize m_regularizationTerm; /**< Desired joint position (regularization term).*/
 
-    iDynTree::Position m_comPosition; /**< Desired Linear velocity of the CoM. */
+    iDynTree::VectorDynSize m_comPosition; /**< Desired Linear velocity of the CoM. */
     iDynTree::Transform m_leftFootToWorldTransform; /**< Actual left foot to world transformation.*/
     iDynTree::Transform m_rightFootToWorldTransform; /**< Actual right foot to world transformation.*/
     iDynTree::Rotation m_neckOrientation; /**< Rotation matrix of the actual neck orientation. */
@@ -82,6 +82,7 @@ class WalkingQPIK_qpOASES
     bool m_isSolutionEvaluated{false}; /**< True if the solution is evaluated. */
 
     bool m_useCoMAsConstraint; /**< True if the CoM is added as a constraint. */
+    bool m_useCoMHeight; /**< True if the CoM is used as constraint. */
 
     /**
      * Initialize all the constant matrix from the configuration file.
