@@ -60,6 +60,12 @@ void WalkingDCMReactiveController::setReferenceSignal(const iDynTree::Vector2& d
     m_dcmVelocityDesired = dcmVelocityDesired;
 }
 
+void WalkingDCMReactiveController::setCoMHeight(const double& comHeight)
+{
+    double gravityAcceleration = 9.81;
+    m_omega = sqrt(gravityAcceleration / comHeight);
+}
+
 bool WalkingDCMReactiveController::evaluateControl()
 {
     m_controlEvaluated = false;

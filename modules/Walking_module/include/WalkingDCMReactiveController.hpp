@@ -57,6 +57,14 @@ public:
     void setReferenceSignal(const iDynTree::Vector2& dcmPositionDesired,
                             const iDynTree::Vector2& dcmVelocityDesired);
 
+
+    /**
+     * Set measured height of the CoM. It is useful to update omega, use this
+     * method if the height of the CoM changes. (e.g. if it is not controlled by th IK)
+     * @param comHeight height of the CoM
+     */
+    void setCoMHeight(const double& comHeight);
+
     /**
      * Evaluate the control output.
      * @return true/false in case of success/failure

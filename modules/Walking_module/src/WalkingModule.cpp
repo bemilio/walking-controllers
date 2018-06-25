@@ -831,6 +831,8 @@ bool WalkingModule::updateModule()
             m_walkingDCMReactiveController->setReferenceSignal(m_DCMPositionDesired.front(),
                                                                m_DCMVelocityDesired.front());
 
+            m_walkingDCMReactiveController->setCoMHeight(measuredCoM(2));
+
             if(!m_walkingDCMReactiveController->evaluateControl())
             {
                 yError() << "[updateModule] Unable to evaluate the DCM control output.";
