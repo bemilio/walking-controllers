@@ -172,6 +172,7 @@ bool JoypadModule::updateModule()
     // prepare robot (A button)
     m_joypadController->getButton(0, buttonMapping[0]);
 
+
     // start walking (B button)
     m_joypadController->getButton(1, buttonMapping[1]);
 
