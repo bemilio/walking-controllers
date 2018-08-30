@@ -37,6 +37,7 @@ set(${EXE_TARGET_NAME}_SRC
   src/WalkingQPInverseKinematics_qpOASES.cpp
   src/WalkingForwardKinematics.cpp
   src/WalkingZMPController.cpp
+  src/WalkingJointTorqueController.cpp
   src/StableDCMModel.cpp
   src/WalkingPIDHandler.cpp
   src/WalkingLogger.cpp
@@ -57,6 +58,7 @@ set(${EXE_TARGET_NAME}_HDR
   include/WalkingQPInverseKinematics_qpOASES.hpp
   include/WalkingForwardKinematics.hpp
   include/WalkingZMPController.hpp
+  include/WalkingJointTorqueController.hpp
   include/StableDCMModel.hpp
   include/WalkingPIDHandler.hpp
   include/WalkingLogger.hpp
