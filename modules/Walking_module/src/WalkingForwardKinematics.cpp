@@ -19,8 +19,8 @@
 #include <iDynTree/yarp/YARPEigenConversions.h>
 #include <iDynTree/Model/Model.h>
 
-#include "WalkingForwardKinematics.hpp"
-#include "Utils.hpp"
+#include <WalkingForwardKinematics.hpp>
+#include <Utils.hpp>
 
 bool WalkingFK::setRobotModel(const iDynTree::Model& model)
 {
@@ -30,7 +30,11 @@ bool WalkingFK::setRobotModel(const iDynTree::Model& model)
         return false;
     }
 
+    // set desired velocity representation
     m_kinDyn.setFrameVelocityRepresentation(iDynTree::MIXED_REPRESENTATION);
+
+    // resize the generalized bias force vector
+    m_generalizedBiasForces.resize(model);
 
     // initialize some quantities needed for the first step
     m_prevContactLeft = false;
@@ -498,4 +502,22 @@ bool WalkingFK::getNeckJacobian(iDynTree::MatrixDynSize &jacobian)
 bool WalkingFK::getCoMJacobian(iDynTree::MatrixDynSize &jacobian)
 {
     return m_kinDyn.getCenterOfMassJacobian(jacobian);
+}
+
+bool WalkingFK::getFreeFloatingMassMatrix(iDynTree::MatrixDynSize &freeFloatingMassMatrix)
+{
+    return m_kinDyn.getFreeFloatingMassMatrix(freeFloatingMassMatrix);
+}
+
+bool WalkingFK::getGeneralizedBiasForces(iDynTree::VectorDynSize &generalizedBiasForces)
+{
+    if(!m_kinDyn.generalizedBiasForces(m_generalizedBiasForces))
+    {
+        yError() << "[WalkingFK::generalizedBiasForces] Unable to get the generalized bias forces";
+        return false;
+    }
+
+    iDynTree::toEigen(generalizedBiasForces).block(0,0,6,1) = iDynTree::toEigen(m_generalizedBiasForces.baseWrench());
+    iDynTree::toEigen(generalizedBiasForces).block(6,0,m_generalizedBiasForces.jointTorques().size(), 1) = iDynTree::toEigen(m_generalizedBiasForces.jointTorques());
+    return true;
 }
