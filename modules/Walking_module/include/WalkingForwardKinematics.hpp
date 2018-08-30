@@ -17,6 +17,7 @@
 
 //iDynTree
 #include <iDynTree/KinDynComputations.h>
+#include <iDynTree/Model/FreeFloatingState.h>
 
 // iCub-ctrl
 #include <iCub/ctrl/filters.h>
@@ -27,6 +28,8 @@ class WalkingFK
     bool m_prevContactLeft; /**< Boolean is the previous contact foot the left one? */
     bool m_dcmEvaluated; /**< is the DCM evaluated? */
     bool m_comEvaluated; /**< is the CoM evaluated? */
+
+    iDynTree::FreeFloatingGeneralizedTorques m_generalizedBiasForces;
 
     iDynTree::FrameIndex m_frameLeftIndex; /**< Index of the frame attached to the left foot in which all the left foot transformations are expressed. */
     iDynTree::FrameIndex m_frameRightIndex; /**< Index of the frame attached to the right foot in which all the right foot transformations are expressed. */
@@ -213,28 +216,28 @@ public:
 
     /**
      * Get the left foot jacobian.
-     * @oaram jacobian is the left foot jacobian matrix
+     * @param jacobian is the left foot jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getLeftFootJacobian(iDynTree::MatrixDynSize &jacobian);
 
     /**
      * Get the right foot jacobian.
-     * @oaram jacobian is the right foot jacobian matrix
+     * @param jacobian is the right foot jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getRightFootJacobian(iDynTree::MatrixDynSize &jacobian);
 
     /**
      * Get the left hand jacobian.
-     * @oaram jacobian is the left hand jacobian matrix
+     * @param jacobian is the left hand jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getLeftHandJacobian(iDynTree::MatrixDynSize &jacobian);
 
     /**
      * Get the right hand jacobian.
-     * @oaram jacobian is the right hand jacobian matrix
+     * @param jacobian is the right hand jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getRightHandJacobian(iDynTree::MatrixDynSize &jacobian);
@@ -242,17 +245,32 @@ public:
 
     /**
      * Get the neck jacobian.
-     * @oaram jacobian is the neck jacobian matrix
+     * @param jacobian is the neck jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getNeckJacobian(iDynTree::MatrixDynSize &jacobian);
 
     /**
      * Get the CoM jacobian.
-     * @oaram jacobian is the CoM jacobian matrix
+     * @param jacobian is the CoM jacobian matrix
      * @return true/false in case of success/failure.
      */
     bool getCoMJacobian(iDynTree::MatrixDynSize &jacobian);
+
+    /**
+     * Get the floating base mass matrix.
+     * @param freeFloatingMassMatrix is the system mass matrix.
+     * @return true/false in case of success/failure.
+     */
+    bool getFreeFloatingMassMatrix(iDynTree::MatrixDynSize &freeFloatingMassMatrix);
+
+    /**
+     * Get the generalized bias forces.
+     * @param generalizedBiasForces are the gravitational + coriolis torques.
+     * @return true/false in case of success/failure.
+     */
+    bool getGeneralizedBiasForces(iDynTree::VectorDynSize &generalizedBiasForces);
+
 };
 
 #endif
