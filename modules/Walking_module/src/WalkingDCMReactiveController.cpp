@@ -40,7 +40,7 @@ bool WalkingDCMReactiveController::initialize(const yarp::os::Searchable& config
         return false;
     }
 
-    
+
     double comHeight;
     if(!YarpHelper::getDoubleFromSearchable(config, "com_height", comHeight))
     {
@@ -50,21 +50,21 @@ bool WalkingDCMReactiveController::initialize(const yarp::os::Searchable& config
     double gravityAcceleration = config.check("gravity_acceleration", yarp::os::Value(9.81)).asDouble();
     m_omega = sqrt(gravityAcceleration / comHeight);
 
-    yarp::sig::Vector buffer(2, 0.0);
+    yarp::sig::Vector buffer(3, 0.0);
     m_dcmErrorIntegral = std::make_unique<iCub::ctrl::Integrator>(0.01, buffer);
-    
+
     m_isInitialized = true;
 
     return true;
 }
 
-void WalkingDCMReactiveController::setFeedback(const iDynTree::Vector2& dcmFeedback)
+void WalkingDCMReactiveController::setFeedback(const iDynTree::Vector3& dcmFeedback)
 {
     m_dcmFeedback = dcmFeedback;
 }
 
-void WalkingDCMReactiveController::setReferenceSignal(const iDynTree::Vector2& dcmPositionDesired,
-                                                      const iDynTree::Vector2& dcmVelocityDesired)
+void WalkingDCMReactiveController::setReferenceSignal(const iDynTree::Vector3& dcmPositionDesired,
+                                                      const iDynTree::Vector3& dcmVelocityDesired)
 {
     m_dcmPositionDesired = dcmPositionDesired;
     m_dcmVelocityDesired = dcmVelocityDesired;
@@ -81,13 +81,13 @@ bool WalkingDCMReactiveController::evaluateControl()
         return false;
     }
 
-    iDynTree::VectorDynSize error(2);
+    iDynTree::Vector3 error;
     iDynTree::toEigen(error) = iDynTree::toEigen(m_dcmPositionDesired) -
       iDynTree::toEigen(m_dcmFeedback);
     // evaluate the control law
     iDynTree::toEigen(m_controllerOutput) = iDynTree::toEigen(m_dcmPositionDesired) -
       1 / m_omega * (iDynTree::toEigen(m_dcmVelocityDesired)) -
-      m_kDCM * iDynTree::toEigen(error)  + 
+      m_kDCM * iDynTree::toEigen(error)  +
       m_kIDCM * iDynTree::toEigen(evaluateIntegralError(m_dcmErrorIntegral, error));
 
 
@@ -95,7 +95,7 @@ bool WalkingDCMReactiveController::evaluateControl()
     return true;
 }
 
-bool WalkingDCMReactiveController::getControllerOutput(iDynTree::Vector2& controllerOutput)
+bool WalkingDCMReactiveController::getControllerOutput(iDynTree::Vector3& controllerOutput)
 {
     if(!m_controlEvaluated)
     {
@@ -108,7 +108,7 @@ bool WalkingDCMReactiveController::getControllerOutput(iDynTree::Vector2& contro
 }
 
 iDynTree::VectorDynSize WalkingDCMReactiveController::evaluateIntegralError(std::unique_ptr<iCub::ctrl::Integrator>& integral,
-									    const iDynTree::VectorDynSize& error)
+									    const iDynTree::Vector3& error)
 {
     yarp::sig::Vector buffer(error.size());
     yarp::sig::Vector integralErrorYarp(error.size());
@@ -116,7 +116,7 @@ iDynTree::VectorDynSize WalkingDCMReactiveController::evaluateIntegralError(std:
     integralErrorYarp = integral->integrate(buffer);
 
     // transform into iDynTree Vector
-    iDynTree::VectorDynSize integralError(2);
+    iDynTree::VectorDynSize integralError(3);
     iDynTree::toiDynTree(integralErrorYarp, integralError);
 
     return integralError;

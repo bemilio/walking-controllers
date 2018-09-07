@@ -968,7 +968,8 @@ bool WalkingModule::updateModule()
        || m_robotState == WalkingFSM::Stance
        || m_robotState == WalkingFSM::OnTheFly)
     {
-        iDynTree::Vector2 measuredDCM, measuredZMP;
+        iDynTree::Vector3 measuredDCM;
+        iDynTree::Vector2 measuredZMP;
         iDynTree::Position measuredCoM;
         iDynTree::Vector3 measuredCoMVelocity;
 
@@ -1081,49 +1082,64 @@ bool WalkingModule::updateModule()
         }
 
         // DCM controller
+        iDynTree::Vector3 desiredVRP;
         iDynTree::Vector2 desiredZMP;
         if(m_useMPC)
         {
-            // Model predictive controller
-            m_profiler->setInitTime("MPC");
-            if(!m_walkingController->setConvexHullConstraint(m_leftTrajectory, m_rightTrajectory,
-                                                             m_leftInContact, m_rightInContact))
-            {
-                yError() << "[updateModule] unable to evaluate the convex hull.";
-                return false;
-            }
+            // TODO implement this
+            yError() << "[updateModule] You cannot use the torque control plus the MPC";
+            return false;
+            // // Model predictive controller
+            // m_profiler->setInitTime("MPC");
+            // if(!m_walkingController->setConvexHullConstraint(m_leftTrajectory, m_rightTrajectory,
+            //                                                  m_leftInContact, m_rightInContact))
+            // {
+            //     yError() << "[updateModule] unable to evaluate the convex hull.";
+            //     return false;
+            // }
 
-            if(!m_walkingController->setFeedback(measuredDCM))
-            {
-                yError() << "[updateModule] unable to set the feedback.";
-                return false;
-            }
+            // if(!m_walkingController->setFeedback(measuredDCM))
+            // {
+            //     yError() << "[updateModule] unable to set the feedback.";
+            //     return false;
+            // }
 
-            if(!m_walkingController->setReferenceSignal(m_DCMPositionDesired, resetTrajectory))
-            {
-                yError() << "[updateModule] unable to set the reference Signal.";
-                return false;
-            }
+            // if(!m_walkingController->setReferenceSignal(m_DCMPositionDesired, resetTrajectory))
+            // {
+            //     yError() << "[updateModule] unable to set the reference Signal.";
+            //     return false;
+            // }
 
-            if(!m_walkingController->solve())
-            {
-                yError() << "[updateModule] Unable to solve the problem.";
-                return false;
-            }
+            // if(!m_walkingController->solve())
+            // {
+            //     yError() << "[updateModule] Unable to solve the problem.";
+            //     return false;
+            // }
 
-            if(!m_walkingController->getControllerOutput(desiredZMP))
-            {
-                yError() << "[updateModule] Unable to get the MPC output.";
-                return false;
-            }
+            // if(!m_walkingController->getControllerOutput(desiredZMP))
+            // {
+            //     yError() << "[updateModule] Unable to get the MPC output.";
+            //     return false;
+            // }
 
-            m_profiler->setEndTime("MPC");
+            // m_profiler->setEndTime("MPC");
         }
         else
         {
+            // TODO
+            // in the future this will be embedded inside the planner
             m_walkingDCMReactiveController->setFeedback(measuredDCM);
-            m_walkingDCMReactiveController->setReferenceSignal(m_DCMPositionDesired.front(),
-                                                               m_DCMVelocityDesired.front());
+            iDynTree::Vector3 DCMPositionDesired3D, DCMVelocityDesired3D;
+            DCMPositionDesired3D(0) = m_DCMPositionDesired.front()(0);
+            DCMPositionDesired3D(1) = m_DCMPositionDesired.front()(1);
+            DCMPositionDesired3D(2) = m_comHeightTrajectory.front();
+
+            DCMVelocityDesired3D(0) = m_DCMVelocityDesired.front()(0);
+            DCMVelocityDesired3D(1) = m_DCMVelocityDesired.front()(1);
+            DCMVelocityDesired3D(2) = m_comHeightVelocity.front();
+
+            m_walkingDCMReactiveController->setReferenceSignal(DCMPositionDesired3D,
+                                                               DCMVelocityDesired3D);
 
             if(!m_walkingDCMReactiveController->evaluateControl())
             {
@@ -1131,11 +1147,14 @@ bool WalkingModule::updateModule()
                 return false;
             }
 
-            if(!m_walkingDCMReactiveController->getControllerOutput(desiredZMP))
+
+            if(!m_walkingDCMReactiveController->getControllerOutput(desiredVRP))
             {
                 yError() << "[updateModule] Unable to get the DCM control output.";
                 return false;
             }
+            desiredZMP(0) = desiredVRP(0);
+            desiredZMP(1) = desiredVRP(1);
         }
 
         // inner COM-ZMP controller
@@ -2306,7 +2325,7 @@ bool WalkingModule::evaluateCoM(iDynTree::Position& comPosition, iDynTree::Vecto
     return true;
 }
 
-bool WalkingModule::evaluateDCM(iDynTree::Vector2& dcm)
+bool WalkingModule::evaluateDCM(iDynTree::Vector3& dcm)
 {
     if(m_FKSolver == nullptr)
     {
