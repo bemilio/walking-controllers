@@ -153,7 +153,7 @@ bool WalkingFK::initialize(const yarp::os::Searchable& config,
     }
 
     double comHeight;
-    if(!YarpHelper::getDoubleFromSearchable(config, "com_height", comHeight))
+    if(!YarpHelper::getNumberFromSearchable(config, "com_height", comHeight))
     {
         yError() << "[initialize] Unable to get the double from searchable.";
         return false;
@@ -163,14 +163,14 @@ bool WalkingFK::initialize(const yarp::os::Searchable& config,
 
     // init filters
     double samplingTime;
-    if(!YarpHelper::getDoubleFromSearchable(config, "sampling_time", samplingTime))
+    if(!YarpHelper::getNumberFromSearchable(config, "sampling_time", samplingTime))
     {
         yError() << "[initialize] Unable to get the double from searchable.";
         return false;
     }
 
     double cutFrequency;
-    if(!YarpHelper::getDoubleFromSearchable(config, "cut_frequency", cutFrequency))
+    if(!YarpHelper::getNumberFromSearchable(config, "cut_frequency", cutFrequency))
     {
         yError() << "[initialize] Unable to get the double from searchable.";
         return false;
@@ -433,9 +433,19 @@ iDynTree::Transform WalkingFK::getLeftFootToWorldTransform()
     return m_kinDyn.getWorldTransform(m_frameLeftIndex);
 }
 
+iDynTree::Twist WalkingFK::getLeftFootVelocity()
+{
+    return m_kinDyn.getFrameVel(m_frameLeftIndex);
+}
+
 iDynTree::Transform WalkingFK::getRightFootToWorldTransform()
 {
     return m_kinDyn.getWorldTransform(m_frameRightIndex);
+}
+
+iDynTree::Twist WalkingFK::getRightFootVelocity()
+{
+    return m_kinDyn.getFrameVel(m_frameRightIndex);
 }
 
 iDynTree::Transform WalkingFK::getLeftHandToWorldTransform()
@@ -468,6 +478,11 @@ iDynTree::Rotation WalkingFK::getNeckOrientation()
     return m_kinDyn.getWorldTransform(m_frameNeckIndex).getRotation();
 }
 
+iDynTree::Twist WalkingFK::getNeckVelocity()
+{
+    return m_kinDyn.getFrameVel(m_frameNeckIndex);
+}
+
 bool WalkingFK::getLeftFootJacobian(iDynTree::MatrixDynSize &jacobian)
 {
     return m_kinDyn.getFrameFreeFloatingJacobian(m_frameLeftIndex, jacobian);
@@ -491,6 +506,26 @@ bool WalkingFK::getRightHandJacobian(iDynTree::MatrixDynSize &jacobian)
 bool WalkingFK::getNeckJacobian(iDynTree::MatrixDynSize &jacobian)
 {
     return m_kinDyn.getFrameFreeFloatingJacobian(m_frameNeckIndex, jacobian);
+}
+
+iDynTree::Vector3 WalkingFK::getCoMBiasAcceleration()
+{
+    return m_kinDyn.getCenterOfMassBiasAcc();
+}
+
+iDynTree::Vector6 WalkingFK::getLeftFootBiasAcceleration()
+{
+    return m_kinDyn.getFrameBiasAcc(m_frameLeftIndex);
+}
+
+iDynTree::Vector6 WalkingFK::getRightFootBiasAcceleration()
+{
+    return m_kinDyn.getFrameBiasAcc(m_frameRightIndex);
+}
+
+iDynTree::Vector6 WalkingFK::getNeckBiasAcceleration()
+{
+    return m_kinDyn.getFrameBiasAcc(m_frameNeckIndex);
 }
 
 bool WalkingFK::getCoMJacobian(iDynTree::MatrixDynSize &jacobian)
