@@ -77,7 +77,6 @@ void LinearPID::setFeedback(const iDynTree::Vector3 &velocity,
 
 void LinearPID::evaluateControl()
 {
-
     Eigen::Vector3d error;
     error = iDynTree::toEigen(m_desiredPosition) - iDynTree::toEigen(m_position);
     Eigen::Vector3d dotError;
