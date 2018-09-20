@@ -24,6 +24,29 @@ void Constraint<T, U>::setSizeOfConstraint(const int& sizeOfConstraint)
     m_lowerBound.resize(sizeOfConstraint);
 }
 
+template <typename T, typename U>
+void Constraint<T, U>::setSubMatricesStartingPosition(const int& startingRow,
+                                                      const int& startingColumn)
+{
+    // set the jacobian starting raw and column
+    m_jacobian->startingRow = startingRow;
+    m_jacobian->startingColumn = startingColumn;
+
+    // set the hessian staryint row and column.
+    // it is important to notice that the m_hessian is a vector containing the hessian matrices
+    // (for a nonlinear constraints the number depends on the constraints)
+    // we suppose that m_vector has been already populated (notice in general it occurs in the
+    // construct of the derived classes)
+    for(auto& hessian : m_hessian)
+    {
+        hessian->startingRow = startingRow;
+        // Notice this is not an error. The hessian matrix is quadratic and the blocks
+        // different from zero depends on the function between the constraint and the conditional
+        // variables
+        hessian->startingColumn = startingRow;
+    }
+}
+
 template <typename T>
 void LinearConstraint<T>::evaluateConstraint()
 {

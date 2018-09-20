@@ -16,11 +16,10 @@
 // iDynTree
 #include <iDynTree/Core/VectorDynSize.h>
 #include <iDynTree/Core/MatrixDynSize.h>
+#include <iDynTree/Core/Transform.h>
 
 #include <Utils.hpp>
 #include <CartesianPID.hpp>
-
-
 
 /**
  * Matrix block helper.
@@ -97,6 +96,13 @@ public:
     virtual void evaluateBounds() = 0;
 
     /**
+     * Set the jacobian and hessian starting row and column.
+     * @param staringRow staring row of the jacobian sub-block;
+     * @param staringColumn staring row of the jacobian sub-block.
+     */
+    void setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn);
+
+    /**
      * Get the constraint vector.
      * @return constraint vector.
      */
@@ -125,6 +131,11 @@ public:
      * @return upper bound
      */
     const iDynTree::VectorDynSize& getUpperBound() const {return m_upperBound;};
+
+    /**
+     * Get the number of constraint
+     */
+    double getNumberOfConstraints() {return m_constraint.size();};
 };
 
 /**
@@ -251,8 +262,6 @@ public:
  */
 class CartesianConstraint : public GenericCartesianConstraint
 {
-protected:
-
     /**
      * Evaluate the desired acceleration
      */
@@ -271,7 +280,7 @@ public:
  * ForceConstraint class allows to obtain a contact force that satisfies the unilateral constraint,
  * the friction cone and the COP position.
  */
-class ForceConstraint : public LinearConstraint<iDynSparseMatrix>
+class ForceConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
 {
     double m_staticFrictionCoefficient; /**< Static linear coefficient of friction */
     double m_numberOfPoints; /**< Number of points in each quadrants for linearizing friction cone */
@@ -283,6 +292,11 @@ class ForceConstraint : public LinearConstraint<iDynSparseMatrix>
 
     bool m_isJacobianEvaluated; /**< True if the Jacobian is evaluated. */
     bool m_areBoundsEvaluated; /**< True if the bounds are evaluated. */
+
+    //todo
+    iDynSparseMatrix m_jacobianLeftTrivialized;
+
+    iDynTree::Transform m_footToWorldTransform;
 
 public:
 
@@ -317,6 +331,13 @@ public:
      */
     void setFootSize(const iDynTree::Vector2& footLimitX, const iDynTree::Vector2& footLimitY);
 
+    // todo
+    void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = footToWorldTransform;};
+
+    void activate();
+
+    void deactivate();
+
     /**
      * Evaluate the jacobian
      */
@@ -329,84 +350,26 @@ public:
 };
 
 /**
- * ZMPConstraintSingleSupport class manage a nonlinear ZMP single support constraint
+ * ZMP class allows to obtain a contact force that satisfies the desired ZMP position
  */
-class  ZMPConstraintSingleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
+class ZMPConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
 {
-    iDynTree::Transform m_stanceFootToWorldTransform; /**< Stance foot to world transformation */
 
-    double m_stanceFootFZ; /**< Stance foot normal force */
-    double m_stanceFootTauX; /**< Stance foot x momentum */
-    double m_stanceFootTauY; /**< Stance foot y momentum */
+    iDynTree::Transform m_leftFootToWorldTransform;
+    iDynTree::Transform m_rightFootToWorldTransform;
+
+    iDynTree::Vector2 m_desiredZMP;
+    bool m_areBoundsEvaluated = false;
 
 public:
 
-    /**
-     * Constructor
-     */
-    ZMPConstraintSingleSupport();
-
-    /**
-     * Set the stance foot to world transformation
-     * @param stanceFootToWorldTransform tranformation between the stance foot and the world frame world_H_stanceFoot
-     */
-    void setStanceFootToWorldTransform(const iDynTree::Transform& stanceFootToWorldTransform){m_stanceFootToWorldTransform = stanceFootToWorldTransform;};
+    ZMPConstraint();
 
     /**
      * Set the desired ZMP
      * @param zmp desired ZMP
      */
-    void setDesiredZMP(const iDynTree::Vector2& zmp);
-
-    /**
-     * Set conditional variable.
-     * @param conditionalVariable conditional variable
-     */
-    void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
-
-    /**
-     * Evaluate the constraint
-     */
-    void evaluateConstraint() override;
-
-    /**
-     * Evaluate the jacobian
-     */
-    void evaluateJacobian() override;
-
-    /**
-     * Evaluate the hessian
-     */
-    void evaluateHessian() override;
-
-    /**
-     * Evaluate the lower and upper bounds
-     */
-    void evaluateBounds() override;
-};
-
-/**
- * ZMPConstraintDoubleSupport class manage a nonlinear ZMP double support constraint
- */
-class ZMPConstraintDoubleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
-{
-    iDynTree::Transform m_leftFootToWorldTransform; /**< Left foot to world tranformation world_H_leftFoot */
-    iDynTree::Transform m_rightFootToWorldTransform; /**< Right foot to world tranformation world_H_rightFoot */
-
-    double m_leftFootFZ; /**< Left foot normal force */
-    double m_leftFootTauX; /**< Left foot x momentum */
-    double m_leftFootTauY; /**< Left foot y momentum */
-
-    double m_rightFootFZ; /**< Right foot normal force */
-    double m_rightFootTauX; /**< Right foot x momentum */
-    double m_rightFootTauY; /**< Right foot y momentum */
-
-public:
-
-    /**
-     * Constructor
-     */
-    ZMPConstraintDoubleSupport();
+    void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
 
     /**
      * Set the left foot to world transformation
@@ -421,37 +384,140 @@ public:
     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = rightFootToWorldTransform;};
 
     /**
-     * Set conditional variable.
-     * @param conditionalVariable conditional variable
-     */
-    void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
-
-    /**
-     * Set the desired ZMP
-     * @param zmp desired ZMP
-     */
-    void setDesiredZMP(const iDynTree::Vector2& zmp);
-
-    /**
-     * Evaluate the constraint
-     */
-    void evaluateConstraint() override;
-
-    /**
      * Evaluate the jacobian
      */
     void evaluateJacobian() override;
-
-    /**
-     * Evaluate the hessian
-     */
-    void evaluateHessian() override;
 
     /**
      * Evaluate the lower and upper bounds
      */
     void evaluateBounds() override;
 };
+
+// /**
+//  * ZMPConstraintSingleSupport class manage a nonlinear ZMP single support constraint
+//  */
+// class  ZMPConstraintSingleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
+// {
+//     iDynTree::Transform m_stanceFootToWorldTransform; /**< Stance foot to world transformation */
+
+//     double m_stanceFootFZ; /**< Stance foot normal force */
+//     double m_stanceFootTauX; /**< Stance foot x momentum */
+//     double m_stanceFootTauY; /**< Stance foot y momentum */
+
+// public:
+
+//     /**
+//      * Constructor
+//      */
+//     ZMPConstraintSingleSupport();
+
+//     /**
+//      * Set the stance foot to world transformation
+//      * @param stanceFootToWorldTransform tranformation between the stance foot and the world frame world_H_stanceFoot
+//      */
+//     void setStanceFootToWorldTransform(const iDynTree::Transform& stanceFootToWorldTransform){m_stanceFootToWorldTransform = stanceFootToWorldTransform;};
+
+//     /**
+//      * Set the desired ZMP
+//      * @param zmp desired ZMP
+//      */
+//     void setDesiredZMP(const iDynTree::Vector2& zmp);
+
+//     /**
+//      * Set conditional variable.
+//      * @param conditionalVariable conditional variable
+//      */
+//     void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
+
+//     /**
+//      * Evaluate the constraint
+//      */
+//     void evaluateConstraint() override;
+
+//     /**
+//      * Evaluate the jacobian
+//      */
+//     void evaluateJacobian() override;
+
+//     /**
+//      * Evaluate the hessian
+//      */
+//     void evaluateHessian() override;
+
+//     /**
+//      * Evaluate the lower and upper bounds
+//      */
+//     void evaluateBounds() override;
+// };
+
+// /**
+//  * ZMPConstraintDoubleSupport class manage a nonlinear ZMP double support constraint
+//  */
+// class ZMPConstraintDoubleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
+// {
+//     iDynTree::Transform m_leftFootToWorldTransform; /**< Left foot to world tranformation world_H_leftFoot */
+//     iDynTree::Transform m_rightFootToWorldTransform; /**< Right foot to world tranformation world_H_rightFoot */
+
+//     double m_leftFootFZ; /**< Left foot normal force */
+//     double m_leftFootTauX; /**< Left foot x momentum */
+//     double m_leftFootTauY; /**< Left foot y momentum */
+
+//     double m_rightFootFZ; /**< Right foot normal force */
+//     double m_rightFootTauX; /**< Right foot x momentum */
+//     double m_rightFootTauY; /**< Right foot y momentum */
+
+// public:
+
+//     /**
+//      * Constructor
+//      */
+//     ZMPConstraintDoubleSupport();
+
+//     /**
+//      * Set the left foot to world transformation
+//      * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
+//      */
+//     void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = leftFootToWorldTransform;};
+
+//     /**
+//      * Set the right foot to world transformation
+//      * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
+//      */
+//     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = rightFootToWorldTransform;};
+
+//     /**
+//      * Set conditional variable.
+//      * @param conditionalVariable conditional variable
+//      */
+//     void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
+
+//     /**
+//      * Set the desired ZMP
+//      * @param zmp desired ZMP
+//      */
+//     void setDesiredZMP(const iDynTree::Vector2& zmp);
+
+//     /**
+//      * Evaluate the constraint
+//      */
+//     void evaluateConstraint() override;
+
+//     /**
+//      * Evaluate the jacobian
+//      */
+//     void evaluateJacobian() override;
+
+//     /**
+//      * Evaluate the hessian
+//      */
+//     void evaluateHessian() override;
+
+//     /**
+//      * Evaluate the lower and upper bounds
+//      */
+//     void evaluateBounds() override;
+// };
 
 #include <WalkingConstraint.tpp>
 
