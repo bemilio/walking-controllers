@@ -22,6 +22,7 @@
 #include <yarp/dev/IPositionControl.h>
 #include <yarp/dev/IPositionDirect.h>
 #include <yarp/dev/IVelocityControl.h>
+#include <yarp/dev/ITorqueControl.h>
 #include <yarp/dev/PolyDriver.h>
 #include <yarp/os/RpcClient.h>
 
@@ -29,24 +30,25 @@
 #include <iDynTree/Core/VectorFixSize.h>
 #include <iDynTree/ModelIO/ModelLoader.h>
 
-#include "TrajectoryGenerator.hpp"
-#include "WalkingController.hpp"
-#include "WalkingDCMReactiveController.hpp"
-#include "WalkingZMPController.hpp"
-#include "WalkingInverseKinematics.hpp"
-#include "WalkingQPInverseKinematics_osqp.hpp"
-#include "WalkingQPInverseKinematics_qpOASES.hpp"
-#include "WalkingForwardKinematics.hpp"
-#include "StableDCMModel.hpp"
-#include "WalkingPIDHandler.hpp"
-#include "WalkingLogger.hpp"
-#include "TimeProfiler.hpp"
+#include <TrajectoryGenerator.hpp>
+#include <WalkingController.hpp>
+#include <WalkingDCMReactiveController.hpp>
+#include <WalkingZMPController.hpp>
+#include <WalkingInverseKinematics.hpp>
+#include <WalkingQPInverseKinematics_osqp.hpp>
+#include <WalkingQPInverseKinematics_qpOASES.hpp>
+#include <WalkingTaskBasedTorqueController.hpp>
+#include <WalkingForwardKinematics.hpp>
+#include <StableDCMModel.hpp>
+#include <WalkingPIDHandler.hpp>
+#include <WalkingLogger.hpp>
+#include <TimeProfiler.hpp>
 
 // iCub-ctrl
 #include <iCub/ctrl/filters.h>
 #include <iCub/ctrl/minJerkCtrl.h>
 
-#include "thrifts/WalkingCommands.h"
+#include <thrifts/WalkingCommands.h>
 
 enum class WalkingFSM {Idle, Configured, Prepared, Walking, OnTheFly, Stance};
 
@@ -73,6 +75,7 @@ class WalkingModule:
     bool m_useLeftHand; /**< Use the left hand inside the  inverse kinematics. */
     bool m_useRightHand; /**< Use the right hand inside the  inverse kinematics. */
     bool m_useVelocityModulation; /**< Use velocity modulation. */
+    bool m_useTorqueController; /**< Use task based torque controller. */
 
     std::unique_ptr<TrajectoryGenerator> m_trajectoryGenerator; /**< Pointer to the trajectory generator object. */
     std::unique_ptr<WalkingController> m_walkingController; /**< Pointer to the walking DCM MPC object. */
@@ -81,6 +84,7 @@ class WalkingModule:
     std::unique_ptr<WalkingIK> m_IKSolver; /**< Pointer to the inverse kinematics solver. */
     std::unique_ptr<WalkingQPIK_osqp> m_QPIKSolver_osqp; /**< Pointer to the inverse kinematics solver (osqp). */
     std::unique_ptr<WalkingQPIK_qpOASES> m_QPIKSolver_qpOASES; /**< Pointer to the inverse kinematics solver (qpOASES). */
+    std::unique_ptr<WalkingTaskBasedTorqueController> m_taskBasedTorqueSolver; /**< Pointer to the task-based torque solver. */
     std::unique_ptr<WalkingFK> m_FKSolver; /**< Pointer to the forward kinematics solver. */
     std::unique_ptr<StableDCMModel> m_stableDCMModel; /**< Pointer to the stable DCM dynamics. */
     std::unique_ptr<WalkingPIDHandler> m_PIDHandler; /**< Pointer to the PID handler object. */
@@ -110,6 +114,10 @@ class WalkingModule:
     std::deque<iDynTree::Twist> m_leftTwistTrajectory; /**< Deque containing the twist trajectory of the left foot. */
     std::deque<iDynTree::Twist> m_rightTwistTrajectory; /**< Deque containing the twist trajectory of the right foot. */
 
+    std::deque<iDynTree::Twist> m_leftAccelerationTrajectory; /**< Deque containing the accecleration trajectory of the left foot. */
+    std::deque<iDynTree::Twist> m_rightAccelerationTrajectory; /**< Deque containing the acceleration trajectory of the right foot. */
+
+
     std::deque<iDynTree::Vector2> m_DCMPositionDesired; /**< Deque containing the desired DCM position. */
     std::deque<iDynTree::Vector2> m_DCMVelocityDesired; /**< Deque containing the desired DCM velocity. */
     std::deque<bool> m_leftInContact; /**< Deque containing the left foot state. */
@@ -133,6 +141,7 @@ class WalkingModule:
     yarp::dev::IPositionDirect *m_positionDirectInterface{nullptr}; /**< Direct position control interface. */
     yarp::dev::IPositionControl *m_positionInterface{nullptr}; /**< Position control interface. */
     yarp::dev::IVelocityControl *m_velocityInterface{nullptr}; /**< Position control interface. */
+    yarp::dev::ITorqueControl *m_torqueInterface{nullptr}; /**< Torque control interface. */
     yarp::dev::IControlMode *m_controlModeInterface{nullptr}; /**< Control mode interface. */
     yarp::dev::IControlLimits *m_limitsInterface{nullptr}; /**< Encorders interface. */
     yarp::os::Bottle m_remoteControlBoards; /**< Contain all the name of the controlled joints. */
@@ -141,6 +150,7 @@ class WalkingModule:
     yarp::sig::Vector m_velocityFeedbackInDegrees; /**< Vector containing the current joint velocity [deg/s]. */
 
     iDynTree::VectorDynSize m_qDesired; /**< Vector containing the results of the IK algorithm [rad]. */
+    iDynTree::VectorDynSize m_desiredTorque; /**< Vector containing the desired joint torque. */
     // todo
     iDynTree::VectorDynSize m_dqDesired_osqp; /**< Vector containing the results of the QP-IK algorithm [rad/s]. */
     iDynTree::VectorDynSize m_dqDesired_qpOASES; /**< Vector containing the results of the QP-IK algorithm [rad/s]. */
@@ -148,11 +158,14 @@ class WalkingModule:
     iDynTree::VectorDynSize m_velocityFeedbackInRadians; /**< Vector containing the current joint velocity [rad/s]. */
     iDynTree::VectorDynSize m_toDegBuffer; /**< Vector containing the desired joint positions that will be sent to the robot [deg]. */
 
+    iDynTree::VectorDynSize m_minJointsPosition; /**< Vector containing the max negative position [rad]. */
+    iDynTree::VectorDynSize m_maxJointsPosition; /**< Vector containing the max positive position [rad]. */
+
     iDynTree::VectorDynSize m_minJointsVelocity; /**< Vector containing the max negative velocity [rad/s]. */
     iDynTree::VectorDynSize m_maxJointsVelocity; /**< Vector containing the max positive velocity [rad/s]. */
 
-    iDynTree::VectorDynSize m_minJointsPosition; /**< Vector containing the max negative position [rad]. */
-    iDynTree::VectorDynSize m_maxJointsPosition; /**< Vector containing the max positive position [rad]. */
+    iDynTree::VectorDynSize m_minJointsTorque; /**< Vector containing the max negative torque [Nm]. */
+    iDynTree::VectorDynSize m_maxJointsTorque; /**< Vector containing the max positive torque [Nm]. */
 
     yarp::sig::Vector m_positionFeedbackInDegreesFiltered;
     yarp::sig::Vector m_velocityFeedbackInDegreesFiltered; /**< Vector containing the filtered joint velocity [deg/s]. */
@@ -318,11 +331,17 @@ class WalkingModule:
 
     /**
      * Set the desired velocity reference.
-     * (The position will be sent using DirectPositionControl mode)
      * @param desiredVelocityRad desired joints velocity;
      * @return true in case of success and false otherwise.
      */
     bool setVelocityReferences(const iDynTree::VectorDynSize& desiredVelocityRad);
+
+    /**
+     * Set the desired velocity reference.
+     * @param desiredTorque desired joints torque;
+     * @return true in case of success and false otherwise.
+     */
+    bool setTorqueReferences(const iDynTree::VectorDynSize& desiredTorque);
 
     /**
      * Update the FK solver.
@@ -344,6 +363,16 @@ class WalkingModule:
                    const iDynTree::Position& actualCoMPosition,
                    const iDynTree::Rotation& desiredNeckOrientation,
                    iDynTree::VectorDynSize &output);
+
+    //todo
+    bool solveTaskBased(const iDynTree::Position& desiredCoMPosition,
+                        const iDynTree::Vector3& desiredCoMVelocity,
+                        const iDynTree::Position& actualCoMPosition,
+                        const iDynTree::Vector3& actualCoMVelocity,
+                        const iDynTree::Rotation& desiredNeckOrientation,
+                        const iDynTree::Vector2& desiredZMP,
+                        iDynTree::VectorDynSize &output);
+
     /**
      * Evaluate the position of CoM.
      * @param comPosition position of the center of mass;
