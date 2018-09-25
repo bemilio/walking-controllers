@@ -11,6 +11,8 @@
 #include <CartesianPID.hpp>
 #include <WalkingConstraint.hpp>
 
+#include <TimeProfiler.hpp>
+
 class WalkingTaskBasedTorqueController
 {
     std::shared_ptr<qpOASES::SQProblem> m_optimizer{nullptr}; /**< Optimization solver. */
@@ -38,7 +40,7 @@ class WalkingTaskBasedTorqueController
     iDynSparseMatrix m_selectionMatrix;
 
     // Dynamical quantities
-    iDynTree::MatrixDynSize m_massMatrix; /**< Mass matrix. */
+    iDynTree::MatrixDynSize m_massMatrixInverse; /**< Mass matrix. */
     iDynTree::VectorDynSize m_generalizedBiasForces; /**< Generalized bias forces vector. */
 
     // Joint task
@@ -65,7 +67,6 @@ class WalkingTaskBasedTorqueController
     iDynTree::MatrixDynSize m_rightFootJacobian;
 
     // regularization task
-    iDynTree::VectorDynSize m_regularizationTerm; // todo remove me
     iDynTree::VectorDynSize m_desiredJointPosition;
     iDynTree::VectorDynSize m_desiredJointVelocity;
     iDynTree::VectorDynSize m_desiredJointAcceleration;
@@ -74,6 +75,26 @@ class WalkingTaskBasedTorqueController
     iDynTree::VectorDynSize m_jointVelocity;
 
     iDynTree::VectorDynSize m_desiredJointAccelerationController;
+
+    // feet
+    iDynTree::Transform m_leftFootToWorldTransform;
+    iDynTree::Transform m_rightFootToWorldTransform;
+    iDynTree::VectorDynSize m_leftFootBiasAcceleration;
+    iDynTree::VectorDynSize m_rightFootBiasAcceleration;
+
+    // com
+    iDynTree::MatrixDynSize m_comJacobian;
+    iDynTree::VectorDynSize m_comBiasAcceleration;
+
+    // regularization input
+    iDynTree::VectorDynSize m_inputRegularizationWeight;
+
+    Eigen::MatrixXd m_identityMatrix;
+
+    iDynTree::VectorDynSize m_result;
+
+    // todo remove me
+    iDynTree::Rotation m_desiredNeckOrientation;
 
     std::unordered_map<std::string, std::shared_ptr<Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>>> m_constraints;
 
@@ -89,6 +110,8 @@ class WalkingTaskBasedTorqueController
     bool instantiateNeckSoftConstraint(const yarp::os::Searchable& config);
 
     bool instantiateRegularizationTaskConstraint(const yarp::os::Searchable& config);
+
+    bool instantiateInputRegularizationConstraint(const yarp::os::Searchable& config);
 
     void instantiateConstPartInputMatrix();
 
@@ -106,6 +129,10 @@ public:
                     const iDynTree::VectorDynSize& minJointTorque,
                     const iDynTree::VectorDynSize& maxJointTorque);
 
+
+    bool setInitialValues(const iDynTree::VectorDynSize& jointTorque,
+                          const iDynTree::Wrench &leftWrench,
+                          const iDynTree::Wrench &rightWrench);
 
     bool setMassMatrix(const iDynTree::MatrixDynSize& massMatrix);
 
@@ -145,7 +172,7 @@ public:
     bool setFeetJacobian(const iDynTree::MatrixDynSize& leftFootJacobian,
                          const iDynTree::MatrixDynSize& rightFootJacobian);
 
-    bool setFeetBiasAcceleration(const iDynTree::Vector6 &leftFootBiasAcceleration,
+    void setFeetBiasAcceleration(const iDynTree::Vector6 &leftFootBiasAcceleration,
                                  const iDynTree::Vector6 &rightFootBiasAcceleration);
 
     bool setDesiredCoMTrajectory(const iDynTree::Position& comPosition,
@@ -176,4 +203,11 @@ public:
      */
     bool getSolution(iDynTree::VectorDynSize& output);
 
+    iDynTree::Wrench getLeftWrench();
+
+    iDynTree::Wrench getRightWrench();
+
+    iDynTree::Vector2 getZMP();
+
+    iDynTree::Vector3 getDesiredNeckOrientation();
 };

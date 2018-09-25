@@ -796,7 +796,10 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     if(m_useMPC)
         m_profiler->addTimer("MPC");
 
-    m_profiler->addTimer("IK");
+    if(!m_useTorqueController)
+        m_profiler->addTimer("IK");
+    else
+        m_profiler->addTimer("TORQUE");
     m_profiler->addTimer("Total");
 
     // initialize some variables
@@ -1071,12 +1074,8 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
         return false;
     }
 
-    if(!m_taskBasedTorqueSolver->setFeetBiasAcceleration(m_FKSolver->getLeftFootBiasAcceleration(),
-                                                         m_FKSolver->getRightFootBiasAcceleration()))
-    {
-        yError() << "[solveTaskbased] Unable to set the feet bias acceleration";
-        return false;
-    }
+    m_taskBasedTorqueSolver->setFeetBiasAcceleration(m_FKSolver->getLeftFootBiasAcceleration(),
+                                                     m_FKSolver->getRightFootBiasAcceleration());
 
     // CoM
     if(!m_taskBasedTorqueSolver->setDesiredCoMTrajectory(desiredCoMPosition, desiredCoMVelocity,
@@ -1227,11 +1226,12 @@ bool WalkingModule::updateModule()
             return false;
         }
 
-        if(!evaluateZMP(measuredZMP))
-        {
-            yError() << "[updateModule] Unable to evaluate the ZMP.";
-            return false;
-        }
+        if(!m_useTorqueController)
+            if(!evaluateZMP(measuredZMP))
+            {
+                yError() << "[updateModule] Unable to evaluate the ZMP.";
+                return false;
+            }
 
         // evaluate 3D-LIPM reference signal
         m_stableDCMModel->setInput(m_DCMPositionDesired.front());
@@ -1542,6 +1542,7 @@ bool WalkingModule::updateModule()
         // use toque
         else
         {
+            m_profiler->setInitTime("TORQUE");
             iDynTree::Position desiredCoMPosition;
             desiredCoMPosition(0) = desiredCoMPositionXY(0);
             desiredCoMPosition(1) = desiredCoMPositionXY(1);
@@ -1587,6 +1588,7 @@ bool WalkingModule::updateModule()
                 yError() << "[updateModule] Unable to set the desired joint torques.";
                 return false;
             }
+            m_profiler->setEndTime("TORQUE");
         }
         m_profiler->setEndTime("Total");
 
@@ -1601,43 +1603,55 @@ bool WalkingModule::updateModule()
 
             // get the torso orientation error
             iDynTree::Vector3 torsoDesired;
-            if(m_useQPIK)
+            if(!m_useTorqueController)
             {
-                if(m_useOSQP)
-                    m_QPIKSolver_osqp->getDesiredNeckOrientation(torsoDesired);
+                if(m_useQPIK)
+                {
+                    if(m_useOSQP)
+                        m_QPIKSolver_osqp->getDesiredNeckOrientation(torsoDesired);
+                    else
+                        m_QPIKSolver_qpOASES->getDesiredNeckOrientation(torsoDesired);
+                }
                 else
-                    m_QPIKSolver_qpOASES->getDesiredNeckOrientation(torsoDesired);
+                    m_IKSolver->getDesiredNeckOrientation(torsoDesired);
             }
             else
-                m_IKSolver->getDesiredNeckOrientation(torsoDesired);
+            {
+                torsoDesired = m_taskBasedTorqueSolver->getDesiredNeckOrientation();
+            }
 
-            // m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
-            //                           m_DCMVelocityDesired.front(),
-            //                           measuredZMP, desiredZMP,
-            //                           measuredCoM,
-            //                           desiredCoMPositionXY, desiredCoMVelocityXY,
-            //                           desiredCoMPosition,
-            //                           leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
-            //                           rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
-            //                           m_leftTrajectory.front().getPosition(),
-            //                           m_leftTrajectory.front().getRotation().asRPY(),
-            //                           m_rightTrajectory.front().getPosition(),
-            //                           m_rightTrajectory.front().getRotation().asRPY(),
-            //                           torsoDesired,
-            //                           m_FKSolver->getNeckOrientation().asRPY());
-	    auto leftTemp = m_FKSolver->getHeadLinkToWorldTransform() *
-                m_desiredLeftHandToRootLinkTransform;
-	    auto rightTemp = m_FKSolver->getHeadLinkToWorldTransform() *
-                m_desiredRightHandToRootLinkTransform;
+            auto leftTemp = m_taskBasedTorqueSolver->getLeftWrench();
+            auto rightTemp = m_taskBasedTorqueSolver->getRightWrench();
 
-            m_walkingLogger->sendData(m_FKSolver->getLeftHandToWorldTransform().getPosition(),
-				      m_FKSolver->getLeftHandToWorldTransform().getRotation().asRPY(),
-				      leftTemp.getPosition(),
-				      leftTemp.getRotation().asRPY(),
-				      m_FKSolver->getRightHandToWorldTransform().getPosition(),
-				      m_FKSolver->getRightHandToWorldTransform().getRotation().asRPY(),
-				      rightTemp.getPosition(),
-				      rightTemp.getRotation().asRPY());
+            m_walkingLogger->sendData(// measuredDCM, m_DCMPositionDesired.front(),
+                                      // m_DCMVelocityDesired.front(),
+                                      m_taskBasedTorqueSolver->getZMP(),
+                                      desiredZMP,
+                                      measuredCoM,
+                                      desiredCoMPositionXY, // desiredCoMVelocityXY,
+                                      leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
+                                      rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
+                                      m_leftTrajectory.front().getPosition(),
+                                      m_leftTrajectory.front().getRotation().asRPY(),
+                                      m_rightTrajectory.front().getPosition(),
+                                      m_rightTrajectory.front().getRotation().asRPY(),
+                                      torsoDesired,
+                                      m_FKSolver->getNeckOrientation().asRPY(),
+                                      m_desiredTorque, leftTemp, rightTemp
+                );
+	    // auto leftTemp = m_FKSolver->getHeadLinkToWorldTransform() *
+            //     m_desiredLeftHandToRootLinkTransform;
+	    // auto rightTemp = m_FKSolver->getHeadLinkToWorldTransform() *
+            //     m_desiredRightHandToRootLinkTransform;
+
+            // m_walkingLogger->sendData(m_FKSolver->getLeftHandToWorldTransform().getPosition(),
+	    //     		      m_FKSolver->getLeftHandToWorldTransform().getRotation().asRPY(),
+	    //     		      leftTemp.getPosition(),
+	    //     		      leftTemp.getRotation().asRPY(),
+	    //     		      m_FKSolver->getRightHandToWorldTransform().getPosition(),
+	    //     		      m_FKSolver->getRightHandToWorldTransform().getRotation().asRPY(),
+	    //     		      rightTemp.getPosition(),
+	    //     		      rightTemp.getRotation().asRPY());
 
 
         }
@@ -2149,15 +2163,6 @@ bool WalkingModule::setTorqueReferences(const iDynTree::VectorDynSize& desiredTo
         return false;
     }
 
-    // // check if the desired velocity is higher than a threshold
-    // if((iDynTree::toEigen(desiredTorque).minCoeff() < -1.0) ||
-    //    (iDynTree::toEigen(desiredTorque).maxCoeff() > 1.0))
-    // {
-    //     yError() << "[setTorqueReferences] The absolute value of the desired velocity is higher "
-    //              << "than 1.0 rad/s.";
-    //     return false;
-    // }
-
     if(!m_torqueInterface->setRefTorques(desiredTorque.data()))
     {
         yError() << "[setTorqueReferences] Error while setting the desired torque.";
@@ -2632,33 +2637,61 @@ bool WalkingModule::startWalking()
         return false;
     }
 
+    if(!getFeedbacks(10))
+    {
+        yError() << "[startWalking] Unable to get the feedback.";
+        return false;
+    }
+
+    // we suppose the robot in contact with the ground
+    iDynTree::VectorDynSize measuredTorque(m_actuatedDOFs);
+    m_torqueInterface->getTorques(measuredTorque.data());
+
+    yInfo() << "measuredTorque " <<measuredTorque.toString();
+    yInfo() << "m_leftWrench " <<m_leftWrench.toString();
+    yInfo() << "m_rightWrench " <<m_rightWrench.toString();
+    if(!m_taskBasedTorqueSolver->setInitialValues(measuredTorque, m_leftWrench, m_rightWrench))
+    {
+        yError() << "[startWalking] Unable to set initial value for the torque solver";
+        return false;
+    }
+
     if(m_dumpData)
     {
         m_walkingLogger->startRecord({"record",
-                    "l_arm_x", "l_arm_y", "l_arm_z", "l_arm_roll", "l_arm_pitch", "l_arm_yaw",
-                    "l_arm_des_x", "l_arm_des_y", "l_arm_des_z", "l_arm_des_roll", "l_arm_des_pitch", "l_arm_des_yaw",
-                    "r_arm_x", "r_arm_y", "r_arm_z", "r_arm_roll", "r_arm_pitch", "r_arm_yaw",
-                    "r_arm_des_x", "r_arm_des_y", "r_arm_des_z", "r_arm_des_roll", "r_arm_des_pitch", "r_arm_des_yaw"});
-        //" dcm_x", "dcm_y",
-        // "dcm_des_x", "dcm_des_y",
-        // "dcm_des_dx", "dcm_des_dy",
-        // "zmp_x", "zmp_y",
-        // "zmp_des_x", "zmp_des_y",
-        // "com_x", "com_y", "com_z",
-        // "com_des_x", "com_des_y",
-        // "com_des_dx", "com_des_dy",
-        // "com_ik_x", "com_ik_y", "com_ik_z",
-        // "lf_x", "lf_y", "lf_z",
-        // "lf_roll", "lf_pitch", "lf_yaw",
-        // "rf_x", "rf_y", "rf_z",
-        // "rf_roll", "rf_pitch", "rf_yaw",
-        // "lf_des_x", "lf_des_y", "lf_des_z",
-        // "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
-        // "rf_des_x", "rf_des_y", "rf_des_z",
-        // "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
-        // "torso_des_roll", "torso_des_pitch", "torso_des_yaw",
-        // "torso_roll", "torso_pitch", "torso_yaw"});
+                    // "l_arm_x", "l_arm_y", "l_arm_z", "l_arm_roll", "l_arm_pitch", "l_arm_yaw",
+                    // "l_arm_des_x", "l_arm_des_y", "l_arm_des_z", "l_arm_des_roll", "l_arm_des_pitch", "l_arm_des_yaw",
+                    // "r_arm_x", "r_arm_y", "r_arm_z", "r_arm_roll", "r_arm_pitch", "r_arm_yaw",
+                    // "r_arm_des_x", "r_arm_des_y", "r_arm_des_z", "r_arm_des_roll", "r_arm_des_pitch", "r_arm_des_yaw"
+                    // });
+                    // "dcm_x", "dcm_y",
+                    // "dcm_des_x", "dcm_des_y",
+                    // "dcm_des_dx", "dcm_des_dy",
+                    "zmp_x_solver", "zmp_y_solver",
+                    "zmp_des_x", "zmp_des_y",
+                    "com_x", "com_y", "com_z",
+                    "com_des_x", "com_des_y",
+                    // "com_des_dx", "com_des_dy",
+                    // "com_ik_x", "com_ik_y", "com_ik_z",
+                    "lf_x", "lf_y", "lf_z",
+                    "lf_roll", "lf_pitch", "lf_yaw",
+                    "rf_x", "rf_y", "rf_z",
+                    "rf_roll", "rf_pitch", "rf_yaw",
+                    "lf_des_x", "lf_des_y", "lf_des_z",
+                    "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
+                    "rf_des_x", "rf_des_y", "rf_des_z",
+                    "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
+                    "torso_des_roll", "torso_des_pitch", "torso_des_yaw",
+                    "torso_roll_cart", "torso_pitch_cart", "torso_yaw_cart",
+                    "torso_pitch", "torso_roll", "torso_yaw",
+                    "l_shoulder_pitch", "l_shoulder_roll", "l_shoulder_yaw", "l_elbow",
+                    "r_shoulder_pitch", "r_shoulder_roll", "r_shoulder_yaw", "r_elbow",
+                    "l_hip_pitch", "l_hip_roll", "l_hip_yaw", "l_knee", "l_ankle_pitch", "l_ankle_roll",
+                    "r_hip_pitch", "r_hip_roll", "r_hip_yaw", "r_knee", "r_ankle_pitch", "r_ankle_roll",
+                    "force_lf_x", "force_lf_y", "force_lf_z", "force_lf_roll", "force_lf_pitch", "force_lf_yaw",
+                    "force_rf_x", "force_rf_y", "force_rf_z", "force_rf_roll", "force_rf_pitch", "force_rf_yaw"});
     }
+
 
     {
         std::lock_guard<std::mutex> guard(m_mutex);
@@ -2892,7 +2925,7 @@ bool WalkingModule::onTheFlyStartWalking(const double smoothingTime)
                     "lf_err_x", "lf_err_y", "lf_err_z",
                     "lf_err_roll", "lf_err_pitch", "lf_err_yaw",
                     "rf_err_x", "rf_err_y", "rf_err_z",
-                    "rf_err_roll", "rf_err_pitch", "rf_err_yaw"});
+                    "rf_err_roll", "rf_err_pitch", "rf_err_yaw", });
     }
 
     m_robotState = WalkingFSM::OnTheFly;
