@@ -21,6 +21,8 @@
 #include <Utils.hpp>
 #include <CartesianPID.hpp>
 
+#include <TimeProfiler.hpp>
+
 /**
  * Matrix block helper.
  * @tparam T the only allowed type are iDynTree::MatrixDynsize and iDynTree::SparseMatrix<>
@@ -171,13 +173,13 @@ class GenericCartesianConstraint : public LinearConstraint<iDynTree::MatrixDynSi
     virtual void evaluateDesiredAcceleration() = 0;
 
 protected:
-    iDynTree::MatrixDynSize m_massMatrix; /**< Mass matrix. */
-    iDynTree::VectorDynSize m_generalizedBiasForces; /**< Generalized bias forces
+    iDynTree::MatrixDynSize const * m_massMatrixInverse; /**< Inverse of the mass matrix. */
+    iDynTree::VectorDynSize const * m_generalizedBiasForces; /**< Generalized bias forces
                                                         coriolis + gravitational. */
-    iDynTree::VectorDynSize m_biasAcceleration; /**< Bias acceleration J \nu. */
+    iDynTree::VectorDynSize const * m_biasAcceleration; /**< Bias acceleration J \nu. */
 
-    iDynTree::MatrixDynSize m_roboticJacobian; /**< Robotic Jacobian in mixed representation. */
-    iDynTree::MatrixDynSize m_inputMatrix; /**< Input matrix i.e. Selection matrix for the torque. */
+    iDynTree::MatrixDynSize const * m_roboticJacobian; /**< Robotic Jacobian in mixed representation. */
+    iDynTree::MatrixDynSize const * m_inputMatrix; /**< Input matrix i.e. Selection matrix for the torque. */
 
     iDynTree::VectorDynSize m_desiredAcceleration; /**< Desired acceleration evaluated by the
                                                       controller. */
@@ -190,32 +192,32 @@ public:
      * Set the mass matrix
      * @param massMatrix mass matrix (MIXED representation).
      */
-    void setMassMatrix(const iDynTree::MatrixDynSize& massMatrix){m_massMatrix = massMatrix;};
+    void setMassMatrix(const iDynTree::MatrixDynSize& massMatrixInverse){m_massMatrixInverse = &massMatrixInverse;};
 
     /**
      * Set the generalized bias forces
      * @param generalizedBiasForces coriolis + gravity terms.
      */
-    void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces) {m_generalizedBiasForces = generalizedBiasForces;};
+    void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces) {m_generalizedBiasForces = &generalizedBiasForces;};
 
     /**
      * Set bias acceleration
      * @param biasAcceleration bias acceleration \f$ \dot{J} \nu $\f
      */
-    void setBiasAcceleration(const iDynTree::VectorDynSize& biasAcceleration){m_biasAcceleration = biasAcceleration;};
+    void setBiasAcceleration(const iDynTree::VectorDynSize& biasAcceleration){m_biasAcceleration = &biasAcceleration;};
 
     /**
      * Set the jacobian (robot)
      * @param roboticJacobian standard jacobian used to map the end-effector velocity to the robot velocity
      * (MIXED representation)
      */
-    void setRoboticJacobian(const iDynTree::MatrixDynSize& roboticJacobian){m_roboticJacobian = roboticJacobian;};
+    void setRoboticJacobian(const iDynTree::MatrixDynSize& roboticJacobian){m_roboticJacobian = &roboticJacobian;};
 
     /**
      * Set input matrix.
      * @param inputMatrix matrix used to map the input of the system to the dynamic equation
      */
-    void setInputMatrix(const iDynTree::MatrixDynSize& inputMatrix){m_inputMatrix = inputMatrix;};
+    void setInputMatrix(const iDynTree::MatrixDynSize& inputMatrix){m_inputMatrix = &inputMatrix;};
 
     /**
      * Evaluate the constraint jacobian
@@ -296,7 +298,7 @@ class ForceConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
     //todo
     iDynSparseMatrix m_jacobianLeftTrivialized;
 
-    iDynTree::Transform m_footToWorldTransform;
+    iDynTree::Transform const * m_footToWorldTransform;
 
 public:
 
@@ -332,7 +334,7 @@ public:
     void setFootSize(const iDynTree::Vector2& footLimitX, const iDynTree::Vector2& footLimitY);
 
     // todo
-    void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = footToWorldTransform;};
+    void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = &footToWorldTransform;};
 
     void activate();
 
@@ -355,8 +357,8 @@ public:
 class ZMPConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
 {
 
-    iDynTree::Transform m_leftFootToWorldTransform;
-    iDynTree::Transform m_rightFootToWorldTransform;
+    iDynTree::Transform const * m_leftFootToWorldTransform;
+    iDynTree::Transform const * m_rightFootToWorldTransform;
 
     iDynTree::Vector2 m_desiredZMP;
     bool m_areBoundsEvaluated = false;
@@ -375,13 +377,13 @@ public:
      * Set the left foot to world transformation
      * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
      */
-    void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = leftFootToWorldTransform;};
+    void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
 
     /**
      * Set the right foot to world transformation
      * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
      */
-    void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = rightFootToWorldTransform;};
+    void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
 
     /**
      * Evaluate the jacobian
@@ -393,131 +395,6 @@ public:
      */
     void evaluateBounds() override;
 };
-
-// /**
-//  * ZMPConstraintSingleSupport class manage a nonlinear ZMP single support constraint
-//  */
-// class  ZMPConstraintSingleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
-// {
-//     iDynTree::Transform m_stanceFootToWorldTransform; /**< Stance foot to world transformation */
-
-//     double m_stanceFootFZ; /**< Stance foot normal force */
-//     double m_stanceFootTauX; /**< Stance foot x momentum */
-//     double m_stanceFootTauY; /**< Stance foot y momentum */
-
-// public:
-
-//     /**
-//      * Constructor
-//      */
-//     ZMPConstraintSingleSupport();
-
-//     /**
-//      * Set the stance foot to world transformation
-//      * @param stanceFootToWorldTransform tranformation between the stance foot and the world frame world_H_stanceFoot
-//      */
-//     void setStanceFootToWorldTransform(const iDynTree::Transform& stanceFootToWorldTransform){m_stanceFootToWorldTransform = stanceFootToWorldTransform;};
-
-//     /**
-//      * Set the desired ZMP
-//      * @param zmp desired ZMP
-//      */
-//     void setDesiredZMP(const iDynTree::Vector2& zmp);
-
-//     /**
-//      * Set conditional variable.
-//      * @param conditionalVariable conditional variable
-//      */
-//     void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
-
-//     /**
-//      * Evaluate the constraint
-//      */
-//     void evaluateConstraint() override;
-
-//     /**
-//      * Evaluate the jacobian
-//      */
-//     void evaluateJacobian() override;
-
-//     /**
-//      * Evaluate the hessian
-//      */
-//     void evaluateHessian() override;
-
-//     /**
-//      * Evaluate the lower and upper bounds
-//      */
-//     void evaluateBounds() override;
-// };
-
-// /**
-//  * ZMPConstraintDoubleSupport class manage a nonlinear ZMP double support constraint
-//  */
-// class ZMPConstraintDoubleSupport : public Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>
-// {
-//     iDynTree::Transform m_leftFootToWorldTransform; /**< Left foot to world tranformation world_H_leftFoot */
-//     iDynTree::Transform m_rightFootToWorldTransform; /**< Right foot to world tranformation world_H_rightFoot */
-
-//     double m_leftFootFZ; /**< Left foot normal force */
-//     double m_leftFootTauX; /**< Left foot x momentum */
-//     double m_leftFootTauY; /**< Left foot y momentum */
-
-//     double m_rightFootFZ; /**< Right foot normal force */
-//     double m_rightFootTauX; /**< Right foot x momentum */
-//     double m_rightFootTauY; /**< Right foot y momentum */
-
-// public:
-
-//     /**
-//      * Constructor
-//      */
-//     ZMPConstraintDoubleSupport();
-
-//     /**
-//      * Set the left foot to world transformation
-//      * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
-//      */
-//     void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = leftFootToWorldTransform;};
-
-//     /**
-//      * Set the right foot to world transformation
-//      * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
-//      */
-//     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = rightFootToWorldTransform;};
-
-//     /**
-//      * Set conditional variable.
-//      * @param conditionalVariable conditional variable
-//      */
-//     void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) override;
-
-//     /**
-//      * Set the desired ZMP
-//      * @param zmp desired ZMP
-//      */
-//     void setDesiredZMP(const iDynTree::Vector2& zmp);
-
-//     /**
-//      * Evaluate the constraint
-//      */
-//     void evaluateConstraint() override;
-
-//     /**
-//      * Evaluate the jacobian
-//      */
-//     void evaluateJacobian() override;
-
-//     /**
-//      * Evaluate the hessian
-//      */
-//     void evaluateHessian() override;
-
-//     /**
-//      * Evaluate the lower and upper bounds
-//      */
-//     void evaluateBounds() override;
-// };
 
 #include <WalkingConstraint.tpp>
 
