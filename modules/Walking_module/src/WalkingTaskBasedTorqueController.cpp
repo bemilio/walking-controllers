@@ -522,6 +522,11 @@ bool WalkingTaskBasedTorqueController::initialize(const yarp::os::Searchable& co
     // mass matrix
     m_identityMatrix = Eigen::MatrixXd::Identity(m_actuatedDOFs + 6, m_actuatedDOFs + 6);
 
+    // print some usefull information
+    yInfo() << "Total number of constraints " << m_numberOfConstraints;
+    for(const auto& constraint: m_constraints)
+        yInfo() << constraint.first << ": " << constraint.second->getNumberOfConstraints();
+
     return true;
 }
 
@@ -882,8 +887,6 @@ bool WalkingTaskBasedTorqueController::setDesiredZMP(const iDynTree::Vector2 &zm
     // }
     // ptr = std::static_pointer_cast<ZMPConstraint>(constraint->second);
     // ptr->setDesiredZMP(zmp);
-
-    // yInfo() << "zmp des " << zmp.toString();
 
     return true;
 }

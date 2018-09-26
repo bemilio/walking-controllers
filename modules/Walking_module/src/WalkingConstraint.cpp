@@ -20,10 +20,6 @@ void GenericCartesianConstraint::evaluateJacobian()
         iDynTree::toEigen(*m_massMatrixInverse) * iDynTree::toEigen(*m_inputMatrix);
 }
 
-GenericCartesianConstraint::GenericCartesianConstraint()
-{
-}
-
 PositionConstraint::PositionConstraint(const int& jacobianCols)
 {
     // memory allocation
