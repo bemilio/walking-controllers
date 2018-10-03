@@ -10,6 +10,7 @@
 #include <iDynTree/Core/EigenHelpers.h>
 
 #include <CartesianPID.hpp>
+#include <Utils.hpp>
 
 void RotationalPID::setGains(const double& c0, const double& c1, const double& c2)
 {
@@ -36,8 +37,10 @@ void RotationalPID::setFeedback(const iDynTree::Vector3 &velocity,
 
 void RotationalPID::evaluateControl()
 {
+    iDynTree::Matrix3x3 errorAttitude;
     Eigen::Vector3d error;
-    error = iDynTree::unskew(iDynTree::toEigen(m_orientation * m_desiredOrientation.inverse()));
+    errorAttitude = iDynTreeHelper::Rotation::skewSymmetric(m_orientation * m_desiredOrientation.inverse());
+    error = iDynTree::unskew(iDynTree::toEigen(errorAttitude));
 
     Eigen::Vector3d dotError;
     Eigen::Matrix3d skewAngularVelocity = iDynTree::skew(iDynTree::toEigen(m_velocity));
