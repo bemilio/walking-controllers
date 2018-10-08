@@ -514,7 +514,8 @@ bool WalkingTaskBasedTorqueController::initialize(const yarp::os::Searchable& co
     }
 
     // initialize the optimization problem
-    m_optimizer = std::make_shared<qpOASES::SQProblem>(m_numberOfVariables, m_numberOfConstraints);
+    m_optimizer = std::make_shared<qpOASES::SQProblem>(m_numberOfVariables, m_numberOfConstraints,
+                                                       qpOASES::HST_SEMIDEF);
     m_optimizer->setPrintLevel(qpOASES::PL_LOW);
     m_isFirstTime = true;
     m_isSolutionEvaluated = false;
@@ -557,6 +558,7 @@ bool WalkingTaskBasedTorqueController::setMassMatrix(const iDynTree::MatrixDynSi
                  << "with the number of the actuated Joint plus six";
         return false;
     }
+
     iDynTree::toEigen(m_massMatrixInverse) = iDynTree::toEigen(massMatrix).llt().solve(m_identityMatrix);
     return true;
 }
