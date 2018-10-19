@@ -37,7 +37,7 @@
 #include <WalkingInverseKinematics.hpp>
 #include <WalkingQPInverseKinematics_osqp.hpp>
 #include <WalkingQPInverseKinematics_qpOASES.hpp>
-#include <WalkingTaskBasedTorqueController.hpp>
+#include <WalkingTaskBasedTorqueController_osqp.hpp>
 #include <WalkingForwardKinematics.hpp>
 #include <StableDCMModel.hpp>
 #include <WalkingPIDHandler.hpp>
@@ -84,7 +84,7 @@ class WalkingModule:
     std::unique_ptr<WalkingIK> m_IKSolver; /**< Pointer to the inverse kinematics solver. */
     std::unique_ptr<WalkingQPIK_osqp> m_QPIKSolver_osqp; /**< Pointer to the inverse kinematics solver (osqp). */
     std::unique_ptr<WalkingQPIK_qpOASES> m_QPIKSolver_qpOASES; /**< Pointer to the inverse kinematics solver (qpOASES). */
-    std::unique_ptr<WalkingTaskBasedTorqueController> m_taskBasedTorqueSolver; /**< Pointer to the task-based torque solver. */
+    std::unique_ptr<WalkingTaskBasedTorqueController_osqp> m_taskBasedTorqueSolver; /**< Pointer to the task-based torque solver. */
     std::unique_ptr<WalkingFK> m_FKSolver; /**< Pointer to the forward kinematics solver. */
     std::unique_ptr<StableDCMModel> m_stableDCMModel; /**< Pointer to the stable DCM dynamics. */
     std::unique_ptr<WalkingPIDHandler> m_PIDHandler; /**< Pointer to the PID handler object. */
@@ -367,6 +367,7 @@ class WalkingModule:
     //todo
     bool solveTaskBased(const iDynTree::Position& desiredCoMPosition,
                         const iDynTree::Vector3& desiredCoMVelocity,
+                        const iDynTree::Vector3& desiredCoMAcceleration,
                         const iDynTree::Position& actualCoMPosition,
                         const iDynTree::Vector3& actualCoMVelocity,
                         const iDynTree::Rotation& desiredNeckOrientation,

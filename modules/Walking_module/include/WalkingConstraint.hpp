@@ -54,6 +54,8 @@ class Constraint
 {
 protected:
 
+    bool m_firstTime{true};
+
     iDynTree::VectorDynSize m_constraint; /**< Vector containing the constraint. */
     iDynTree::VectorDynSize m_lowerBound; /**< Vector containing the lower bound (g_l). */
     iDynTree::VectorDynSize m_upperBound; /**< Vector containing the upper bound (g_u). */
@@ -85,7 +87,7 @@ public:
     /**
      * Evaluate Jacobian.
      */
-    virtual void evaluateJacobian() = 0;
+    virtual void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) = 0;
 
     /**
      * Evaluate Hessian.
@@ -173,13 +175,9 @@ class GenericCartesianConstraint : public LinearConstraint<iDynTree::MatrixDynSi
     virtual void evaluateDesiredAcceleration() = 0;
 
 protected:
-    iDynTree::MatrixDynSize const * m_massMatrixInverse; /**< Inverse of the mass matrix. */
-    iDynTree::VectorDynSize const * m_generalizedBiasForces; /**< Generalized bias forces
-                                                        coriolis + gravitational. */
     iDynTree::VectorDynSize const * m_biasAcceleration; /**< Bias acceleration J \nu. */
 
     iDynTree::MatrixDynSize const * m_roboticJacobian; /**< Robotic Jacobian in mixed representation. */
-    iDynTree::MatrixDynSize const * m_inputMatrix; /**< Input matrix i.e. Selection matrix for the torque. */
 
     iDynTree::VectorDynSize m_desiredAcceleration; /**< Desired acceleration evaluated by the
                                                       controller. */
@@ -187,18 +185,6 @@ protected:
     std::unordered_map<std::string, std::shared_ptr<CartesianPID>> m_controllers; /**< Set of
                                                                                      controllers. */
 public:
-
-    /**
-     * Set the mass matrix
-     * @param massMatrix mass matrix (MIXED representation).
-     */
-    void setMassMatrix(const iDynTree::MatrixDynSize& massMatrixInverse){m_massMatrixInverse = &massMatrixInverse;};
-
-    /**
-     * Set the generalized bias forces
-     * @param generalizedBiasForces coriolis + gravity terms.
-     */
-    void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces) {m_generalizedBiasForces = &generalizedBiasForces;};
 
     /**
      * Set bias acceleration
@@ -214,15 +200,9 @@ public:
     void setRoboticJacobian(const iDynTree::MatrixDynSize& roboticJacobian){m_roboticJacobian = &roboticJacobian;};
 
     /**
-     * Set input matrix.
-     * @param inputMatrix matrix used to map the input of the system to the dynamic equation
-     */
-    void setInputMatrix(const iDynTree::MatrixDynSize& inputMatrix){m_inputMatrix = &inputMatrix;};
-
-    /**
      * Evaluate the constraint jacobian
      */
-    void evaluateJacobian() override;
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
     /**
      * Get the position controller associated to the constraint.
@@ -284,6 +264,8 @@ public:
  */
 class ForceConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
 {
+    Eigen::MatrixXd m_transform;
+
     double m_staticFrictionCoefficient; /**< Static linear coefficient of friction */
     double m_numberOfPoints; /**< Number of points in each quadrants for linearizing friction cone */
     double m_torsionalFrictionCoefficient; /**< Torsional coefficient of friction */
@@ -343,7 +325,7 @@ public:
     /**
      * Evaluate the jacobian
      */
-    void evaluateJacobian() override;
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
     /**
      * Evaluate the lower and upper bounds
@@ -388,12 +370,50 @@ public:
     /**
      * Evaluate the jacobian
      */
-    void evaluateJacobian() override;
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
     /**
      * Evaluate the lower and upper bounds
      */
     void evaluateBounds() override;
+};
+
+/**
+ *
+ */
+class SystemDynamicConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
+{
+    iDynTree::MatrixDynSize const * m_massMatrix;
+    iDynTree::MatrixDynSize const * m_leftFootJacobian;
+    iDynTree::MatrixDynSize const * m_rightFootJacobian;
+    iDynTree::VectorDynSize const * m_generalizedBiasForces;
+
+    int m_systemSize;
+
+    iDynSparseMatrix m_selectionMatrix;
+
+public:
+
+    SystemDynamicConstraint(const int& jacobianRows, const int& jacobianCols, const int& systemSize);
+
+    void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
+
+    void setRightFootJacobian(const iDynTree::MatrixDynSize& rightFootJacobian){m_rightFootJacobian = &rightFootJacobian;};
+
+    void setMassMatrix(const iDynTree::MatrixDynSize& massMatrix){m_massMatrix = &massMatrix;};
+
+    void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces){m_generalizedBiasForces = &generalizedBiasForces;};
+
+    /**
+     * Evaluate the constraint jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+
+    /**
+     * Evaluate lower and upper bounds.
+     */
+    void evaluateBounds() override;
+
 };
 
 #include <WalkingConstraint.tpp>

@@ -12,12 +12,23 @@
 
 #include <WalkingConstraint.hpp>
 
-#include <qpOASES.hpp>
-
-void GenericCartesianConstraint::evaluateJacobian()
+void GenericCartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
-    iDynTree::toEigen(m_jacobian->matrix) = iDynTree::toEigen(*m_roboticJacobian) *
-        iDynTree::toEigen(*m_massMatrixInverse) * iDynTree::toEigen(*m_inputMatrix);
+    if(!m_firstTime)
+    {
+        for(int i = 0; i < m_roboticJacobian->rows(); i++)
+            for(int j = 0; j < m_roboticJacobian->cols(); j++)
+                jacobian.coeffRef(m_jacobian->startingRow + i,
+                                  m_jacobian->startingColumn + j) = (*m_roboticJacobian)(i,j);
+    }
+    else
+    {
+        for(int i = 0; i < m_roboticJacobian->rows(); i++)
+            for(int j = 0; j < m_roboticJacobian->cols(); j++)
+                jacobian.insert(m_jacobian->startingRow + i,
+                                  m_jacobian->startingColumn + j) = (*m_roboticJacobian)(i,j);
+        m_firstTime = false;
+    }
 }
 
 PositionConstraint::PositionConstraint(const int& jacobianCols)
@@ -58,11 +69,11 @@ std::shared_ptr<RotationalPID> GenericCartesianConstraint::orientationController
 
 void GenericCartesianConstraint::evaluateBounds()
 {
+    iDynTree::VectorDynSize toll(m_upperBound.size());
+
     this->evaluateDesiredAcceleration();
     iDynTree::toEigen(m_upperBound) = iDynTree::toEigen(m_desiredAcceleration)
-        - iDynTree::toEigen(*m_biasAcceleration)
-        + iDynTree::toEigen(*m_roboticJacobian) * iDynTree::toEigen(*m_massMatrixInverse)
-        * iDynTree::toEigen(*m_generalizedBiasForces);
+        - iDynTree::toEigen(*m_biasAcceleration);
 
     m_lowerBound = m_upperBound;
 }
@@ -105,6 +116,8 @@ ForceConstraint::ForceConstraint(const int& numberOfPoints)
       m_areBoundsEvaluated(false)
 {
 
+    m_transform = Eigen::MatrixXd::Zero(6,6) ;
+
     // split the friction cone into slices
     double segmentAngle = M_PI/2 / (m_numberOfPoints - 1);
     double numberOfEquationsFrictionCone =  4 * (m_numberOfPoints - 2) + 4;
@@ -120,7 +133,7 @@ ForceConstraint::ForceConstraint(const int& numberOfPoints)
     m_jacobianLeftTrivialized.resize(numberOfEquations, 6);
 
     for(int i = 0; i < m_lowerBound.size(); i++)
-        m_lowerBound(i) = -qpOASES::INFTY;
+        m_lowerBound(i) = -10000;
 
     m_upperBound.zero();
     m_upperBound(2 + numberOfEquationsFrictionCone) = -m_minimalNormalForce;
@@ -131,7 +144,7 @@ void ForceConstraint::activate()
 {
     double numberOfEquationsFrictionCone =  4 * (m_numberOfPoints - 2) + 4;
 
-    m_lowerBound(2 + numberOfEquationsFrictionCone) = -qpOASES::INFTY;
+    m_lowerBound(2 + numberOfEquationsFrictionCone) = -10000;
     m_upperBound(2 + numberOfEquationsFrictionCone) = -m_minimalNormalForce;
 }
 
@@ -150,7 +163,7 @@ void ForceConstraint::setFootSize(const iDynTree::Vector2& footLimitX,
     m_footLimitY = footLimitY;
 }
 
-void ForceConstraint::evaluateJacobian()
+void ForceConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
     // since the jacobian is constant it can been evaluated only once
     if(!m_isJacobianEvaluated)
@@ -219,12 +232,23 @@ void ForceConstraint::evaluateJacobian()
         m_isJacobianEvaluated = true;
     }
 
-    Eigen::MatrixXd transform = Eigen::MatrixXd::Zero(6,6) ;
-    transform.block(0,0,3,3) = iDynTree::toEigen(m_footToWorldTransform->getRotation().inverse());
-    transform.block(3,3,3,3) = iDynTree::toEigen(m_footToWorldTransform->getRotation().inverse());
+    m_transform.block(0,0,3,3) = iDynTree::toEigen(m_footToWorldTransform->getRotation().inverse());
+    m_transform.block(3,3,3,3) = iDynTree::toEigen(m_footToWorldTransform->getRotation().inverse());
 
-    iDynTree::toEigen(m_jacobian->matrix) = iDynTree::toEigen(m_jacobianLeftTrivialized) * transform;
-    // iDynTree::toEigen(m_jacobian->matrix) = iDynTree::toEigen(m_jacobianLeftTrivialized);
+    iDynTree::toEigen(m_jacobian->matrix) = iDynTree::toEigen(m_jacobianLeftTrivialized) * m_transform;
+    if(!m_firstTime)
+        for(int i = 0; i < m_jacobianLeftTrivialized.rows(); i++)
+            for(int j = 0; j < m_jacobianLeftTrivialized.columns(); j++)
+                jacobian.coeffRef(i + m_jacobian->startingRow,
+                                  j + m_jacobian->startingColumn) = m_jacobian->matrix(i,j);
+    else
+    {
+        for(int i = 0; i < m_jacobianLeftTrivialized.rows(); i++)
+            for(int j = 0; j < m_jacobianLeftTrivialized.columns(); j++)
+                jacobian.insert(i + m_jacobian->startingRow,
+                                j + m_jacobian->startingColumn) = m_jacobian->matrix(i,j);
+        m_firstTime = false;
+    }
 }
 
 void ForceConstraint::evaluateBounds()
@@ -241,7 +265,7 @@ ZMPConstraint::ZMPConstraint()
     m_areBoundsEvaluated = false;
 }
 
-void ZMPConstraint::evaluateJacobian()
+void ZMPConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
     iDynSparseMatrix tmp(2,12);
 
@@ -289,4 +313,104 @@ void ZMPConstraint::evaluateBounds()
     m_upperBound.zero();
 
     m_areBoundsEvaluated = true;
+}
+
+SystemDynamicConstraint::SystemDynamicConstraint(const int& jacobianRows, const int& jacobianCols,
+                                                 const int& systemSize)
+{
+    // memory allocation
+    // in case of position constraint the size is 3 only position
+    Constraint::setSizeOfConstraint(jacobianRows);
+
+    // allocate jacobian rows
+    m_jacobian = std::make_shared<MatrixBlock<iDynTree::MatrixDynSize>>(jacobianRows, jacobianCols);
+
+    m_systemSize = systemSize;
+
+    // this constraints knows its structure (probably this is not the best way to implement it)
+    // set the const part of the constraint
+    iDynTree::Triplets selectionMatrixTriplets;
+    selectionMatrixTriplets.setDiagonalMatrix(6, 0, 1, m_systemSize);
+    m_selectionMatrix.resize(m_systemSize + 6, m_systemSize);
+    m_selectionMatrix.setFromTriplets(selectionMatrixTriplets);
+
+    // iDynTree::toEigen(m_jacobian->matrix).block(0, m_systemSize + 6,
+    //                                             m_systemSize + 6, m_systemSize)
+    //     = iDynTree::toEigen(selectionMatrix);
+}
+
+void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+{
+    if(!m_firstTime)
+    {
+        for(int i = 0; i < m_systemSize + 6; i++)
+        {
+            int index = i + m_jacobian->startingRow;
+            // mass matrix
+            for(int j = 0; j < m_systemSize + 6; j++)
+                jacobian.coeffRef(index, j) = -(*m_massMatrix)(i, j);
+
+            // constatnt
+            // // selection matrix
+            // for(int j = 0; j < m_selectionMatrix.columns(); j++)
+            // {
+            //     if(m_selectionMatrix(i, j) != 0)
+            //         jacobian.coeffRef(index, j + m_systemSize + 6) = m_selectionMatrix(i, j);
+            // }
+
+            // left foot
+            for(int j = 0; j < 6; j++)
+                // transpose
+                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize) = (*m_leftFootJacobian)(j, i);
+
+            // right foot
+            for(int j = 0; j < 6; j++)
+                // transpose
+                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6) = (*m_rightFootJacobian)(j, i);
+        }
+    }
+    else
+    {
+        for(int i = 0; i < m_systemSize + 6; i++)
+        {
+            int index = i + m_jacobian->startingRow;
+            // mass matrix
+            for(int j = 0; j < m_systemSize + 6; j++)
+                jacobian.insert(index, j) = -(*m_massMatrix)(i, j);
+
+            // selection matrix
+            for(int j = 0; j < m_selectionMatrix.columns(); j++)
+            {
+                if(m_selectionMatrix(i, j) != 0)
+                    jacobian.insert(index, j + m_systemSize + 6) = m_selectionMatrix(i, j);
+            }
+
+            // left foot
+            for(int j = 0; j < 6; j++)
+                // transpose
+                jacobian.insert(index, j + m_systemSize + 6 + m_systemSize) = (*m_leftFootJacobian)(j, i);
+
+            // right foot
+            for(int j = 0; j < 6; j++)
+                // transpose
+                jacobian.insert(index, j + m_systemSize + 6 + m_systemSize + 6) = (*m_rightFootJacobian)(j, i);
+        }
+        m_firstTime = false;
+    }
+
+    // iDynTree::toEigen(m_jacobian->matrix).block(0, 0, m_systemSize + 6, m_systemSize + 6)
+    //     = -iDynTree::toEigen(*m_massMatrix);
+
+    // iDynTree::toEigen(m_jacobian->matrix).block(0, 2 * m_systemSize + 6, m_systemSize + 6, 6)
+    //     = iDynTree::toEigen(*m_leftFootJacobian).transpose();
+
+    // iDynTree::toEigen(m_jacobian->matrix).block(0, 2 * m_systemSize + 6 + 6, m_systemSize + 6, 6)
+    //     = iDynTree::toEigen(*m_rightFootJacobian).transpose();
+}
+
+
+void SystemDynamicConstraint::evaluateBounds()
+{
+    m_upperBound = *m_generalizedBiasForces;
+    m_lowerBound = *m_generalizedBiasForces;
 }

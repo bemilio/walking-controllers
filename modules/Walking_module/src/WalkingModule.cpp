@@ -134,7 +134,7 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
     }
 
     // load the model in iDynTree::KinDynComputations
-    std::string model = rf.check("model",yarp::os::Value("modelForWalking.urdf")).asString();
+    std::string model = rf.check("model",yarp::os::Value("model.urdf")).asString();
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(model);
 
     yInfo() << "The model is found in: " << pathToModel;
@@ -759,7 +759,7 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         return false;
     }
 
-    m_taskBasedTorqueSolver = std::make_unique<WalkingTaskBasedTorqueController>();
+    m_taskBasedTorqueSolver = std::make_unique<WalkingTaskBasedTorqueController_osqp>();
     yarp::os::Bottle& taskBasedTorqueControllerOptions = rf.findGroup("TASK_BASED_TORQUE_CONTROLLER");
     if(!m_taskBasedTorqueSolver->initialize(taskBasedTorqueControllerOptions,
                                            m_actuatedDOFs,
@@ -994,6 +994,7 @@ bool WalkingModule::solveQPIK(auto& solver, const iDynTree::Position& desiredCoM
 
 bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
                                    const iDynTree::Vector3& desiredCoMVelocity,
+                                   const iDynTree::Vector3& desiredCoMAcceleration,
                                    const iDynTree::Position& actualCoMPosition,
                                    const iDynTree::Vector3& actualCoMVelocity,
                                    const iDynTree::Rotation& desiredNeckOrientation,
@@ -1015,7 +1016,6 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
     if(!m_taskBasedTorqueSolver->setGeneralizedBiasForces(generalizedBiasForces))
         return false;
 
-    // set desired joint position (now is constant)
     if(!m_taskBasedTorqueSolver->setInternalRobotState(m_positionFeedbackInRadians,
                                                       m_velocityFeedbackInRadians))
     {
@@ -1079,7 +1079,7 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
 
     // CoM
     if(!m_taskBasedTorqueSolver->setDesiredCoMTrajectory(desiredCoMPosition, desiredCoMVelocity,
-                                                         dummy))
+                                                         desiredCoMAcceleration))
     {
         yError() << "[solveTaskbased] Unable to set the com trajectory";
         return false;
@@ -1567,8 +1567,11 @@ bool WalkingModule::updateModule()
 
             yawRotation = yawRotation.inverse();
 
-
+            iDynTree::Vector3 desiredCoMAcceleration;
+            iDynTree::toEigen(desiredCoMAcceleration) = 9.81 / 0.51 * (iDynTree::toEigen(measuredCoM)
+                                                                       - iDynTree::toEigen(desiredVRP));
             if(!solveTaskBased(desiredCoMPosition, desiredCoMVelocity,
+                               desiredCoMAcceleration,
                                measuredCoM, measuredCoMVelocity,
                                yawRotation, desiredZMP,
                                m_desiredTorque))
@@ -1623,10 +1626,8 @@ bool WalkingModule::updateModule()
             auto leftTemp = m_taskBasedTorqueSolver->getLeftWrench();
             auto rightTemp = m_taskBasedTorqueSolver->getRightWrench();
 
-            m_walkingLogger->sendData(// measuredDCM, m_DCMPositionDesired.front(),
-                                      // m_DCMVelocityDesired.front(),
-                                      m_taskBasedTorqueSolver->getZMP(),
-                                      desiredZMP,
+            m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
+                                      desiredVRP,
                                       measuredCoM,
                                       desiredCoMPositionXY, // desiredCoMVelocityXY,
                                       leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
@@ -2658,21 +2659,28 @@ bool WalkingModule::startWalking()
 
     if(m_dumpData)
     {
+            // m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
+            //                           desiredVRP,
+            //                           measuredCoM,
+            //                           desiredCoMPositionXY, // desiredCoMVelocityXY,
+            //                           leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
+            //                           rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
+            //                           m_leftTrajectory.front().getPosition(),
+            //                           m_leftTrajectory.front().getRotation().asRPY(),
+            //                           m_rightTrajectory.front().getPosition(),
+            //                           m_rightTrajectory.front().getRotation().asRPY(),
+            //                           torsoDesired,
+            //                           m_FKSolver->getNeckOrientation().asRPY(),
+            //                           m_desiredTorque, m_leftWrench, m_rightWrench
+            //     );
+
+
         m_walkingLogger->startRecord({"record",
-                    // "l_arm_x", "l_arm_y", "l_arm_z", "l_arm_roll", "l_arm_pitch", "l_arm_yaw",
-                    // "l_arm_des_x", "l_arm_des_y", "l_arm_des_z", "l_arm_des_roll", "l_arm_des_pitch", "l_arm_des_yaw",
-                    // "r_arm_x", "r_arm_y", "r_arm_z", "r_arm_roll", "r_arm_pitch", "r_arm_yaw",
-                    // "r_arm_des_x", "r_arm_des_y", "r_arm_des_z", "r_arm_des_roll", "r_arm_des_pitch", "r_arm_des_yaw"
-                    // });
-                    // "dcm_x", "dcm_y",
-                    // "dcm_des_x", "dcm_des_y",
-                    // "dcm_des_dx", "dcm_des_dy",
-                    "zmp_x_solver", "zmp_y_solver",
-                    "zmp_des_x", "zmp_des_y",
+                    "dcm_x", "dcm_y", "dcm_z",
+                    "dcm_des_x", "dcm_des_y",
+                    "vrp_des_x", "vrp_des_y", "vrp_des_z",
                     "com_x", "com_y", "com_z",
                     "com_des_x", "com_des_y",
-                    // "com_des_dx", "com_des_dy",
-                    // "com_ik_x", "com_ik_y", "com_ik_z",
                     "lf_x", "lf_y", "lf_z",
                     "lf_roll", "lf_pitch", "lf_yaw",
                     "rf_x", "rf_y", "rf_z",
