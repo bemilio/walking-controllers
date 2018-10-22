@@ -9,6 +9,8 @@
 #include <iDynTree/yarp/YARPConfigurationsLoader.h>
 #include <iDynTree/Core/Twist.h>
 #include <iDynTree/Core/Wrench.h>
+#include <iDynTree/Core/EigenHelpers.h>
+#include <iDynTree/Core/EigenSparseHelpers.h>
 
 #include <WalkingTaskBasedTorqueController_osqp.hpp>
 #include <Utils.hpp>
@@ -1050,21 +1052,12 @@ bool WalkingTaskBasedTorqueController_osqp::setGradientVector()
 
 bool WalkingTaskBasedTorqueController_osqp::setLinearConstraintMatrix()
 {
-    std::shared_ptr<MatrixBlock<iDynTree::MatrixDynSize>> ptr;
     for(const auto& constraint: m_constraints)
     {
         m_profiler->setInitTime("add A");
         constraint.second->evaluateJacobian(m_constraintMatrixEigen);
-        // ptr = constraint.second->getJacobian();
         m_profiler->setEndTime("add A");
-
-        // m_constraintMatrixTriplet.setSubMatrix(ptr->startingRow, ptr->startingColumn,
-        //                                        ptr->matrix);
     }
-
-    // m_constraintMatrix.setFromTriplets(m_constraintMatrixTriplet);
-    // m_constraintMatrixEigen = iDynTree::toEigen(m_constraintMatrix);
-
 
     if(m_optimizer->isInitialized())
     {
@@ -1090,18 +1083,7 @@ bool WalkingTaskBasedTorqueController_osqp::setBounds()
 {
     for(const auto& constraint: m_constraints)
     {
-        constraint.second->evaluateBounds();
-
-        int startingRow = constraint.second->getJacobian()->startingRow;
-        int constraintSize = constraint.second->getLowerBound().size();
-
-        // set lower bound
-        m_lowerBound.block(startingRow, 0, constraintSize, 1)
-            = iDynTree::toEigen(constraint.second->getLowerBound());
-
-        // set upper bound
-        m_upperBound.block(startingRow, 0, constraintSize, 1)
-            = iDynTree::toEigen(constraint.second->getUpperBound());
+        constraint.second->evaluateBounds(m_upperBound, m_lowerBound);
     }
 
     // yInfo() << "m_lower real";

@@ -67,7 +67,6 @@ set(${EXE_TARGET_NAME}_HDR
   include/TimeProfiler.hpp
   include/CartesianPID.hpp
   include/WalkingConstraint.hpp
-  include/WalkingConstraint.tpp
   include/WalkingTaskBasedTorqueController_osqp.hpp
   )
 

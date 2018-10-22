@@ -111,7 +111,7 @@ class WalkingTaskBasedTorqueController_osqp
     // todo remove me
     iDynTree::Rotation m_desiredNeckOrientation;
 
-    std::unordered_map<std::string, std::shared_ptr<Constraint<iDynTree::MatrixDynSize, iDynSparseMatrix>>> m_constraints;
+    std::unordered_map<std::string, std::shared_ptr<Constraint>> m_constraints;
 
 
     bool instantiateCoMConstraint(const yarp::os::Searchable& config);

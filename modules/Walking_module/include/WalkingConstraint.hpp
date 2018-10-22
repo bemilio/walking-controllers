@@ -24,65 +24,31 @@
 #include <TimeProfiler.hpp>
 
 /**
- * Matrix block helper.
- * @tparam T the only allowed type are iDynTree::MatrixDynsize and iDynTree::SparseMatrix<>
- */
-template <typename T>
-struct MatrixBlock
-{
-    int startingRow; /**< Staring row of the matrix sub-block.*/
-    int startingColumn; /**< Staring column of the matrix sub-block.*/
-
-    T matrix; /**< Matrix */
-
-    /**
-     * Constructor
-     * @param rows number of rows of the matrix
-     * @param columns number of columns of the matrix
-     */
-    MatrixBlock(const int& rows, const int& columns);
-};
-
-/**
  * Constraint is an abstract class that embeds the generic constraint whose form is
  * g_l <= g <= g_u
- * @tparam T type matrix for the jacobian matrix
- * @tparam U type matrix for the hessian matrices
+ * notice: now it only implements linear constraint (in the future it will be extended)
  */
-template <typename T, typename U>
 class Constraint
 {
 protected:
 
+    int m_sizeOfConstraint;
+
     bool m_firstTime{true};
 
-    iDynTree::VectorDynSize m_constraint; /**< Vector containing the constraint. */
-    iDynTree::VectorDynSize m_lowerBound; /**< Vector containing the lower bound (g_l). */
-    iDynTree::VectorDynSize m_upperBound; /**< Vector containing the upper bound (g_u). */
+    int m_jacobianStartingRow; /**< Staring row of the jacobian sub-matrix.*/
+    int m_jacobianStartingColumn; /**< Staring column of the jacobian sub-matrix.*/
 
-    std::shared_ptr<MatrixBlock<T>> m_jacobian; /**< Jacobian matrix. */
-    std::vector<std::shared_ptr<MatrixBlock<U>>> m_hessian; /**< Vector containing the hessian matrices */
-
-    iDynTree::VectorDynSize m_conditionalVariable; /**< Conditional variable */
+    int m_hessianStartingRow; /**< Staring row of the jacobian sub-matrix.*/
+    int m_hessianStartingColumn; /**< Staring column of the jacobian submatrix.*/
 
     /**
      * Set the size of the constraint.
      * @param sizeOfConstraint size of the constraint.
      */
-    void setSizeOfConstraint(const int& sizeOfConstraint);
+    void setSizeOfConstraint(const int& sizeOfConstraint){m_sizeOfConstraint = sizeOfConstraint;};
 
 public:
-
-    /**
-     * Set the conditional variable
-     * @param conditionalVariable conditional variable.
-     */
-    virtual void setConditionalVariable(const iDynTree::VectorDynSize& conditionalVariable) {m_conditionalVariable = conditionalVariable;};
-
-    /**
-     * Evaluate constraint.
-     */
-    virtual void evaluateConstraint() = 0;
 
     /**
      * Evaluate Jacobian.
@@ -90,14 +56,9 @@ public:
     virtual void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) = 0;
 
     /**
-     * Evaluate Hessian.
-     */
-    virtual void evaluateHessian() = 0;
-
-    /**
      * Evaluate lower and upper bounds.
      */
-    virtual void evaluateBounds() = 0;
+    virtual void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) = 0;
 
     /**
      * Set the jacobian and hessian starting row and column.
@@ -107,66 +68,23 @@ public:
     void setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn);
 
     /**
-     * Get the constraint vector.
-     * @return constraint vector.
-     */
-    const iDynTree::VectorDynSize& getConstraint() const {return m_constraint;};
-
-    /**
-     * Get the jacobian matrix.
-     * @return the Jacobian matrix.
-     */
-    const std::shared_ptr<MatrixBlock<T>>& getJacobian() const {return m_jacobian;};
-
-    /**
-     * Get the vector containing the hessian matrices
-     * @return a vector contain the hessian matrices.
-     */
-    const std::vector<std::shared_ptr<MatrixBlock<U>>>& getHessian() const {return m_hessian;};
-
-    /**
-     * Get lower bound g_l.
-     * @return lower bound
-     */
-    const iDynTree::VectorDynSize& getLowerBound() const {return m_lowerBound;};
-
-    /**
-     * Get upper bound g_u.
-     * @return upper bound
-     */
-    const iDynTree::VectorDynSize& getUpperBound() const {return m_upperBound;};
-
-    /**
      * Get the number of constraint
      */
-    double getNumberOfConstraints() {return m_constraint.size();};
+    int getNumberOfConstraints() {return m_sizeOfConstraint;};
 };
 
 /**
  * Linear constraint class. It handles the linear constraints.
  */
-template <typename T>
-class LinearConstraint : public Constraint<T, iDynSparseMatrix>
+class LinearConstraint : public Constraint
 {
-public:
-    /**
-     * Evaluate the constraint.
-     * Since the constrain is linear the constraint depends only on the Jacobian and on the
-     * conditional variable.
-     */
-    void evaluateConstraint() override;
-
-    /**
-     * Since the constraint is linear the hessian matrix is 0
-     */
-    void evaluateHessian() override;
 };
 
 /**
  * GenericCartesianConstraint is an abstract class useful to manage a generic Cartesian constraint
  * i.e. foot position and orientation, CoM position.
  */
-class GenericCartesianConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
+class GenericCartesianConstraint : public LinearConstraint
 {
     /**
      * Evaluate the desired acceleration. It depends on the type of constraint (Positional,
@@ -219,13 +137,12 @@ public:
     /**
      * Evaluate lower and upper bounds.
      */
-    void evaluateBounds() override;
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
 
 };
 
 class PositionConstraint : public GenericCartesianConstraint
 {
-
     /**
      * Evaluate the desired acceleration
      */
@@ -262,8 +179,10 @@ public:
  * ForceConstraint class allows to obtain a contact force that satisfies the unilateral constraint,
  * the friction cone and the COP position.
  */
-class ForceConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
+class ForceConstraint : public LinearConstraint
 {
+    bool m_isActive;
+
     Eigen::MatrixXd m_transform;
 
     double m_staticFrictionCoefficient; /**< Static linear coefficient of friction */
@@ -330,58 +249,58 @@ public:
     /**
      * Evaluate the lower and upper bounds
      */
-    void evaluateBounds() override;
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
 };
 
 /**
  * ZMP class allows to obtain a contact force that satisfies the desired ZMP position
  */
-class ZMPConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
-{
+// class ZMPConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
+// {
 
-    iDynTree::Transform const * m_leftFootToWorldTransform;
-    iDynTree::Transform const * m_rightFootToWorldTransform;
+//     iDynTree::Transform const * m_leftFootToWorldTransform;
+//     iDynTree::Transform const * m_rightFootToWorldTransform;
 
-    iDynTree::Vector2 m_desiredZMP;
-    bool m_areBoundsEvaluated = false;
+//     iDynTree::Vector2 m_desiredZMP;
+//     bool m_areBoundsEvaluated = false;
 
-public:
+// public:
 
-    ZMPConstraint();
+//     ZMPConstraint();
 
-    /**
-     * Set the desired ZMP
-     * @param zmp desired ZMP
-     */
-    void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
+//     /**
+//      * Set the desired ZMP
+//      * @param zmp desired ZMP
+//      */
+//     void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
 
-    /**
-     * Set the left foot to world transformation
-     * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
-     */
-    void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
+//     /**
+//      * Set the left foot to world transformation
+//      * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
+//      */
+//     void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
 
-    /**
-     * Set the right foot to world transformation
-     * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
-     */
-    void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
+//     /**
+//      * Set the right foot to world transformation
+//      * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
+//      */
+//     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
 
-    /**
-     * Evaluate the jacobian
-     */
-    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+//     /**
+//      * Evaluate the jacobian
+//      */
+//     void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
-    /**
-     * Evaluate the lower and upper bounds
-     */
-    void evaluateBounds() override;
-};
+//     /**
+//      * Evaluate the lower and upper bounds
+//      */
+//     void evaluateBounds() override;
+// };
 
 /**
  *
  */
-class SystemDynamicConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
+class SystemDynamicConstraint : public LinearConstraint
 {
     iDynTree::MatrixDynSize const * m_massMatrix;
     iDynTree::MatrixDynSize const * m_leftFootJacobian;
@@ -412,10 +331,8 @@ public:
     /**
      * Evaluate lower and upper bounds.
      */
-    void evaluateBounds() override;
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
 
 };
-
-#include <WalkingConstraint.tpp>
 
 #endif
