@@ -43,11 +43,17 @@ void RotationalPID::evaluateControl()
     error = iDynTree::unskew(iDynTree::toEigen(errorAttitude));
 
     Eigen::Vector3d dotError;
+    iDynTree::Matrix3x3 dotErrorAttitude;
+
     Eigen::Matrix3d skewAngularVelocity = iDynTree::skew(iDynTree::toEigen(m_velocity));
-    dotError = iDynTree::unskew(skewAngularVelocity *
-                                iDynTree::toEigen(m_orientation * m_desiredOrientation.inverse())
-                                -iDynTree::toEigen(m_orientation * m_desiredOrientation.inverse()) *
-                                skewAngularVelocity);
+    Eigen::Matrix3d skewDesiredAngularVelocity = iDynTree::skew(iDynTree::toEigen(m_desiredVelocity));
+
+    iDynTree::toEigen(dotErrorAttitude) = skewAngularVelocity *
+        iDynTree::toEigen(m_orientation * m_desiredOrientation.inverse())
+        -iDynTree::toEigen(m_orientation * m_desiredOrientation.inverse()) *
+        skewDesiredAngularVelocity;
+
+    dotError = iDynTree::unskew(iDynTree::toEigen(iDynTreeHelper::Rotation::skewSymmetric(dotErrorAttitude)));
 
     // evaluate the control law
     iDynTree::toEigen(m_controllerOutput) = iDynTree::toEigen(m_desiredAcceleration)
