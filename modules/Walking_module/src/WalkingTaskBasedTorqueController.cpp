@@ -156,15 +156,15 @@ bool WalkingTaskBasedTorqueController::instantiateFeetConstraint(const yarp::os:
 
 void WalkingTaskBasedTorqueController::instantiateZMPConstraint()
 {
-    // std::shared_ptr<ZMPConstraint> ptr;
-    // ptr = std::make_shared<ZMPConstraint>();
-    // ptr->setSubMatricesStartingPosition(m_numberOfConstraints, m_actuatedDOFs);
-    // ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
-    // ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+    std::shared_ptr<ZMPConstraint> ptr;
+    ptr = std::make_shared<ZMPConstraint>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, m_actuatedDOFs);
+    ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
+    ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
 
-    // m_constraints.insert(std::make_pair("zmp", ptr));
+    m_constraints.insert(std::make_pair("zmp", ptr));
 
-    // m_numberOfConstraints += ptr->getNumberOfConstraints();
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
 }
 
 bool WalkingTaskBasedTorqueController::instantiateContactForcesConstraint(const yarp::os::Searchable& config)
@@ -878,17 +878,17 @@ bool WalkingTaskBasedTorqueController::setCoMBiasAcceleration(const iDynTree::Ve
 
 bool WalkingTaskBasedTorqueController::setDesiredZMP(const iDynTree::Vector2 &zmp)
 {
-    // std::shared_ptr<ZMPConstraint> ptr;
+    std::shared_ptr<ZMPConstraint> ptr;
 
-    // auto constraint = m_constraints.find("zmp");
-    // if(constraint == m_constraints.end())
-    // {
-    //     yError() << "[setDesiredZMP] Unable to find the zmp constraint. "
-    //              << "Please call 'initialize()' method";
-    //     return false;
-    // }
-    // ptr = std::static_pointer_cast<ZMPConstraint>(constraint->second);
-    // ptr->setDesiredZMP(zmp);
+    auto constraint = m_constraints.find("zmp");
+    if(constraint == m_constraints.end())
+    {
+        yError() << "[setDesiredZMP] Unable to find the zmp constraint. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+    ptr = std::static_pointer_cast<ZMPConstraint>(constraint->second);
+    ptr->setDesiredZMP(zmp);
 
     return true;
 }
