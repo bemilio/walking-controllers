@@ -151,9 +151,8 @@ class PositionConstraint : public GenericCartesianConstraint
 public:
     /**
      * Constructor
-     * @param jacobianCols number of columns of the Jacobian.
      */
-    PositionConstraint(const int& jacobianCols);
+    PositionConstraint();
 };
 
 /**
@@ -170,9 +169,8 @@ public:
 
     /**
      * Constructor
-     * @param jacobianCols number of columns of the Jacobian.
      */
-    CartesianConstraint(const int& jacobianCols);
+    CartesianConstraint();
 };
 
 /**
@@ -298,6 +296,64 @@ public:
 // };
 
 /**
+ * Please do not use me! I am not implemented yet!
+ */
+class LinearMomentumConstraint : public LinearConstraint
+{
+    double m_robotMass;
+
+    std::shared_ptr<LinearPID> m_controller;
+
+public:
+
+    LinearMomentumConstraint();
+
+    void setRobotMass(const double& robotMass){m_robotMass = robotMass;};
+
+    /**
+     * Evaluate the jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+
+    /**
+     * Evaluate the lower and upper bounds
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
+// todo
+// has to be implemented
+class AngularMomentumConstraint : public LinearConstraint
+{
+    std::shared_ptr<LinearPID> m_controller;
+
+    iDynTree::Position const * m_comPosition; /**< . */
+    iDynTree::Transform const * m_leftFootToWorldTransform; /**< Left foot to world transformation*/
+    iDynTree::Transform const * m_rightFootToWorldTransform; /**< Right foot to world transformation. */
+
+public:
+
+    AngularMomentumConstraint();
+
+    void setCoMPosition(const iDynTree::Position& comPosition){m_comPosition = &comPosition;};
+
+    void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
+
+    void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
+
+    /**
+     * Evaluate the jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+
+    /**
+     * Evaluate the lower and upper bounds
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
+
+/**
  *
  */
 class SystemDynamicConstraint : public LinearConstraint
@@ -313,7 +369,7 @@ class SystemDynamicConstraint : public LinearConstraint
 
 public:
 
-    SystemDynamicConstraint(const int& jacobianRows, const int& jacobianCols, const int& systemSize);
+    SystemDynamicConstraint(const int& jacobianRows, const int& systemSize);
 
     void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
 
