@@ -53,6 +53,8 @@ class WalkingTaskBasedTorqueController_osqp
 
     Eigen::VectorXd m_solution;
 
+    iDynTree::VectorDynSize m_desiredJointTorque;
+
     // Dynamical quantities
     iDynTree::MatrixDynSize m_massMatrix; /**< Mass matrix. */
     iDynTree::VectorDynSize m_generalizedBiasForces; /**< Generalized bias forces vector. */
@@ -136,6 +138,7 @@ class WalkingTaskBasedTorqueController_osqp
 
     void instantiateSystemDynamicsConstraint();
 
+    bool instantiateRateOfChangeConstraint(const yarp::os::Searchable& config);
 
     bool instantiateContactForcesConstraint(const yarp::os::Searchable& config);
 

@@ -94,7 +94,7 @@ void GenericCartesianConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 CartesianConstraint::CartesianConstraint()
 {
     // in case of CartesianConstraint the size is 6 (position + orientation)
-    Constraint::setSizeOfConstraint(6);
+    m_sizeOfConstraint = 6;
 
     m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
     m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
@@ -115,7 +115,7 @@ void CartesianConstraint::evaluateDesiredAcceleration()
 
 PositionConstraint::PositionConstraint()
 {
-    Constraint::setSizeOfConstraint(3);
+    m_sizeOfConstraint = 3;
 
     m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
 
@@ -132,7 +132,7 @@ void PositionConstraint::evaluateDesiredAcceleration()
 OneDimensionalConstraint::OneDimensionalConstraint()
 {
     // in case of CartesianConstraint the size is 1
-    Constraint::setSizeOfConstraint(1);
+    m_sizeOfConstraint = 1;
 
     m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
 
@@ -348,7 +348,7 @@ void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 SystemDynamicConstraint::SystemDynamicConstraint(const int& systemSize)
 {
-    Constraint::setSizeOfConstraint(systemSize + 6);
+    m_sizeOfConstraint = systemSize + 6;
     m_systemSize = systemSize;
 
     // this constraints knows its structure (probably this is not the best way to implement it)
@@ -422,7 +422,7 @@ void SystemDynamicConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 LinearMomentumConstraint::LinearMomentumConstraint()
 {
-    Constraint::setSizeOfConstraint(3);
+    m_sizeOfConstraint = 3;
 
     m_controller = std::make_shared<LinearPID>();
 }
@@ -464,7 +464,7 @@ void LinearMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 AngularMomentumConstraint::AngularMomentumConstraint()
 {
-    Constraint::setSizeOfConstraint(3);
+    m_sizeOfConstraint = 3;
 
     m_controller = std::make_shared<LinearPID>();
     // set the desired trajectory (it is constant)
@@ -587,4 +587,31 @@ void AngularMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
     upperBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(m_controller->getControl());
     lowerBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(m_controller->getControl());
+}
+
+RateOfChangeConstraint::RateOfChangeConstraint(const int& sizeOfTheConstraintVector)
+{
+    m_sizeOfConstraint = sizeOfTheConstraintVector;
+}
+
+void RateOfChangeConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+{
+    // the jacobian is constant
+    if(!m_firstTime)
+        return;
+
+    for(int i = 0; i < m_sizeOfConstraint; i++)
+        jacobian.insert(m_jacobianStartingRow + i, m_jacobianStartingColumn + i) = 1;
+
+    m_firstTime = false;
+}
+
+
+void RateOfChangeConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds)
+{
+    for(int i = 0; i < m_sizeOfConstraint; i++)
+    {
+        lowerBounds(m_jacobianStartingRow + i) = (*m_previousValues)(i) - m_maximumRateOfChange(i);
+        upperBounds(m_jacobianStartingRow + i) = (*m_previousValues)(i) + m_maximumRateOfChange(i);
+    }
 }

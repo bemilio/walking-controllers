@@ -414,7 +414,31 @@ public:
      * Evaluate lower and upper bounds.
      */
     void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
-
 };
+
+class RateOfChangeConstraint : public LinearConstraint
+{
+    iDynTree::VectorDynSize m_maximumRateOfChange;
+    iDynTree::VectorDynSize const * m_previousValues;
+
+public:
+
+    RateOfChangeConstraint(const int& sizeOfTheCOnstraintVector);
+
+    void setMaximumRateOfChange(const iDynTree::VectorDynSize& maximumRateOfChange){m_maximumRateOfChange = maximumRateOfChange;};
+
+    void setPreviousValues(const iDynTree::VectorDynSize& previousValues){m_previousValues = &previousValues;};
+
+    /**
+     * Evaluate the constraint jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+
+    /**
+     * Evaluate lower and upper bounds.
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
 
 #endif

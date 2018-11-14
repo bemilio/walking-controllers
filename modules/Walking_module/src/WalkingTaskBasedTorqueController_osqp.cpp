@@ -231,8 +231,7 @@ void WalkingTaskBasedTorqueController_osqp::instantiateZMPConstraint(const yarp:
 {
     if(config.isNull())
     {
-
-    yInfo() << "[instantiateZMPConstraint] Empty configuration file. The ZMP Constraint will not be used";
+        yInfo() << "[instantiateZMPConstraint] Empty configuration file. The ZMP Constraint will not be used";
         m_useZMPConstraint = false;
         return;
     }
@@ -364,6 +363,37 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateContactForcesConstraint(c
     ptr->setFootToWorldTransform(m_rightFootToWorldTransform);
 
     m_constraints.insert(std::make_pair("right_force", ptr));
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
+
+    return true;
+}
+
+bool WalkingTaskBasedTorqueController_osqp::instantiateRateOfChangeConstraint(const yarp::os::Searchable& config)
+{
+    yarp::os::Value tempValue;
+
+    if(config.isNull())
+    {
+        yError() << "[instantiateRateOfChangeConstraint] Empty configuration for rate of change constraint. This constraint will not take into account";
+        return true;
+    }
+
+    tempValue = config.find("maximumRateOfChange");
+    iDynTree::VectorDynSize maximumRateOfChange(m_actuatedDOFs);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, maximumRateOfChange))
+    {
+        yError() << "Initialization failed while reading maximumRateOfChange vector.";
+        return false;
+    }
+
+    std::shared_ptr<RateOfChangeConstraint> ptr;
+    ptr = std::make_shared<RateOfChangeConstraint>(m_actuatedDOFs);
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, m_actuatedDOFs + 6);
+
+    ptr->setMaximumRateOfChange(maximumRateOfChange);
+    ptr->setPreviousValues(m_desiredJointTorque);
+
+    m_constraints.insert(std::make_pair("rate_of_change", ptr));
     m_numberOfConstraints += ptr->getNumberOfConstraints();
 
     return true;
@@ -565,6 +595,7 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
 
     // results
     m_solution.resize(m_numberOfVariables);
+    m_desiredJointTorque.resize(m_actuatedDOFs);
 
     // check if the config is empty
     if(config.isNull())
@@ -636,6 +667,13 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
 
     instantiateSystemDynamicsConstraint();
 
+    yarp::os::Bottle& rateOfChangeOption = config.findGroup("RATE_OF_CHANGE");
+    if(!instantiateRateOfChangeConstraint(rateOfChangeOption))
+    {
+        yError() << "[initialize] Unable to get the instantiate the rate of change constraint.";
+        return false;
+    }
+
     // // add torque constraints
     // m_numberOfConstraints += m_actuatedDOFs;
 
@@ -694,6 +732,9 @@ bool WalkingTaskBasedTorqueController_osqp::setInitialValues(const iDynTree::Vec
     m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs, 1) = iDynTree::toEigen(jointTorque);
     m_solution.block(m_actuatedDOFs + 6 + m_actuatedDOFs, 0, 6, 1) = iDynTree::toEigen(leftWrench);
     m_solution.block(m_actuatedDOFs + 6 + m_actuatedDOFs + 6, 0, 6, 1) = iDynTree::toEigen(rightWrench);
+
+    m_desiredJointTorque = jointTorque;
+
     return true;
 }
 
@@ -1406,6 +1447,9 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
         return false;
     }
 
+    for(int i = 0; i < m_actuatedDOFs; i++)
+        m_desiredJointTorque(i) = m_solution(i + m_actuatedDOFs + 6);
+
     // Eigen::VectorXd product;
     // auto leftWrench = getLeftWrench();
     // auto rightWrench = getRightWrench();
@@ -1483,12 +1527,7 @@ bool WalkingTaskBasedTorqueController_osqp::getSolution(iDynTree::VectorDynSize&
         return false;
     }
 
-    if(output.size() != m_actuatedDOFs)
-        output.resize(m_actuatedDOFs);
-
-    // take only the joint torque
-    for(int i = 0; i < m_actuatedDOFs; i++)
-        output(i) = m_solution(i + m_actuatedDOFs + 6);
+    output = m_desiredJointTorque;
 
     m_isSolutionEvaluated = false;
     return true;
@@ -1502,7 +1541,6 @@ iDynTree::Wrench WalkingTaskBasedTorqueController_osqp::getLeftWrench()
 
     return wrench;
 }
-
 
 iDynTree::Wrench WalkingTaskBasedTorqueController_osqp::getRightWrench()
 {
