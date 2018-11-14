@@ -631,12 +631,15 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         return false;
     }
 
+    // if(!m_useTorqueController)
+    // {
     yarp::os::Bottle& forceTorqueSensorsOptions = rf.findGroup("FT_SENSORS");
     if(!configureForceTorqueSensors(forceTorqueSensorsOptions))
     {
         yError() << "[configure] Unable to configure the Force Torque sensors.";
         return false;
     }
+    // }
 
     yarp::os::Bottle& handRetargetingOptions = rf.findGroup("HAND_RETARGETING");
     if(!configureHandRetargeting(handRetargetingOptions))
@@ -1011,6 +1014,9 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
     if(!m_taskBasedTorqueSolver->setMassMatrix(massMatrix))
         return false;
 
+    if(!m_taskBasedTorqueSolver->setLinearAngularMomentum(m_FKSolver->getLinearAngularMomentum()))
+       return false;
+
     iDynTree::VectorDynSize generalizedBiasForces(m_actuatedDOFs + 6);
     m_FKSolver->getGeneralizedBiasForces(generalizedBiasForces);
     if(!m_taskBasedTorqueSolver->setGeneralizedBiasForces(generalizedBiasForces))
@@ -1077,7 +1083,6 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
     m_taskBasedTorqueSolver->setFeetBiasAcceleration(m_FKSolver->getLeftFootBiasAcceleration(),
                                                      m_FKSolver->getRightFootBiasAcceleration());
 
-    // CoM
     if(!m_taskBasedTorqueSolver->setDesiredCoMTrajectory(desiredCoMPosition, desiredCoMVelocity,
                                                          desiredCoMAcceleration))
     {
@@ -1226,12 +1231,12 @@ bool WalkingModule::updateModule()
             return false;
         }
 
-        if(!m_useTorqueController)
-            if(!evaluateZMP(measuredZMP))
-            {
-                yError() << "[updateModule] Unable to evaluate the ZMP.";
-                return false;
-            }
+        // if(!m_useTorqueController)
+        if(!evaluateZMP(measuredZMP))
+        {
+            yError() << "[updateModule] Unable to evaluate the ZMP.";
+            return false;
+        }
 
         // evaluate 3D-LIPM reference signal
         m_stableDCMModel->setInput(m_DCMPositionDesired.front());
@@ -1260,43 +1265,46 @@ bool WalkingModule::updateModule()
         iDynTree::Vector2 desiredZMP;
         if(m_useMPC)
         {
-            // TODO implement this
-            yError() << "[updateModule] You cannot use the torque control plus the MPC";
-            return false;
-            // // Model predictive controller
-            // m_profiler->setInitTime("MPC");
-            // if(!m_walkingController->setConvexHullConstraint(m_leftTrajectory, m_rightTrajectory,
-            //                                                  m_leftInContact, m_rightInContact))
-            // {
-            //     yError() << "[updateModule] unable to evaluate the convex hull.";
-            //     return false;
-            // }
+            // Model predictive controller
+            m_profiler->setInitTime("MPC");
+            if(!m_walkingController->setConvexHullConstraint(m_leftTrajectory, m_rightTrajectory,
+                                                             m_leftInContact, m_rightInContact))
+            {
+                yError() << "[updateModule] unable to evaluate the convex hull.";
+                return false;
+            }
 
-            // if(!m_walkingController->setFeedback(measuredDCM))
-            // {
-            //     yError() << "[updateModule] unable to set the feedback.";
-            //     return false;
-            // }
+            iDynTree::Vector2 measuredDCMXY;
+            measuredDCMXY(0) = measuredDCM(0);
+            measuredDCMXY(1) = measuredDCM(1);
+            if(!m_walkingController->setFeedback(measuredDCMXY))
+            {
+                yError() << "[updateModule] unable to set the feedback.";
+                return false;
+            }
 
-            // if(!m_walkingController->setReferenceSignal(m_DCMPositionDesired, resetTrajectory))
-            // {
-            //     yError() << "[updateModule] unable to set the reference Signal.";
-            //     return false;
-            // }
+            if(!m_walkingController->setReferenceSignal(m_DCMPositionDesired, resetTrajectory))
+            {
+                yError() << "[updateModule] unable to set the reference Signal.";
+                return false;
+            }
 
-            // if(!m_walkingController->solve())
-            // {
-            //     yError() << "[updateModule] Unable to solve the problem.";
-            //     return false;
-            // }
+            if(!m_walkingController->solve())
+            {
+                yError() << "[updateModule] Unable to solve the problem.";
+                return false;
+            }
 
-            // if(!m_walkingController->getControllerOutput(desiredZMP))
-            // {
-            //     yError() << "[updateModule] Unable to get the MPC output.";
-            //     return false;
-            // }
+            if(!m_walkingController->getControllerOutput(desiredZMP))
+            {
+                yError() << "[updateModule] Unable to get the MPC output.";
+                return false;
+            }
 
-            // m_profiler->setEndTime("MPC");
+            desiredVRP(0) = desiredZMP(0);
+            desiredVRP(1) = desiredZMP(1);
+
+            m_profiler->setEndTime("MPC");
         }
         else
         {
@@ -1543,6 +1551,48 @@ bool WalkingModule::updateModule()
         else
         {
             m_profiler->setInitTime("TORQUE");
+
+            // double threshold = 0.001;
+            // bool stancePhase = iDynTree::toEigen(m_DCMVelocityDesired.front()).norm() < threshold;
+            // m_walkingZMPController->setPhase(stancePhase || m_robotState == WalkingFSM::OnTheFly);
+
+            // // set feedback and the desired signal
+            // m_walkingZMPController->setFeedback(measuredZMP, measuredCoM);
+            // m_walkingZMPController->setReferenceSignal(desiredZMP, desiredCoMPositionXY,
+            //                                            desiredCoMVelocityXY);
+
+            // if(!m_walkingZMPController->evaluateControl())
+            // {
+            //     yError() << "[updateModule] Unable to evaluate the ZMP control output.";
+            //     return false;
+            // }
+
+            // iDynTree::Vector2 outputZMPCoMControllerPosition, outputZMPCoMControllerVelocity;
+            // if(!m_walkingZMPController->getControllerOutput(outputZMPCoMControllerPosition,
+            //                                                 outputZMPCoMControllerVelocity))
+            // {
+            //     yError() << "[updateModule] Unable to get the ZMP controller output.";
+            //     return false;
+            // }
+
+            // iDynTree::Position desiredCoMPosition;
+            // desiredCoMPosition(0) = outputZMPCoMControllerPosition(0);
+            // desiredCoMPosition(1) = outputZMPCoMControllerPosition(1);
+
+            // if(m_robotState == WalkingFSM::OnTheFly)
+            // {
+            //     m_heightSmoother->computeNextValues(yarp::sig::Vector(1,m_comHeightTrajectory.front()));
+            //     desiredCoMPosition(2) = m_heightSmoother->getPos()[0];
+            // }
+            // else
+            //     desiredCoMPosition(2) = m_comHeightTrajectory.front();
+
+            // iDynTree::Vector3 desiredCoMVelocity;
+            // desiredCoMVelocity(0) = outputZMPCoMControllerVelocity(0);
+            // desiredCoMVelocity(1) = outputZMPCoMControllerVelocity(1);
+            // desiredCoMVelocity(2) = m_comHeightVelocity.front();
+
+
             iDynTree::Position desiredCoMPosition;
             desiredCoMPosition(0) = desiredCoMPositionXY(0);
             desiredCoMPosition(1) = desiredCoMPositionXY(1);
@@ -1551,7 +1601,7 @@ bool WalkingModule::updateModule()
             iDynTree::Vector3 desiredCoMVelocity;
             desiredCoMVelocity(0) = desiredCoMVelocityXY(0);
             desiredCoMVelocity(1) = desiredCoMVelocityXY(1);
-            desiredCoMVelocity(2) = 0;
+            desiredCoMVelocity(2) = m_comHeightVelocity.front();
 
             // get the yow angle of both feet
             double yawLeft = m_leftTrajectory.front().getRotation().asRPY()(2);
@@ -1568,8 +1618,8 @@ bool WalkingModule::updateModule()
             yawRotation = yawRotation.inverse();
 
             iDynTree::Vector3 desiredCoMAcceleration;
-            iDynTree::toEigen(desiredCoMAcceleration) = 9.81 / 0.51 * (iDynTree::toEigen(measuredCoM)
-                                                                       - iDynTree::toEigen(desiredVRP));
+            iDynTree::toEigen(desiredCoMAcceleration) = 9.81 / measuredCoM(2) * (iDynTree::toEigen(measuredCoM)
+                                                                                 - iDynTree::toEigen(desiredVRP));
             if(!solveTaskBased(desiredCoMPosition, desiredCoMVelocity,
                                desiredCoMAcceleration,
                                measuredCoM, measuredCoMVelocity,
@@ -1626,6 +1676,8 @@ bool WalkingModule::updateModule()
             auto leftTemp = m_taskBasedTorqueSolver->getLeftWrench();
             auto rightTemp = m_taskBasedTorqueSolver->getRightWrench();
 
+            auto zmpTemp = m_taskBasedTorqueSolver->getZMP();
+
             m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
                                       desiredVRP,
                                       measuredCoM,
@@ -1638,8 +1690,7 @@ bool WalkingModule::updateModule()
                                       m_rightTrajectory.front().getRotation().asRPY(),
                                       torsoDesired,
                                       m_FKSolver->getNeckOrientation().asRPY(),
-                                      m_desiredTorque, leftTemp, rightTemp
-                );
+                                      m_desiredTorque, leftTemp, rightTemp, zmpTemp, measuredZMP);
 	    // auto leftTemp = m_FKSolver->getHeadLinkToWorldTransform() *
             //     m_desiredLeftHandToRootLinkTransform;
 	    // auto rightTemp = m_FKSolver->getHeadLinkToWorldTransform() *
@@ -1732,6 +1783,13 @@ bool WalkingModule::getFeedbacks(unsigned int maxAttempts)
 
     unsigned int attempt = 0;
 
+    // if torque control is used we do not use ft
+    // if(m_useTorqueController)
+    // {
+    //     okLeftWrench = true;
+    //     okRightWrench = true;
+    // }
+
     do
     {
         if(!okPosition)
@@ -1788,6 +1846,8 @@ bool WalkingModule::getFeedbacks(unsigned int maxAttempts)
                     m_velocityFeedbackInRadians(j) = iDynTree::deg2rad(m_velocityFeedbackInDegrees(j));
             }
 
+            // if(!m_useTorqueController)
+            // {
             if(m_useWrenchFilter)
             {
                 if(m_firstStep)
@@ -1822,6 +1882,7 @@ bool WalkingModule::getFeedbacks(unsigned int maxAttempts)
                     return false;
                 }
             }
+            // }
             return true;
         }
 
@@ -2648,9 +2709,6 @@ bool WalkingModule::startWalking()
     iDynTree::VectorDynSize measuredTorque(m_actuatedDOFs);
     m_torqueInterface->getTorques(measuredTorque.data());
 
-    yInfo() << "measuredTorque " <<measuredTorque.toString();
-    yInfo() << "m_leftWrench " <<m_leftWrench.toString();
-    yInfo() << "m_rightWrench " <<m_rightWrench.toString();
     if(!m_taskBasedTorqueSolver->setInitialValues(measuredTorque, m_leftWrench, m_rightWrench))
     {
         yError() << "[startWalking] Unable to set initial value for the torque solver";
@@ -2697,7 +2755,8 @@ bool WalkingModule::startWalking()
                     "l_hip_pitch", "l_hip_roll", "l_hip_yaw", "l_knee", "l_ankle_pitch", "l_ankle_roll",
                     "r_hip_pitch", "r_hip_roll", "r_hip_yaw", "r_knee", "r_ankle_pitch", "r_ankle_roll",
                     "force_lf_x", "force_lf_y", "force_lf_z", "force_lf_roll", "force_lf_pitch", "force_lf_yaw",
-                    "force_rf_x", "force_rf_y", "force_rf_z", "force_rf_roll", "force_rf_pitch", "force_rf_yaw"});
+                    "force_rf_x", "force_rf_y", "force_rf_z", "force_rf_roll", "force_rf_pitch", "force_rf_yaw",
+                    "zmp_x", "zmp_y", "zmp_mes_x", "zmp_mes_y"});
     }
 
 
