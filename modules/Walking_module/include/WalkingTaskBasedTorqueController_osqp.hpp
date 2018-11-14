@@ -9,6 +9,8 @@
 #ifndef WALKING_TORQUE_CONTROL_OSQP_HPP
 #define WALKING_TORQUE_CONTROL_OSQP_HPP
 
+#include <iDynTree/Core/SpatialMomentum.h>
+
 #include <OsqpEigen/OsqpEigen.h>
 
 #include <CartesianPID.hpp>
@@ -18,6 +20,14 @@
 
 class WalkingTaskBasedTorqueController_osqp
 {
+
+    bool m_useCoMConstraint;
+    bool m_useLinearMomentumConstraint;
+    bool m_useAngularMomentumConstraint;
+    bool m_useZMPConstraint;
+
+    bool m_controlOnlyCoMHeight;
+
     //todo
     std::unique_ptr<TimeProfiler> m_profiler; /**< Time profiler. */
 
@@ -35,7 +45,6 @@ class WalkingTaskBasedTorqueController_osqp
     Eigen::SparseMatrix<double> m_hessianEigen;
     Eigen::VectorXd m_gradient;
 
-    iDynTree::Triplets m_constraintMatrixTriplet;
     iDynSparseMatrix m_constraintMatrix;
     Eigen::SparseMatrix<double>  m_constraintMatrixEigen;
 
@@ -107,6 +116,7 @@ class WalkingTaskBasedTorqueController_osqp
     // com
     iDynTree::MatrixDynSize m_comJacobian;
     iDynTree::VectorDynSize m_comBiasAcceleration;
+    iDynTree::Position m_comPosition;
 
     // todo remove me
     iDynTree::Rotation m_desiredNeckOrientation;
@@ -116,9 +126,13 @@ class WalkingTaskBasedTorqueController_osqp
 
     bool instantiateCoMConstraint(const yarp::os::Searchable& config);
 
+    bool instantiateLinearMomentumConstraint(const yarp::os::Searchable& config);
+
+    bool instantiateAngularMomentumConstraint(const yarp::os::Searchable& config);
+
     bool instantiateFeetConstraint(const yarp::os::Searchable& config);
 
-    void instantiateZMPConstraint();
+    void instantiateZMPConstraint(const yarp::os::Searchable& config);
 
     void instantiateSystemDynamicsConstraint();
 
@@ -157,6 +171,8 @@ public:
     bool setMassMatrix(const iDynTree::MatrixDynSize& massMatrix);
 
     bool setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces);
+
+    bool setLinearAngularMomentum(const iDynTree::SpatialMomentum& linearAngularMomentum);
 
     bool setDesiredJointTrajectory(const iDynTree::VectorDynSize& desiredJointPosition,
                                    const iDynTree::VectorDynSize& desiredJointVelocity,

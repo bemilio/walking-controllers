@@ -21,9 +21,11 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateCoMConstraint(const yarp:
 {
     if(config.isNull())
     {
-        yError() << "[instantiateCoMConstraint] Empty configuration file.";
-        return false;
+        yInfo() << "[instantiateCoMConstraint] Empty configuration file. The CoM Constraint will not be used";
+        m_useCoMConstraint = false;
+        return true;
     }
+    m_useCoMConstraint = true;
 
     double kp;
     if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
@@ -39,13 +41,27 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateCoMConstraint(const yarp:
         return false;
     }
 
-    // resize com quantities
-    m_comJacobian.resize(3, m_actuatedDOFs + 6);
-    m_comBiasAcceleration.resize(3);
+    m_controlOnlyCoMHeight = config.check("controllOnlyHeight", yarp::os::Value("False")).asBool();
 
-    // memory allocation
-    std::shared_ptr<PositionConstraint> ptr;
-    ptr = std::make_shared<PositionConstraint>(m_actuatedDOFs + 6);
+    // resize com quantities
+    std::shared_ptr<GenericCartesianConstraint> ptr;
+    if(!m_controlOnlyCoMHeight)
+    {
+        m_comJacobian.resize(3, m_actuatedDOFs + 6);
+        m_comBiasAcceleration.resize(3);
+
+        // memory allocation
+        ptr = std::make_shared<PositionConstraint>();
+    }
+    else
+    {
+        m_comJacobian.resize(1, m_actuatedDOFs + 6);
+        m_comBiasAcceleration.resize(1);
+
+        // memory allocation
+        ptr = std::make_shared<OneDimensionalConstraint>();
+    }
+
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
 
     ptr->positionController()->setGains(kp, kd);
@@ -53,6 +69,84 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateCoMConstraint(const yarp:
     ptr->setBiasAcceleration(m_comBiasAcceleration);
 
     m_constraints.insert(std::make_pair("com", ptr));
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
+
+    return true;
+}
+
+bool WalkingTaskBasedTorqueController_osqp::instantiateLinearMomentumConstraint(const yarp::os::Searchable& config)
+{
+    if(config.isNull())
+    {
+        yInfo() << "[instantiateLinearMomentumConstraint] Empty configuration file. The linear momentum Constraint will not be used";
+        m_useLinearMomentumConstraint = false;
+        return true;
+    }
+    m_useLinearMomentumConstraint = true;
+
+    // double kp;
+    // if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    // {
+    //     yError() << "[instantiateCoMConstraint] Unable to get proportional gain";
+    //     return false;
+    // }
+
+    // double kd;
+    // if(!YarpHelper::getNumberFromSearchable(config, "kd", kd))
+    // {
+    //     yError() << "[instantiateCoMConstraint] Unable to get derivative gain";
+    //     return false;
+    // }
+
+    // memory allocation
+    std::shared_ptr<LinearMomentumConstraint> ptr;
+    ptr = std::make_shared<LinearMomentumConstraint>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 6 + m_actuatedDOFs + m_actuatedDOFs);
+
+    ptr->controller()->setGains(0, 0);
+
+    m_constraints.insert(std::make_pair("linear_momentum", ptr));
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
+
+    return true;
+}
+
+bool WalkingTaskBasedTorqueController_osqp::instantiateAngularMomentumConstraint(const yarp::os::Searchable& config)
+{
+    if(config.isNull())
+    {
+        yInfo() << "[instantiateAngularMomentumConstraint] Empty configuration file. The angular momentum Constraint will not be used";
+        m_useAngularMomentumConstraint = false;
+        return true;
+    }
+    m_useAngularMomentumConstraint = true;
+
+    double kp;
+    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    {
+        yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+        return false;
+    }
+
+    // double kd;
+    // if(!YarpHelper::getNumberFromSearchable(config, "kd", kd))
+    // {
+    //     yError() << "[instantiateCoMConstraint] Unable to get derivative gain";
+    //     return false;
+    // }
+
+    // memory allocation
+    std::shared_ptr<AngularMomentumConstraint> ptr;
+    ptr = std::make_shared<AngularMomentumConstraint>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 6 + m_actuatedDOFs + m_actuatedDOFs);
+
+    ptr->controller()->setGains(kp, 0);
+
+    ptr->setCoMPosition(m_comPosition);
+    ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
+    ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+
+    m_constraints.insert(std::make_pair("angular_momentum", ptr));
     m_numberOfConstraints += ptr->getNumberOfConstraints();
 
     return true;
@@ -108,7 +202,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     m_leftFootJacobian.resize(6, m_actuatedDOFs + 6);
     m_leftFootBiasAcceleration.resize(6);
 
-    ptr = std::make_shared<CartesianConstraint>(m_actuatedDOFs + 6);
+    ptr = std::make_shared<CartesianConstraint>();
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
     ptr->positionController()->setGains(kp, kd);
     ptr->orientationController()->setGains(c0, c1, c2);
@@ -121,7 +215,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     // resize quantities
     m_rightFootJacobian.resize(6, m_actuatedDOFs + 6);
     m_rightFootBiasAcceleration.resize(6);
-    ptr = std::make_shared<CartesianConstraint>(m_actuatedDOFs + 6);
+    ptr = std::make_shared<CartesianConstraint>();
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
     ptr->positionController()->setGains(kp, kd);
     ptr->orientationController()->setGains(c0, c1, c2);
@@ -133,17 +227,26 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     return true;
 }
 
-void WalkingTaskBasedTorqueController_osqp::instantiateZMPConstraint()
+void WalkingTaskBasedTorqueController_osqp::instantiateZMPConstraint(const yarp::os::Searchable& config)
 {
-    // std::shared_ptr<ZMPConstraint> ptr;
-    // ptr = std::make_shared<ZMPConstraint>();
-    // ptr->setSubMatricesStartingPosition(m_numberOfConstraints, m_actuatedDOFs);
-    // ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
-    // ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+    if(config.isNull())
+    {
 
-    // m_constraints.insert(std::make_pair("zmp", ptr));
+    yInfo() << "[instantiateZMPConstraint] Empty configuration file. The ZMP Constraint will not be used";
+        m_useZMPConstraint = false;
+        return;
+    }
+    m_useZMPConstraint = true;
 
-    // m_numberOfConstraints += ptr->getNumberOfConstraints();
+    std::shared_ptr<ZMPConstraint> ptr;
+    ptr = std::make_shared<ZMPConstraint>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 6 + m_actuatedDOFs + m_actuatedDOFs);
+    ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
+    ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+
+    m_constraints.insert(std::make_pair("zmp", ptr));
+
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
 }
 
 bool WalkingTaskBasedTorqueController_osqp::instantiateContactForcesConstraint(const yarp::os::Searchable& config)
@@ -269,8 +372,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateContactForcesConstraint(c
 void WalkingTaskBasedTorqueController_osqp::instantiateSystemDynamicsConstraint()
 {
     std::shared_ptr<SystemDynamicConstraint> ptr;
-    ptr = std::make_shared<SystemDynamicConstraint>(m_actuatedDOFs + 6, m_numberOfVariables,
-                                                    m_actuatedDOFs);
+    ptr = std::make_shared<SystemDynamicConstraint>(m_actuatedDOFs);
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
     ptr->setLeftFootJacobian(m_leftFootJacobian);
     ptr->setRightFootJacobian(m_rightFootJacobian);
@@ -438,15 +540,15 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
                                                        const iDynTree::VectorDynSize& maxJointTorque)
 {
 
-    m_profiler = std::make_unique<TimeProfiler>();
-    m_profiler->setPeriod(round(0.1 / 0.01));
+    // m_profiler = std::make_unique<TimeProfiler>();
+    // m_profiler->setPeriod(round(0.1 / 0.01));
 
-    m_profiler->addTimer("hessian");
-    m_profiler->addTimer("gradient");
-    m_profiler->addTimer("A");
-    m_profiler->addTimer("add A");
-    m_profiler->addTimer("bounds");
-    m_profiler->addTimer("solve");
+    // m_profiler->addTimer("hessian");
+    // m_profiler->addTimer("gradient");
+    // m_profiler->addTimer("A");
+    // m_profiler->addTimer("add A");
+    // m_profiler->addTimer("bounds");
+    // m_profiler->addTimer("solve");
 
     m_actuatedDOFs = actuatedDOFs;
     // the optimization variable is given by
@@ -475,7 +577,21 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     yarp::os::Bottle& comConstraintOptions = config.findGroup("COM");
     if(!instantiateCoMConstraint(comConstraintOptions))
     {
-        yError() << "[initialize] Unable to get the instantiate the CoM constraint.";
+        yError() << "[initialize] Unable to instantiate the CoM constraint.";
+        return false;
+    }
+
+    yarp::os::Bottle& linearMomentumConstraintOptions = config.findGroup("LINEAR_MOMENTUM");
+    if(!instantiateLinearMomentumConstraint(linearMomentumConstraintOptions))
+    {
+        yError() << "[initialize] Unable to instantiate the Linear Momentum constraint.";
+        return false;
+    }
+
+    yarp::os::Bottle& angularMomentumConstraintOptions = config.findGroup("ANGULAR_MOMENTUM");
+    if(!instantiateAngularMomentumConstraint(angularMomentumConstraintOptions))
+    {
+        yError() << "[initialize] Unable to instantiate the Angular Momentum constraint.";
         return false;
     }
 
@@ -486,7 +602,8 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
         return false;
     }
 
-    instantiateZMPConstraint();
+    yarp::os::Bottle& ZMPConstraintOptions = config.findGroup("ZMP");
+    instantiateZMPConstraint(ZMPConstraintOptions);
 
     yarp::os::Bottle& contactForcesOption = config.findGroup("CONTACT_FORCES");
     if(!instantiateContactForcesConstraint(contactForcesOption))
@@ -519,8 +636,8 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
 
     instantiateSystemDynamicsConstraint();
 
-    // add torque constraints
-    m_numberOfConstraints += m_actuatedDOFs;
+    // // add torque constraints
+    // m_numberOfConstraints += m_actuatedDOFs;
 
     // resize
     // sparse matrix
@@ -533,18 +650,15 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     m_lowerBound = Eigen::VectorXd::Zero(m_numberOfConstraints);
     m_upperBound = Eigen::VectorXd::Zero(m_numberOfConstraints);
 
-    // joint torque limits
-    for(int i = 0; i<m_actuatedDOFs; i++)
-    {
-        // todo minJointTorque and maxJointTorque
-        m_upperBound(m_numberOfConstraints - m_actuatedDOFs + i) = 60;
-        m_lowerBound(m_numberOfConstraints - m_actuatedDOFs + i) = -60;
-        m_constraintMatrixEigen.insert(m_numberOfConstraints - m_actuatedDOFs + i,
-                                       m_actuatedDOFs + 6 + i) = 1;
-    }
-
-    m_constraintMatrixTriplet.addDiagonalMatrix(m_numberOfConstraints - m_actuatedDOFs,
-                                                m_actuatedDOFs + 6, 1, m_actuatedDOFs);
+    // // joint torque limits
+    // for(int i = 0; i<m_actuatedDOFs; i++)
+    // {
+    //     // todo minJointTorque and maxJointTorque
+    //     m_upperBound(m_numberOfConstraints - m_actuatedDOFs + i) = 60;
+    //     m_lowerBound(m_numberOfConstraints - m_actuatedDOFs + i) = -60;
+    //     m_constraintMatrixEigen.insert(m_numberOfConstraints - m_actuatedDOFs + i,
+    //                                    m_actuatedDOFs + 6 + i) = 1;
+    // }
 
     // initialize the optimization problem
     m_optimizer = std::make_unique<OsqpEigen::Solver>();
@@ -559,7 +673,9 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     // print some usefull information
     yInfo() << "Total number of constraints " << m_numberOfConstraints;
     for(const auto& constraint: m_constraints)
-        yInfo() << constraint.first << ": " << constraint.second->getNumberOfConstraints();
+        yInfo() << constraint.first << ": " << constraint.second->getNumberOfConstraints()
+                << constraint.second->getJacobianStartingRow()
+                << constraint.second->getJacobianStartingColumn();
 
     return true;
 }
@@ -593,6 +709,24 @@ bool WalkingTaskBasedTorqueController_osqp::setMassMatrix(const iDynTree::Matrix
 
     m_massMatrix = massMatrix;
 
+    if(m_useLinearMomentumConstraint)
+    {
+        // if first time add robot mass
+        if(!m_optimizer->isInitialized())
+        {
+            auto constraint = m_constraints.find("linear_momentum");
+            if(constraint == m_constraints.end())
+            {
+                yError() << "[setMassMatrix] unable to find the linear constraint. "
+                         << "Please call 'initialize()' method";
+                return false;
+            }
+
+            auto ptr = std::static_pointer_cast<LinearMomentumConstraint>(constraint->second);
+            ptr->setRobotMass(m_massMatrix(0,0));
+        }
+    }
+
     return true;
 }
 
@@ -607,6 +741,27 @@ bool WalkingTaskBasedTorqueController_osqp::setGeneralizedBiasForces(const iDynT
 
     m_generalizedBiasForces = generalizedBiasForces;
 
+    return true;
+}
+
+bool WalkingTaskBasedTorqueController_osqp::setLinearAngularMomentum(const iDynTree::SpatialMomentum& linearAngularMomentum)
+{
+    if(m_useAngularMomentumConstraint)
+    {
+        auto constraint = m_constraints.find("angular_momentum");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setLinearAngularMomentum] unable to find the linear constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        // set angular momentum
+        iDynTree::Vector3 dummy;
+        dummy.zero();
+        auto ptr = std::static_pointer_cast<AngularMomentumConstraint>(constraint->second);
+        ptr->controller()->setFeedback(dummy, linearAngularMomentum.getAngularVec3());
+    }
     return true;
 }
 
@@ -853,86 +1008,128 @@ bool WalkingTaskBasedTorqueController_osqp::setDesiredCoMTrajectory(const iDynTr
                                                                     const iDynTree::Vector3& comVelocity,
                                                                     const iDynTree::Vector3& comAcceleration)
 {
-    std::shared_ptr<CartesianConstraint> ptr;
-
-    // save com desired trajectory
-    auto constraint = m_constraints.find("com");
-    if(constraint == m_constraints.end())
+    iDynTree::Vector3 dummy;
+    dummy.zero();
+    if(m_useLinearMomentumConstraint)
     {
-        yError() << "[setDesiredCoMTrajectory] unable to find the com constraint. "
-                 << "Please call 'initialize()' method";
-        return false;
-    }
-    ptr = std::static_pointer_cast<CartesianConstraint>(constraint->second);
-    ptr->positionController()->setDesiredTrajectory(comAcceleration, comVelocity, comPosition);
+        std::shared_ptr<LinearMomentumConstraint> ptr;
 
+        // save com desired trajectory
+        auto constraint = m_constraints.find("linear_momentum");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setDesiredCoMTrajectory] unable to find the linear momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        // todo m_massMatrix might be not initialized!!!!!
+        ptr = std::static_pointer_cast<LinearMomentumConstraint>(constraint->second);
+        iDynTree::Vector3 desiredLinearMomentumDerivative;
+        iDynTree::toEigen(desiredLinearMomentumDerivative) = m_massMatrix(0,0) * iDynTree::toEigen(comAcceleration);
+
+        ptr->controller()->setDesiredTrajectory(desiredLinearMomentumDerivative, dummy, dummy);
+    }
+
+    if(m_useCoMConstraint)
+    {
+        auto constraint = m_constraints.find("com");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setDesiredCoMTrajectory] unable to find the linear momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::static_pointer_cast<GenericCartesianConstraint>(constraint->second);
+        ptr->positionController()->setDesiredTrajectory(dummy, comVelocity, comPosition);
+    }
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setCoMState(const iDynTree::Position& comPosition,
                                                         const iDynTree::Vector3& comVelocity)
 {
-    auto constraint = m_constraints.find("com");
-    if(constraint == m_constraints.end())
+    if(m_useCoMConstraint)
     {
-        yError() << "[setCoMState] unable to find the right foot constraint. "
-                 << "Please call 'initialize()' method";
-        return false;
+        auto constraint = m_constraints.find("com");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setCoMState] unable to find the right foot constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+        auto ptr = std::static_pointer_cast<GenericCartesianConstraint>(constraint->second);
+        ptr->positionController()->setFeedback(comVelocity, comPosition);
     }
-    auto ptr = std::static_pointer_cast<CartesianConstraint>(constraint->second);
-    ptr->positionController()->setFeedback(comVelocity, comPosition);
+    m_comPosition = comPosition;
 
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setCoMJacobian(const iDynTree::MatrixDynSize& comJacobian)
 {
-    // set the feet jacobian
-    if(comJacobian.rows() != 3)
+    if(m_useCoMConstraint)
     {
-        yError() << "[setCoMJacobian] the number of rows has to be equal to 3.";
-        return false;
-    }
-    if(comJacobian.cols() != m_actuatedDOFs + 6)
-    {
-        yError() << "[setCoMJacobian] the number of columns has to be equal to"
-                 << m_actuatedDOFs + 6;
-        return false;
-    }
+        // set the com jacobian
+        if(comJacobian.rows() != 3)
+        {
+            yError() << "[setCoMJacobian] the number of rows has to be equal to 3.";
+            return false;
+        }
+        if(comJacobian.cols() != m_actuatedDOFs + 6)
+        {
+            yError() << "[setCoMJacobian] the number of columns has to be equal to"
+                     << m_actuatedDOFs + 6;
+            return false;
+        }
 
-    m_comJacobian = comJacobian;
-
+        if(!m_controlOnlyCoMHeight)
+            m_comJacobian = comJacobian;
+        else
+            iDynTree::toEigen(m_comJacobian) = iDynTree::toEigen(comJacobian).block(2, 0, 1, m_actuatedDOFs + 6);
+    }
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setCoMBiasAcceleration(const iDynTree::Vector3 &comBiasAcceleration)
 {
-    iDynTree::toEigen(m_comBiasAcceleration) = iDynTree::toEigen(comBiasAcceleration);
+    if(m_useCoMConstraint)
+    {
+        if(!m_controlOnlyCoMHeight)
+            iDynTree::toEigen(m_comBiasAcceleration) = iDynTree::toEigen(comBiasAcceleration);
+        else
+            m_comBiasAcceleration(0) = comBiasAcceleration(2);
+    }
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setDesiredZMP(const iDynTree::Vector2 &zmp)
 {
-    // std::shared_ptr<ZMPConstraint> ptr;
+    if(m_useZMPConstraint)
+    {
+        std::shared_ptr<ZMPConstraint> ptr;
 
-    // auto constraint = m_constraints.find("zmp");
-    // if(constraint == m_constraints.end())
-    // {
-    //     yError() << "[setDesiredZMP] Unable to find the zmp constraint. "
-    //              << "Please call 'initialize()' method";
-    //     return false;
-    // }
-    // ptr = std::static_pointer_cast<ZMPConstraint>(constraint->second);
-    // ptr->setDesiredZMP(zmp);
-
+        auto constraint = m_constraints.find("zmp");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setDesiredZMP] Unable to find the zmp constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+        ptr = std::static_pointer_cast<ZMPConstraint>(constraint->second);
+        ptr->setDesiredZMP(zmp);
+    }
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInContact,
                                                          const bool &rightInContact)
 {
-    std::shared_ptr<ForceConstraint> ptr;
+    std::shared_ptr<ForceConstraint> ptrForceConstraint;
+    std::shared_ptr<CartesianConstraint> ptrFootConstraint;
 
+    // left foot
     auto constraint = m_constraints.find("left_force");
     if(constraint == m_constraints.end())
     {
@@ -940,15 +1137,29 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
                  << "Please call 'initialize()' method";
         return false;
     }
-    ptr = std::static_pointer_cast<ForceConstraint>(constraint->second);
+    ptrForceConstraint = std::static_pointer_cast<ForceConstraint>(constraint->second);
+
+    constraint = m_constraints.find("left_foot");
+    if(constraint == m_constraints.end())
+    {
+        yError() << "[setFeetState] Unable to find the left_foot constraint. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+    ptrFootConstraint = std::static_pointer_cast<CartesianConstraint>(constraint->second);
+
     if(leftInContact)
-        ptr->activate();
+    {
+        // ptrFootConstraint->deactivate();
+        ptrForceConstraint->activate();
+    }
     else
     {
-        ptr->deactivate();
-        yInfo() << "[deactivate left]";
+        // ptrFootConstraint->activate();
+        ptrForceConstraint->deactivate();
     }
 
+    // right foot
     constraint = m_constraints.find("right_force");
     if(constraint == m_constraints.end())
     {
@@ -956,15 +1167,26 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
                  << "Please call 'initialize()' method";
         return false;
     }
-    ptr = std::static_pointer_cast<ForceConstraint>(constraint->second);
+    ptrForceConstraint = std::static_pointer_cast<ForceConstraint>(constraint->second);
+
+    constraint = m_constraints.find("right_foot");
+    if(constraint == m_constraints.end())
+    {
+        yError() << "[setFeetState] Unable to find the right_foot constraint. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+    ptrFootConstraint = std::static_pointer_cast<CartesianConstraint>(constraint->second);
+
     if(rightInContact)
     {
-        ptr->activate();
+        // ptrFootConstraint->deactivate();
+        ptrForceConstraint->activate();
     }
     else
     {
-        ptr->deactivate();
-        yInfo() << "[deactivate right]";
+        // ptrFootConstraint->activate();
+        ptrForceConstraint->deactivate();
     }
 
     return true;
@@ -1025,10 +1247,10 @@ bool WalkingTaskBasedTorqueController_osqp::setGradientVector()
     m_neckGradient.setFromTriplets(m_neckGradientSubMatrixTriplets);
 
     m_gradient =
-        - iDynTree::toEigen(m_jointRegularizationGradient) * iDynTree::toEigen(m_desiredJointAcceleration)
+        - iDynTree::toEigen(m_jointRegularizationGradient) * iDynTree::toEigen(m_desiredJointAccelerationController)
         - iDynTree::toEigen(m_neckGradient) * (iDynTree::toEigen(neckDesiredAcceleration) -
-                                               iDynTree::toEigen(m_neckBiasAcceleration))
-        - iDynTree::toEigen(m_inputRegularizationGradient) * m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs + 12, 1);
+                                               iDynTree::toEigen(m_neckBiasAcceleration));
+        // - iDynTree::toEigen(m_inputRegularizationGradient) * m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs + 12, 1);
 
     if(m_optimizer->isInitialized())
     {
@@ -1054,9 +1276,9 @@ bool WalkingTaskBasedTorqueController_osqp::setLinearConstraintMatrix()
 {
     for(const auto& constraint: m_constraints)
     {
-        m_profiler->setInitTime("add A");
+        // m_profiler->setInitTime("add A");
         constraint.second->evaluateJacobian(m_constraintMatrixEigen);
-        m_profiler->setEndTime("add A");
+        // m_profiler->setEndTime("add A");
     }
 
     if(m_optimizer->isInitialized())
@@ -1120,7 +1342,7 @@ bool WalkingTaskBasedTorqueController_osqp::setBounds()
 
 bool WalkingTaskBasedTorqueController_osqp::solve()
 {
-    m_profiler->setInitTime("hessian");
+    // m_profiler->setInitTime("hessian");
 
     if(!setHessianMatrix())
     {
@@ -1128,9 +1350,9 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
         return false;
     }
 
-    m_profiler->setEndTime("hessian");
+    // m_profiler->setEndTime("hessian");
 
-    m_profiler->setInitTime("gradient");
+    // m_profiler->setInitTime("gradient");
 
     if(!setGradientVector())
     {
@@ -1138,9 +1360,9 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
         return false;
     }
 
-    m_profiler->setEndTime("gradient");
+    // m_profiler->setEndTime("gradient");
 
-    m_profiler->setInitTime("A");
+    // m_profiler->setInitTime("A");
 
     if(!setLinearConstraintMatrix())
     {
@@ -1148,18 +1370,18 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
         return false;
     }
 
-    m_profiler->setEndTime("A");
+    // m_profiler->setEndTime("A");
 
-    m_profiler->setInitTime("bounds");
+    // m_profiler->setInitTime("bounds");
     if(!setBounds())
     {
         yError() << "[solve] Unable to set the bounds.";
         return false;
     }
 
-    m_profiler->setEndTime("bounds");
+    // m_profiler->setEndTime("bounds");
 
-    m_profiler->setInitTime("solve");
+    // m_profiler->setInitTime("solve");
     if(!m_optimizer->isInitialized())
     {
         if(!m_optimizer->initSolver())
@@ -1184,9 +1406,46 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
         return false;
     }
 
-    m_profiler->setEndTime("solve");
+    // Eigen::VectorXd product;
+    // auto leftWrench = getLeftWrench();
+    // auto rightWrench = getRightWrench();
+    // Eigen::VectorXd wrenches(12);
+    // wrenches.block(0,0,6,1) = iDynTree::toEigen(leftWrench);
+    // wrenches.block(6,0,6,1) = iDynTree::toEigen(rightWrench);
 
-    m_profiler->profiling();
+    // auto constraint = m_constraints.find("zmp");
+    // if(constraint == m_constraints.end())
+    // {
+    //     yError() << "[setLinearAngularMomentum] unable to find the linear constraint. "
+    //              << "Please call 'initialize()' method";
+    //     return false;
+    // }
+
+
+    // yInfo() << "zmp jacobian starting row " << constraint->second->getJacobianStartingRow();
+    // yInfo() << "zmp jacobian starting column " << constraint->second->getJacobianStartingColumn();
+    // Eigen::MatrixXd JacobianZMP(2,12);
+    // JacobianZMP = m_constraintMatrixEigen.block(constraint->second->getJacobianStartingRow(),
+    //                                             constraint->second->getJacobianStartingColumn(),
+    //                                             2, 12);
+
+
+    // product = JacobianZMP * wrenches;
+
+    // std::cerr << "JacaobianZMP \n" << JacobianZMP << "\n";
+    // std::cerr << "product \n" << product << "\n";
+
+    // std::cerr << "upper bounds \n"
+    //           << m_upperBound.block(constraint->second->getJacobianStartingRow(),
+    //                                 0, 2, 1)<< "\n";
+
+    // std::cerr << "lower bounds \n"
+    //           << m_lowerBound.block(constraint->second->getJacobianStartingRow(),
+    //                                 0, 2, 1)<< "\n";
+
+    // m_profiler->setEndTime("solve");
+
+    // m_profiler->profiling();
 
     m_isSolutionEvaluated = true;
     return true;
@@ -1194,10 +1453,10 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
 
 bool WalkingTaskBasedTorqueController_osqp::isSolutionFeasible()
 {
-    double tolerance = 1;
+    double tolerance = 0.5;
     Eigen::VectorXd constrainedOutput = m_constraintMatrixEigen * m_solution;
-    // std::cerr<<"m_constraintMatrix\n";
-    // std::cerr<<m_constraintMatrixEigen<<std::endl;
+    // std::cerr<<"m_constraintMatrix"<<std::endl;
+    // std::cerr<<Eigen::MatrixXd(m_constraintMatrixEigen)<<std::endl;
 
     // std::cerr<<"upper\n";
     // std::cerr<<constrainedOutput - m_upperBound<<std::endl;
@@ -1209,13 +1468,12 @@ bool WalkingTaskBasedTorqueController_osqp::isSolutionFeasible()
     // std::cerr<<m_solution<<"\n";
 
     if(((constrainedOutput - m_upperBound).maxCoeff() < tolerance)
-       ||((constrainedOutput - m_lowerBound).maxCoeff() > -tolerance))
+       && ((constrainedOutput - m_lowerBound).minCoeff() > -tolerance))
         return true;
 
     yError() << "[isSolutionFeasible] The constraints are not satisfied.";
     return false;
 }
-
 
 bool WalkingTaskBasedTorqueController_osqp::getSolution(iDynTree::VectorDynSize& output)
 {
@@ -1235,7 +1493,6 @@ bool WalkingTaskBasedTorqueController_osqp::getSolution(iDynTree::VectorDynSize&
     m_isSolutionEvaluated = false;
     return true;
 }
-
 
 iDynTree::Wrench WalkingTaskBasedTorqueController_osqp::getLeftWrench()
 {
@@ -1289,8 +1546,10 @@ iDynTree::Vector2 WalkingTaskBasedTorqueController_osqp::getZMP()
 
     double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
 
-    zmpLeft = m_leftFootToWorldTransform * zmpLeft;
-    zmpRight = m_rightFootToWorldTransform * zmpRight;
+    iDynTree::Transform leftTrans(iDynTree::Rotation::Identity(), m_leftFootToWorldTransform.getPosition());
+    iDynTree::Transform rightTrans(iDynTree::Rotation::Identity(), m_rightFootToWorldTransform.getPosition());
+    zmpLeft = leftTrans * zmpLeft;
+    zmpRight = rightTrans * zmpRight;
 
     // the global zmp is given by a weighted average
     iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
