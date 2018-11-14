@@ -298,7 +298,6 @@ public:
      */
     iDynTree::Vector6 getNeckBiasAcceleration();
 
-
     /**
      * Get the floating base mass matrix.
      * @param freeFloatingMassMatrix is the system mass matrix.
@@ -313,6 +312,11 @@ public:
      */
     bool getGeneralizedBiasForces(iDynTree::VectorDynSize &generalizedBiasForces);
 
+    /**
+     * Get linear and angular momentum.
+     * @return the linear and angular momentum.
+     */
+    iDynTree::SpatialMomentum getLinearAngularMomentum();
 };
 
 #endif

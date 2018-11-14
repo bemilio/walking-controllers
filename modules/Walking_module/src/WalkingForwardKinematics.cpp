@@ -550,3 +550,8 @@ bool WalkingFK::getGeneralizedBiasForces(iDynTree::VectorDynSize &generalizedBia
     iDynTree::toEigen(generalizedBiasForces).block(6,0,m_generalizedBiasForces.jointTorques().size(), 1) = iDynTree::toEigen(m_generalizedBiasForces.jointTorques());
     return true;
 }
+
+iDynTree::SpatialMomentum WalkingFK::getLinearAngularMomentum()
+{
+    return m_kinDyn.getCentroidalTotalMomentum();
+}
