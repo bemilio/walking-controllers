@@ -71,6 +71,10 @@ public:
      * Get the number of constraint
      */
     int getNumberOfConstraints() {return m_sizeOfConstraint;};
+
+    int getJacobianStartingRow() {return m_jacobianStartingRow;};
+
+    int getJacobianStartingColumn() {return m_jacobianStartingColumn;};
 };
 
 /**
@@ -91,6 +95,8 @@ class GenericCartesianConstraint : public LinearConstraint
      * Rotational)
      */
     virtual void evaluateDesiredAcceleration() = 0;
+
+    bool m_isActive{true};
 
 protected:
     iDynTree::VectorDynSize const * m_biasAcceleration; /**< Bias acceleration J \nu. */
@@ -134,11 +140,29 @@ public:
      */
     std::shared_ptr<RotationalPID> orientationController();
 
+    void activate(){m_isActive = true;};
+
+    void deactivate(){m_isActive = false;};
+
     /**
      * Evaluate lower and upper bounds.
      */
     void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
 
+};
+
+class OneDimensionalConstraint : public GenericCartesianConstraint
+{
+    /**
+     * Evaluate the desired acceleration
+     */
+    void evaluateDesiredAcceleration() override;
+
+public:
+    /**
+     * Constructor
+     */
+    OneDimensionalConstraint();
 };
 
 class PositionConstraint : public GenericCartesianConstraint
@@ -235,9 +259,9 @@ public:
     // todo
     void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = &footToWorldTransform;};
 
-    void activate();
+    void activate(){m_isActive = true;};
 
-    void deactivate();
+    void deactivate(){m_isActive = false;};
 
     /**
      * Evaluate the jacobian
@@ -253,47 +277,46 @@ public:
 /**
  * ZMP class allows to obtain a contact force that satisfies the desired ZMP position
  */
-// class ZMPConstraint : public LinearConstraint<iDynTree::MatrixDynSize>
-// {
+class ZMPConstraint : public LinearConstraint
+{
+    iDynTree::Transform const * m_leftFootToWorldTransform;
+    iDynTree::Transform const * m_rightFootToWorldTransform;
 
-//     iDynTree::Transform const * m_leftFootToWorldTransform;
-//     iDynTree::Transform const * m_rightFootToWorldTransform;
+    iDynTree::Vector2 m_desiredZMP;
+    bool m_areBoundsEvaluated = false;
 
-//     iDynTree::Vector2 m_desiredZMP;
-//     bool m_areBoundsEvaluated = false;
+public:
 
-// public:
+    ZMPConstraint();
 
-//     ZMPConstraint();
+    /**
+     * Set the desired ZMP
+     * @param zmp desired ZMP
+     */
+    void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
 
-//     /**
-//      * Set the desired ZMP
-//      * @param zmp desired ZMP
-//      */
-//     void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
+    /**
+     * Set the left foot to world transformation
+     * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
+     */
+    void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
 
-//     /**
-//      * Set the left foot to world transformation
-//      * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
-//      */
-//     void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
+    /**
+     * Set the right foot to world transformation
+     * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
+     */
+    void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
 
-//     /**
-//      * Set the right foot to world transformation
-//      * @param rightFootToWorldTransform tranformation between the right foot and the world frame world_H_rightFoot
-//      */
-//     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
+    /**
+     * Evaluate the jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
-//     /**
-//      * Evaluate the jacobian
-//      */
-//     void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
-
-//     /**
-//      * Evaluate the lower and upper bounds
-//      */
-//     void evaluateBounds() override;
-// };
+    /**
+     * Evaluate the lower and upper bounds
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
 
 /**
  * Please do not use me! I am not implemented yet!
@@ -319,6 +342,8 @@ public:
      * Evaluate the lower and upper bounds
      */
     void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+
+    std::shared_ptr<LinearPID> controller() {return m_controller;};
 };
 
 // todo
@@ -340,6 +365,8 @@ public:
     void setLeftFootToWorldTransform(const iDynTree::Transform& leftFootToWorldTransform){m_leftFootToWorldTransform = &leftFootToWorldTransform;};
 
     void setRightFootToWorldTransform(const iDynTree::Transform& rightFootToWorldTransform){m_rightFootToWorldTransform = &rightFootToWorldTransform;};
+
+    std::shared_ptr<LinearPID> controller() {return m_controller;};
 
     /**
      * Evaluate the jacobian
@@ -364,12 +391,11 @@ class SystemDynamicConstraint : public LinearConstraint
     iDynTree::VectorDynSize const * m_generalizedBiasForces;
 
     int m_systemSize;
-
     iDynSparseMatrix m_selectionMatrix;
 
 public:
 
-    SystemDynamicConstraint(const int& jacobianRows, const int& systemSize);
+    SystemDynamicConstraint(const int& systemSize);
 
     void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
 
