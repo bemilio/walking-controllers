@@ -221,6 +221,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     ptr->orientationController()->setGains(c0, c1, c2);
     ptr->setRoboticJacobian(m_rightFootJacobian);
     ptr->setBiasAcceleration(m_rightFootBiasAcceleration);
+
     m_constraints.insert(std::make_pair("right_foot", ptr));
     m_numberOfConstraints += ptr->getNumberOfConstraints();
 
@@ -501,13 +502,13 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateRegularizationTaskConstra
     //  m_jointRegularizationHessian = H' \lamda H
     m_jointRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
     for(int i = 0; i < m_actuatedDOFs; i++)
-        m_jointRegularizationHessian(i + 6, i + 6) = jointRegularizationWeights(i);
+        m_jointRegularizationHessian.insert(i + 6, i + 6) = jointRegularizationWeights(i);
 
 
     // evaluate constant sub-matrix of the gradient matrix
     m_jointRegularizationGradient.resize(m_numberOfVariables, m_actuatedDOFs);
     for(int i = 0; i < m_actuatedDOFs; i++)
-        m_jointRegularizationGradient(i + 6, i) = jointRegularizationWeights(i);
+        m_jointRegularizationGradient.insert(i + 6, i) = jointRegularizationWeights(i);
 
     // set the matrix related to the joint regularization
     tempValue = config.find("jointRegularizationProportionalGains");
@@ -533,36 +534,67 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateRegularizationTaskConstra
     return true;
 }
 
-bool WalkingTaskBasedTorqueController_osqp::instantiateInputRegularizationConstraint(const yarp::os::Searchable& config)
+bool WalkingTaskBasedTorqueController_osqp::instantiateTorqueRegularizationConstraint(const yarp::os::Searchable& config)
 {
     yarp::os::Value tempValue;
 
     if(config.isNull())
     {
-        yError() << "[instantiateRegularizationTaskConstraint] Empty configuration input constraint.";
+        yError() << "[instantiateRegularizationTaskConstraint] Empty configuration torque constraint.";
         return false;
     }
 
-    tempValue = config.find("inputRegularizationWeights");
-    iDynTree::VectorDynSize inputRegularizationWeights(m_actuatedDOFs + 12);
-    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, inputRegularizationWeights))
+    tempValue = config.find("regularizationWeights");
+    iDynTree::VectorDynSize torqueRegularizationWeights(m_actuatedDOFs);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, torqueRegularizationWeights))
     {
-        yError() << "Initialization failed while reading inputRegularizationWeights vector.";
+        yError() << "Initialization failed while reading torqueRegularizationWeights vector.";
         return false;
     }
 
-    //  m_inputRegularizationHessian = H' \lamda H
-    m_inputRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
-    for(int i = 0; i < m_actuatedDOFs + 12; i++)
-        m_inputRegularizationHessian(i + m_actuatedDOFs + 6,
-                                     i + m_actuatedDOFs + 6) = inputRegularizationWeights(i);
+    //  m_torqueRegularizationHessian = H' \lamda H
+    m_torqueRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+    for(int i = 0; i < m_actuatedDOFs; i++)
+        m_torqueRegularizationHessian.insert(i + m_actuatedDOFs + 6,
+                                            i + m_actuatedDOFs + 6) = torqueRegularizationWeights(i);
 
-    m_inputRegularizationGradient.resize(m_numberOfVariables, m_actuatedDOFs + 12);
-    for(int i = 0; i < m_actuatedDOFs + 12; i++)
-        m_inputRegularizationGradient(i + m_actuatedDOFs + 6, i) = inputRegularizationWeights(i);
+    m_torqueRegularizationGradient.resize(m_numberOfVariables, m_actuatedDOFs);
+    for(int i = 0; i < m_actuatedDOFs; i++)
+        m_torqueRegularizationGradient.insert(i + m_actuatedDOFs + 6, i)
+            = torqueRegularizationWeights(i);
+    return true;
+}
+
+
+bool WalkingTaskBasedTorqueController_osqp::instantiateForceRegularizationConstraint(const yarp::os::Searchable& config)
+{
+    yarp::os::Value tempValue;
+
+    if(config.isNull())
+    {
+        yError() << "[instantiateRegularizationTaskConstraint] Empty configuration torque constraint.";
+        return false;
+    }
+
+    if(!YarpHelper::getNumberFromSearchable(config, "regularizationForceScale", m_regularizationForceScale))
+    {
+        yError() << "[instantiateForceRegularizationConstraint] Unable to get regularization force scale";
+        return false;
+    }
+
+
+    if(!YarpHelper::getNumberFromSearchable(config, "regularizationForceOffset", m_regularizationForceOffset))
+    {
+        yError() << "[instantiateForceRegularizationConstraint] Unable to get regularization force offset";
+        return false;
+    }
+
+
+    m_forceRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
 
     return true;
 }
+
 
 bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchable& config,
                                                        const int& actuatedDOFs,
@@ -658,10 +690,17 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
         return false;
     }
 
-    yarp::os::Bottle& regularizationInputOption = config.findGroup("REGULARIZATION_INPUT");
-    if(!instantiateInputRegularizationConstraint(regularizationInputOption))
+    yarp::os::Bottle& regularizationTorqueOption = config.findGroup("REGULARIZATION_TORQUE");
+    if(!instantiateTorqueRegularizationConstraint(regularizationTorqueOption))
     {
-        yError() << "[initialize] Unable to get the instantiate the regularization input constraint.";
+        yError() << "[initialize] Unable to get the instantiate the regularization torque constraint.";
+        return false;
+    }
+
+    yarp::os::Bottle& regularizationForceOption = config.findGroup("REGULARIZATION_FORCE");
+    if(!instantiateForceRegularizationConstraint(regularizationForceOption))
+    {
+        yError() << "[initialize] Unable to get the instantiate the regularization force constraint.";
         return false;
     }
 
@@ -681,7 +720,6 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     // sparse matrix
     m_hessianEigen.resize(m_numberOfVariables, m_numberOfVariables);
     m_constraintMatrix.resize(m_numberOfConstraints, m_numberOfVariables);
-    m_constraintMatrixEigen.resize(m_numberOfConstraints, m_numberOfVariables);
 
     // dense vectors
     m_gradient = Eigen::VectorXd::Zero(m_numberOfVariables);
@@ -694,7 +732,7 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     //     // todo minJointTorque and maxJointTorque
     //     m_upperBound(m_numberOfConstraints - m_actuatedDOFs + i) = 60;
     //     m_lowerBound(m_numberOfConstraints - m_actuatedDOFs + i) = -60;
-    //     m_constraintMatrixEigen.insert(m_numberOfConstraints - m_actuatedDOFs + i,
+    //     m_constraintMatrix.insert(m_numberOfConstraints - m_actuatedDOFs + i,
     //                                    m_actuatedDOFs + 6 + i) = 1;
     // }
 
@@ -1233,19 +1271,63 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
     return true;
 }
 
+bool WalkingTaskBasedTorqueController_osqp::setFeetWeightPercentage(const double &weightInLeft,
+                                                                    const double &weightInRight)
+{
+    if(m_optimizer->isInitialized())
+    {
+        for(int i = 0; i < 6; i++)
+        {
+            m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
+                                                  m_actuatedDOFs + 6 + m_actuatedDOFs + i)
+                = m_regularizationForceScale * weightInLeft + m_regularizationForceOffset;
+
+            m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
+                                                  m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
+                = m_regularizationForceScale * weightInRight + m_regularizationForceOffset;
+        }
+    }
+    else
+    {
+        for(int i = 0; i < 6; i++)
+        {
+            m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
+                                                m_actuatedDOFs + 6 + m_actuatedDOFs + i)
+                = m_regularizationForceScale * weightInLeft + m_regularizationForceOffset;
+
+            m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
+                                                m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
+                = m_regularizationForceScale * weightInRight + m_regularizationForceOffset;
+        }
+    }
+
+    return true;
+
+}
+
 bool WalkingTaskBasedTorqueController_osqp::setHessianMatrix()
 {
     // neck orientation
     iDynTree::toEigen(m_neckHessianSubMatrix) = iDynTree::toEigen(m_neckJacobian).transpose() *
         iDynTree::toEigen(m_neckOrientationWeight).asDiagonal() * iDynTree::toEigen(m_neckJacobian);
 
-    m_neckHessianSubMatrixTriplets.setSubMatrix(0, 0, m_neckHessianSubMatrix);
-    m_neckHessian.setFromTriplets(m_neckHessianSubMatrixTriplets);
-
+    // check if it is the first time
+    if(m_optimizer->isInitialized())
+    {
+        for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
+            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+                m_neckHessian.coeffRef(i, j) = m_neckHessianSubMatrix(i,j);
+    }
+    else
+    {
+        for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
+            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+                m_neckHessian.insert(i, j) = m_neckHessianSubMatrix(i,j);
+    }
 
     // evaluate the hessian matrix
-    m_hessianEigen = iDynTree::toEigen(m_neckHessian) + iDynTree::toEigen(m_jointRegularizationHessian)
-        + iDynTree::toEigen(m_inputRegularizationHessian);
+    m_hessianEigen = m_neckHessian + m_jointRegularizationHessian + m_torqueRegularizationHessian
+        + m_forceRegularizationHessian;
 
     if(m_optimizer->isInitialized())
     {
@@ -1284,14 +1366,25 @@ bool WalkingTaskBasedTorqueController_osqp::setGradientVector()
     iDynTree::toEigen(m_neckGradientSubMatrix) = iDynTree::toEigen(m_neckJacobian).transpose() *
         iDynTree::toEigen(m_neckOrientationWeight).asDiagonal();
 
-    m_neckGradientSubMatrixTriplets.setSubMatrix(0, 0, m_neckGradientSubMatrix);
-    m_neckGradient.setFromTriplets(m_neckGradientSubMatrixTriplets);
+    // check if it is the first time
+    if(m_optimizer->isInitialized())
+    {
+        for(int i = 0; i < m_neckGradientSubMatrix.rows(); i++)
+            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+                m_neckGradient.coeffRef(i, j) = m_neckGradientSubMatrix(i,j);
+    }
+    else
+    {
+        for(int i = 0; i < m_neckGradientSubMatrix.rows(); i++)
+            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+                m_neckGradient.insert(i, j) = m_neckGradientSubMatrix(i,j);
+    }
 
     m_gradient =
-        - iDynTree::toEigen(m_jointRegularizationGradient) * iDynTree::toEigen(m_desiredJointAccelerationController)
-        - iDynTree::toEigen(m_neckGradient) * (iDynTree::toEigen(neckDesiredAcceleration) -
-                                               iDynTree::toEigen(m_neckBiasAcceleration));
-        // - iDynTree::toEigen(m_inputRegularizationGradient) * m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs + 12, 1);
+        - m_jointRegularizationGradient * iDynTree::toEigen(m_desiredJointAccelerationController)
+        - m_neckGradient * (iDynTree::toEigen(neckDesiredAcceleration) -
+                            iDynTree::toEigen(m_neckBiasAcceleration));
+        // - iDynTree::toEigen(m_torqueRegularizationGradient) * m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs + 12, 1);
 
     if(m_optimizer->isInitialized())
     {
@@ -1318,13 +1411,13 @@ bool WalkingTaskBasedTorqueController_osqp::setLinearConstraintMatrix()
     for(const auto& constraint: m_constraints)
     {
         // m_profiler->setInitTime("add A");
-        constraint.second->evaluateJacobian(m_constraintMatrixEigen);
+        constraint.second->evaluateJacobian(m_constraintMatrix);
         // m_profiler->setEndTime("add A");
     }
 
     if(m_optimizer->isInitialized())
     {
-        if(!m_optimizer->updateLinearConstraintsMatrix(m_constraintMatrixEigen))
+        if(!m_optimizer->updateLinearConstraintsMatrix(m_constraintMatrix))
         {
             yError() << "[setLinearConstraintsMatrix] Unable to update the constraints matrix.";
             return false;
@@ -1332,7 +1425,7 @@ bool WalkingTaskBasedTorqueController_osqp::setLinearConstraintMatrix()
     }
     else
     {
-        if(!m_optimizer->data()->setLinearConstraintsMatrix(m_constraintMatrixEigen))
+        if(!m_optimizer->data()->setLinearConstraintsMatrix(m_constraintMatrix))
         {
             yError() << "[setLinearConstraintsMatrix] Unable to set the constraints matrix.";
             return false;
@@ -1441,14 +1534,52 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
     m_solution = m_optimizer->getSolution();
 
     // check equality constraints
-    if(!isSolutionFeasible())
-    {
-        yError() << "[solve] The solution is not feasible.";
-        return false;
-    }
+    // if(!isSolutionFeasible())
+    // {
+    //     yError() << "[solve] The solution is not feasible.";
+    //     return false;
+    // }
 
     for(int i = 0; i < m_actuatedDOFs; i++)
         m_desiredJointTorque(i) = m_solution(i + m_actuatedDOFs + 6);
+
+    // Eigen::VectorXd product;
+    // auto leftWrench = getLeftWrench();
+    // auto rightWrench = getRightWrench();
+    // Eigen::VectorXd wrenches(12);
+    // wrenches.block(0,0,6,1) = iDynTree::toEigen(leftWrench);
+    // wrenches.block(6,0,6,1) = iDynTree::toEigen(rightWrench);
+
+    // auto constraint = m_constraints.find("angular_momentum");
+    // if(constraint == m_constraints.end())
+    // {
+    //     yError() << "[setLinearAngularMomentum] unable to find the linear constraint. "
+    //              << "Please call 'initialize()' method";
+    //     return false;
+    // }
+
+
+    // yInfo() << "zmp jacobian starting row " << constraint->second->getJacobianStartingRow();
+    // yInfo() << "zmp jacobian starting column " << constraint->second->getJacobianStartingColumn();
+    // Eigen::MatrixXd JacobianZMP;
+    // JacobianZMP = m_constraintMatrix.block(constraint->second->getJacobianStartingRow(),
+    //                                             0,
+    //                                             3, m_numberOfVariables);
+
+
+    // product = JacobianZMP * m_solution;
+
+    // std::cerr << "Jacobian \n" << JacobianZMP << "\n";
+    // std::cerr << "product \n" << product << "\n";
+
+    // std::cerr << "upper bounds \n"
+    //           << m_upperBound.block(constraint->second->getJacobianStartingRow(),
+    //                                 0, 3, 1)<< "\n";
+
+    // std::cerr << "lower bounds \n"
+    //           << m_lowerBound.block(constraint->second->getJacobianStartingRow(),
+    //                                 0, 3, 1)<< "\n";
+
 
     // Eigen::VectorXd product;
     // auto leftWrench = getLeftWrench();
@@ -1469,7 +1600,7 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
     // yInfo() << "zmp jacobian starting row " << constraint->second->getJacobianStartingRow();
     // yInfo() << "zmp jacobian starting column " << constraint->second->getJacobianStartingColumn();
     // Eigen::MatrixXd JacobianZMP(2,12);
-    // JacobianZMP = m_constraintMatrixEigen.block(constraint->second->getJacobianStartingRow(),
+    // JacobianZMP = m_constraintMatrix.block(constraint->second->getJacobianStartingRow(),
     //                                             constraint->second->getJacobianStartingColumn(),
     //                                             2, 12);
 
@@ -1498,9 +1629,9 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
 bool WalkingTaskBasedTorqueController_osqp::isSolutionFeasible()
 {
     double tolerance = 0.5;
-    Eigen::VectorXd constrainedOutput = m_constraintMatrixEigen * m_solution;
+    Eigen::VectorXd constrainedOutput = m_constraintMatrix * m_solution;
     // std::cerr<<"m_constraintMatrix"<<std::endl;
-    // std::cerr<<Eigen::MatrixXd(m_constraintMatrixEigen)<<std::endl;
+    // std::cerr<<Eigen::MatrixXd(m_constraintMatrix)<<std::endl;
 
     // std::cerr<<"upper\n";
     // std::cerr<<constrainedOutput - m_upperBound<<std::endl;

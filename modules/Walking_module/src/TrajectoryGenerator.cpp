@@ -620,3 +620,16 @@ bool TrajectoryGenerator::getMergePoints(std::vector<size_t>& mergePoints)
     m_trajectoryGenerator.getMergePoints(mergePoints);
     return true;
 }
+
+bool TrajectoryGenerator::getWeightPercentage(std::vector<double> &weightInLeft,
+                                              std::vector<double> &weightInRight)
+{
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[getWeightPercentage] No trajectories are available";
+        return false;
+    }
+
+    m_trajectoryGenerator.getWeightPercentage(weightInLeft, weightInRight);
+    return true;
+}

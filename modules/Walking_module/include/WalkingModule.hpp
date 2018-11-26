@@ -125,7 +125,8 @@ class WalkingModule:
     std::deque<double> m_comHeightTrajectory; /**< Deque containing the CoM height trajectory. */
     std::deque<double> m_comHeightVelocity; /**< Deque containing the CoM height velocity. */
     std::deque<size_t> m_mergePoints; /**< Deque containing the time position of the merge points. */
-
+    std::deque<double> m_weightInLeft; /**< Deque containing the left foot weight percentage. */
+    std::deque<double> m_weightInRight; /**< Deque containing the right foot weight percentage. */
     std::deque<bool> m_isLeftFixedFrame; /**< Deque containing when the main frame of the left foot is the fixed frame
                                             In general a main frame of a foot is the fix frame only during the
                                             stance and the switch out phases. */

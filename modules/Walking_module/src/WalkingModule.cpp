@@ -86,6 +86,13 @@ bool WalkingModule::propagateReferenceSignals()
     m_comHeightVelocity.pop_front();
     m_comHeightVelocity.push_back(m_comHeightVelocity.back());
 
+    m_weightInLeft.pop_front();
+    m_weightInLeft.push_back(m_weightInLeft.back());
+
+    m_weightInRight.pop_front();
+    m_weightInRight.push_back(m_weightInRight.back());
+
+
     // at each sampling time the merge points are decreased by one.
     // If the first merge point is equal to 0 it will be dropped.
     // A new trajectory will be merged at the first merge point or if the deque is empty
@@ -1120,6 +1127,13 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
     if(!m_taskBasedTorqueSolver->setDesiredZMP(desiredZMP))
     {
         yError() << "[solveTaskBased] Unable to set the feet state.";
+        return false;
+    }
+
+    if(!m_taskBasedTorqueSolver->setFeetWeightPercentage(m_weightInLeft.front(),
+                                                         m_weightInRight.front()))
+    {
+        yError() << "[solveTaskBased] Unable to set the weight percentage.";
         return false;
     }
 
@@ -2544,6 +2558,9 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     std::vector<double> comHeightVelocity;
     std::vector<size_t> mergePoints;
     std::vector<bool> isLeftFixedFrame;
+    std::vector<double> weightInLeft;
+    std::vector<double> weightInRight;
+
 
     // get dcm position and velocity
     m_trajectoryGenerator->getDCMPositionTrajectory(DCMPositionDesired);
@@ -2563,6 +2580,9 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     // get merge points
     m_trajectoryGenerator->getMergePoints(mergePoints);
 
+    // get weight percentage
+    m_trajectoryGenerator->getWeightPercentage(weightInLeft, weightInRight);
+
     // append vectors to deques
     StdHelper::appendVectorToDeque(leftTrajectory, m_leftTrajectory, mergePoint);
     StdHelper::appendVectorToDeque(rightTrajectory, m_rightTrajectory, mergePoint);
@@ -2580,6 +2600,9 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
 
     StdHelper::appendVectorToDeque(comHeightTrajectory, m_comHeightTrajectory, mergePoint);
     StdHelper::appendVectorToDeque(comHeightVelocity, m_comHeightVelocity, mergePoint);
+
+    StdHelper::appendVectorToDeque(weightInLeft, m_weightInLeft, mergePoint);
+    StdHelper::appendVectorToDeque(weightInRight, m_weightInRight, mergePoint);
 
     m_mergePoints.assign(mergePoints.begin(), mergePoints.end());
 

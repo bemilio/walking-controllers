@@ -45,8 +45,7 @@ class WalkingTaskBasedTorqueController_osqp
     Eigen::SparseMatrix<double> m_hessianEigen;
     Eigen::VectorXd m_gradient;
 
-    iDynSparseMatrix m_constraintMatrix;
-    Eigen::SparseMatrix<double>  m_constraintMatrixEigen;
+    Eigen::SparseMatrix<double>  m_constraintMatrix;
 
     Eigen::VectorXd m_upperBound;
     Eigen::VectorXd m_lowerBound;
@@ -60,8 +59,8 @@ class WalkingTaskBasedTorqueController_osqp
     iDynTree::VectorDynSize m_generalizedBiasForces; /**< Generalized bias forces vector. */
 
     // Joint task
-    iDynSparseMatrix m_jointRegularizationHessian;
-    iDynSparseMatrix m_jointRegularizationGradient;
+    Eigen::SparseMatrix<double> m_jointRegularizationHessian;
+    Eigen::SparseMatrix<double> m_jointRegularizationGradient;
 
     iDynTree::VectorDynSize m_jointRegularizationWeights; /**< Vector containing the joint
                                                              regularization weights. */
@@ -90,11 +89,11 @@ class WalkingTaskBasedTorqueController_osqp
     iDynTree::Vector3 m_neckBiasAcceleration; /**< Neck bias acceleration \f$\dot{J} \nu \f$
                                                  (angular part). */
 
-    iDynSparseMatrix m_neckHessian;
+    Eigen::SparseMatrix<double> m_neckHessian;
     iDynTree::MatrixDynSize m_neckHessianSubMatrix;
     iDynTree::Triplets m_neckHessianSubMatrixTriplets;
 
-    iDynSparseMatrix m_neckGradient;
+    Eigen::SparseMatrix<double> m_neckGradient;
     iDynTree::MatrixDynSize m_neckGradientSubMatrix;
     iDynTree::Triplets m_neckGradientSubMatrixTriplets;
 
@@ -105,9 +104,15 @@ class WalkingTaskBasedTorqueController_osqp
     iDynTree::MatrixDynSize m_leftFootJacobian;
     iDynTree::MatrixDynSize m_rightFootJacobian;
 
-    // regularization task (input)
-    iDynSparseMatrix m_inputRegularizationHessian;
-    iDynSparseMatrix m_inputRegularizationGradient;
+    // regularization task (torque)
+    Eigen::SparseMatrix<double> m_torqueRegularizationHessian;
+    Eigen::SparseMatrix<double> m_torqueRegularizationGradient;
+
+    // regularization task (force)
+    Eigen::SparseMatrix<double> m_forceRegularizationHessian;
+    double m_regularizationForceScale;
+    double m_regularizationForceOffset;
+
 
     // feet
     iDynTree::Transform m_leftFootToWorldTransform;
@@ -146,9 +151,9 @@ class WalkingTaskBasedTorqueController_osqp
 
     bool instantiateRegularizationTaskConstraint(const yarp::os::Searchable& config);
 
-    bool instantiateInputRegularizationConstraint(const yarp::os::Searchable& config);
+    bool instantiateTorqueRegularizationConstraint(const yarp::os::Searchable& config);
 
-    void instantiateConstPartInputMatrix();
+    bool instantiateForceRegularizationConstraint(const yarp::os::Searchable& config);
 
     bool setHessianMatrix();
 
@@ -226,6 +231,8 @@ public:
     bool setCoMBiasAcceleration(const iDynTree::Vector3 &comBiasAcceleration);
 
     bool setFeetState(const bool &leftInContact, const bool &rightInContact);
+
+    bool setFeetWeightPercentage(const double &weightInLeft, const double &weightInRight);
 
     bool setDesiredZMP(const iDynTree::Vector2& zmp);
 
