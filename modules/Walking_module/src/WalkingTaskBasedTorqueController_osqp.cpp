@@ -1236,6 +1236,7 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
     {
         // ptrFootConstraint->activate();
         ptrForceConstraint->deactivate();
+        yInfo() << "left deactivate";
     }
 
     // right foot
@@ -1266,6 +1267,7 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
     {
         // ptrFootConstraint->activate();
         ptrForceConstraint->deactivate();
+        yInfo() << "right deactivate";
     }
 
     return true;
@@ -1274,17 +1276,20 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
 bool WalkingTaskBasedTorqueController_osqp::setFeetWeightPercentage(const double &weightInLeft,
                                                                     const double &weightInRight)
 {
+
+    std::cerr << "weight left: "<<weightInLeft << " weight right: " << weightInRight << "\n";
+
     if(m_optimizer->isInitialized())
     {
         for(int i = 0; i < 6; i++)
         {
             m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
                                                   m_actuatedDOFs + 6 + m_actuatedDOFs + i)
-                = m_regularizationForceScale * weightInLeft + m_regularizationForceOffset;
+                = m_regularizationForceScale * std::fabs(weightInLeft) + m_regularizationForceOffset;
 
             m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
                                                   m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
-                = m_regularizationForceScale * weightInRight + m_regularizationForceOffset;
+                = m_regularizationForceScale * std::fabs(weightInRight) + m_regularizationForceOffset;
         }
     }
     else
@@ -1293,11 +1298,11 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetWeightPercentage(const double
         {
             m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
                                                 m_actuatedDOFs + 6 + m_actuatedDOFs + i)
-                = m_regularizationForceScale * weightInLeft + m_regularizationForceOffset;
+                = m_regularizationForceScale * std::fabs(weightInLeft) + m_regularizationForceOffset;
 
             m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
                                                 m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
-                = m_regularizationForceScale * weightInRight + m_regularizationForceOffset;
+                = m_regularizationForceScale * std::fabs(weightInRight) + m_regularizationForceOffset;
         }
     }
 
@@ -1315,13 +1320,13 @@ bool WalkingTaskBasedTorqueController_osqp::setHessianMatrix()
     if(m_optimizer->isInitialized())
     {
         for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+            for(int j = 0; j < m_neckHessianSubMatrix.cols(); j++)
                 m_neckHessian.coeffRef(i, j) = m_neckHessianSubMatrix(i,j);
     }
     else
     {
         for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
+            for(int j = 0; j < m_neckHessianSubMatrix.cols(); j++)
                 m_neckHessian.insert(i, j) = m_neckHessianSubMatrix(i,j);
     }
 
@@ -1527,6 +1532,26 @@ bool WalkingTaskBasedTorqueController_osqp::solve()
 
     if(!m_optimizer->solve())
     {
+        std::cerr << "hessian = [\n";
+        std::cerr<< Eigen::MatrixXd(m_hessianEigen) << "\n";
+        std::cerr << "];\n";
+
+        std::cerr << "gradient = [\n";
+        std::cerr<< Eigen::MatrixXd(m_gradient) << "\n";
+        std::cerr << "];\n";
+
+        std::cerr << "constraint_j = [\n";
+        std::cerr<< Eigen::MatrixXd(m_constraintMatrix) << "\n";
+        std::cerr << "];\n";
+
+        std::cerr << "lower_bound = [\n";
+        std::cerr<< Eigen::MatrixXd(m_lowerBound) << "\n";
+        std::cerr << "];\n";
+
+        std::cerr << "upper_bound = [\n";
+        std::cerr<< Eigen::MatrixXd(m_upperBound) << "\n";
+        std::cerr << "];\n";
+
         yError() << "[solve] Unable to solve the problem.";
         return false;
     }
