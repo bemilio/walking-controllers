@@ -9,10 +9,10 @@
 // iDynTree
 #include <iDynTree/Core/EigenHelpers.h>
 #include <iDynTree/Core/EigenSparseHelpers.h>
-
+#include <OsqpEigen/OsqpEigen.h>
 #include <WalkingConstraint.hpp>
 
-void Constraint::setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn)
+void OptimizationElement::setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn)
 {
     // set the jacobian starting raw and column
     m_jacobianStartingRow = startingRow;
@@ -31,7 +31,116 @@ void Constraint::setSubMatricesStartingPosition(const int& startingRow, const in
     m_hessianStartingColumn = startingRow;
 }
 
-void GenericCartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+
+CartesianElement::CartesianElement(const CartesianElementType& elementType)
+{
+    switch(elementType)
+    {
+    case CartesianElementType::POSE:
+        m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
+        m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
+        m_desiredAcceleration.resize(6);
+        break;
+
+    case CartesianElementType::POSITION:
+        m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
+        m_desiredAcceleration.resize(3);
+        break;
+
+    case CartesianElementType::ORIENTATION:
+        m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
+        m_desiredAcceleration.resize(3);
+        break;
+
+    case CartesianElementType::ONE_DIMENSION:
+        m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
+        m_desiredAcceleration.resize(1);
+        break;
+    }
+
+    m_elementType = elementType;
+}
+
+std::shared_ptr<LinearPID> CartesianElement::positionController()
+{
+    std::unordered_map<std::string, std::shared_ptr<CartesianPID>>::const_iterator controller;
+    controller = m_controllers.find("position_pid");
+
+    if(controller == m_controllers.end())
+        return nullptr;
+
+    return std::static_pointer_cast<LinearPID>(controller->second);
+}
+
+std::shared_ptr<RotationalPID> CartesianElement::orientationController()
+{
+    std::unordered_map<std::string, std::shared_ptr<CartesianPID>>::const_iterator controller;
+    controller = m_controllers.find("orientation_pid");
+
+    if(controller == m_controllers.end())
+        return nullptr;
+
+    return std::static_pointer_cast<RotationalPID>(controller->second);
+}
+
+void CartesianElement::evaluateDesiredAcceleration()
+{
+    switch(m_elementType)
+    {
+    case CartesianElementType::POSE:
+        m_controllers["position_pid"]->evaluateControl();
+        iDynTree::toEigen(m_desiredAcceleration).block(0, 0, 3, 1)
+            = iDynTree::toEigen(m_controllers["position_pid"]->getControl());
+
+        m_controllers["orientation_pid"]->evaluateControl();
+        iDynTree::toEigen(m_desiredAcceleration).block(3, 0, 3, 1)
+            = iDynTree::toEigen(m_controllers["orientation_pid"]->getControl());
+        break;
+
+    case CartesianElementType::POSITION:
+        m_controllers["position_pid"]->evaluateControl();
+        iDynTree::toEigen(m_desiredAcceleration)
+            = iDynTree::toEigen(m_controllers["position_pid"]->getControl());
+        break;
+
+    case CartesianElementType::ORIENTATION:
+        m_controllers["orientation_pid"]->evaluateControl();
+        iDynTree::toEigen(m_desiredAcceleration)
+            = iDynTree::toEigen(m_controllers["orientation_pid"]->getControl());
+        break;
+
+    case CartesianElementType::ONE_DIMENSION:
+        m_controllers["position_pid"]->evaluateControl();
+        m_desiredAcceleration(0) = m_controllers["position_pid"]->getControl()(2);
+        break;
+    }
+}
+
+CartesianConstraint::CartesianConstraint(const CartesianElementType& elementType)
+    :CartesianElement(elementType)
+{
+    switch(elementType)
+    {
+    case CartesianElementType::POSE:
+        m_sizeOfElement = 6;
+        break;
+
+    case CartesianElementType::POSITION:
+        m_sizeOfElement = 3;
+        break;
+
+    case CartesianElementType::ORIENTATION:
+        m_sizeOfElement = 3;
+        break;
+
+    case CartesianElementType::ONE_DIMENSION:
+        m_sizeOfElement = 1;
+        break;
+    }
+}
+
+
+void CartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
     if(!m_firstTime)
     {
@@ -50,101 +159,24 @@ void GenericCartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& j
     }
 }
 
-std::shared_ptr<LinearPID> GenericCartesianConstraint::positionController()
-{
-    std::unordered_map<std::string, std::shared_ptr<CartesianPID>>::const_iterator controller;
-    controller = m_controllers.find("position_pid");
-
-    if(controller == m_controllers.end())
-        return nullptr;
-
-    return std::static_pointer_cast<LinearPID>(controller->second);
-}
-
-std::shared_ptr<RotationalPID> GenericCartesianConstraint::orientationController()
-{
-    std::unordered_map<std::string, std::shared_ptr<CartesianPID>>::const_iterator controller;
-    controller = m_controllers.find("orientation_pid");
-
-    if(controller == m_controllers.end())
-        return nullptr;
-
-    return std::static_pointer_cast<RotationalPID>(controller->second);
-}
-
-void GenericCartesianConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
-                                                Eigen::VectorXd &lowerBounds)
+void CartesianConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds)
 {
     if(m_isActive)
     {
-        this->evaluateDesiredAcceleration();
-        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1) =
+        evaluateDesiredAcceleration();
+        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
             iDynTree::toEigen(m_desiredAcceleration) - iDynTree::toEigen(*m_biasAcceleration);
     }
     else
     {
-        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1) =
+        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
             - iDynTree::toEigen(*m_biasAcceleration);
     }
 
-    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1) =
-        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1);
+    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
+        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1);
 }
 
-CartesianConstraint::CartesianConstraint()
-{
-    // in case of CartesianConstraint the size is 6 (position + orientation)
-    m_sizeOfConstraint = 6;
-
-    m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
-    m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
-
-    m_desiredAcceleration.resize(6);
-}
-
-void CartesianConstraint::evaluateDesiredAcceleration()
-{
-    m_controllers["position_pid"]->evaluateControl();
-    iDynTree::toEigen(m_desiredAcceleration).block(0, 0, 3, 1)
-        = iDynTree::toEigen(m_controllers["position_pid"]->getControl());
-
-    m_controllers["orientation_pid"]->evaluateControl();
-    iDynTree::toEigen(m_desiredAcceleration).block(3, 0, 3, 1)
-        = iDynTree::toEigen(m_controllers["orientation_pid"]->getControl());
-}
-
-PositionConstraint::PositionConstraint()
-{
-    m_sizeOfConstraint = 3;
-
-    m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
-
-    m_desiredAcceleration.resize(3);
-}
-
-void PositionConstraint::evaluateDesiredAcceleration()
-{
-    m_controllers["position_pid"]->evaluateControl();
-    iDynTree::toEigen(m_desiredAcceleration)
-        = iDynTree::toEigen(m_controllers["position_pid"]->getControl());
-}
-
-OneDimensionalConstraint::OneDimensionalConstraint()
-{
-    // in case of CartesianConstraint the size is 1
-    m_sizeOfConstraint = 1;
-
-    m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
-
-    m_desiredAcceleration.resize(1);
-}
-
-void OneDimensionalConstraint::evaluateDesiredAcceleration()
-{
-    // take only the third element
-    m_controllers["position_pid"]->evaluateControl();
-    m_desiredAcceleration(0) = m_controllers["position_pid"]->getControl()(2);
-}
 
 ForceConstraint::ForceConstraint(const int& numberOfPoints)
     : m_numberOfPoints(numberOfPoints),
@@ -163,7 +195,7 @@ ForceConstraint::ForceConstraint(const int& numberOfPoints)
     int numberOfEquations = numberOfEquationsFrictionCone + numberOfEquationsFeasibility;
 
     // memory allocation
-    setSizeOfConstraint(numberOfEquations);
+    m_sizeOfElement = numberOfEquations;
 
     m_jacobianLeftTrivialized.resize(numberOfEquations, 6);
 }
@@ -268,17 +300,17 @@ void ForceConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::Vector
     // todo these may be evaluated only once
     double numberOfEquationsFrictionCone =  4 * (m_numberOfPoints - 2) + 4;
 
-    for(int i = 0; i < m_sizeOfConstraint; i++)
+    for(int i = 0; i < m_sizeOfElement; i++)
     {
         if(i != 2 + numberOfEquationsFrictionCone)
         {
-            lowerBounds(i + m_jacobianStartingRow) = -1000;
+            lowerBounds(i + m_jacobianStartingRow) = -OsqpEigen::INFTY;
             upperBounds(i + m_jacobianStartingRow) = 0;
             continue;
         }
         if(m_isActive)
         {
-            lowerBounds(i + m_jacobianStartingRow) = -10000;
+            lowerBounds(i + m_jacobianStartingRow) = -OsqpEigen::INFTY;
             upperBounds(i + m_jacobianStartingRow) = -m_minimalNormalForce;
         }
         else
@@ -292,7 +324,7 @@ void ForceConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::Vector
 
 ZMPConstraint::ZMPConstraint()
 {
-    setSizeOfConstraint(2);
+    m_sizeOfElement = 2;
 
     m_areBoundsEvaluated = false;
 }
@@ -323,10 +355,39 @@ void ZMPConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
     }
     else
     {
-        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
-        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
-        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
-        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
+        if(m_isLeftFootOnGround)
+        {
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
+
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
+        }
+        else
+        {
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = 0;
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 0;
+
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = 0;
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = 0;
+
+        }
+        if(m_isRightFootOnGround)
+        {
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 1;
+
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = -1;
+        }
+        else
+        {
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = 0;
+            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 0;
+
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = 0;
+            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = 0;
+        }
     }
 }
 
@@ -337,7 +398,7 @@ void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
     if(m_areBoundsEvaluated)
         return;
 
-    for(int i = 0; i < m_sizeOfConstraint; i++)
+    for(int i = 0; i < m_sizeOfElement; i++)
     {
         lowerBounds(m_jacobianStartingRow + i) = 0;
         upperBounds(m_jacobianStartingRow + i) = 0;
@@ -348,7 +409,7 @@ void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 SystemDynamicConstraint::SystemDynamicConstraint(const int& systemSize)
 {
-    m_sizeOfConstraint = systemSize + 6;
+    m_sizeOfElement = systemSize + 6;
     m_systemSize = systemSize;
 
     // this constraints knows its structure (probably this is not the best way to implement it)
@@ -363,7 +424,7 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
 {
     if(!m_firstTime)
     {
-        for(int i = 0; i < m_sizeOfConstraint; i++)
+        for(int i = 0; i < m_sizeOfElement; i++)
         {
             int index = i + m_jacobianStartingRow;
 
@@ -373,18 +434,34 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
 
             // left foot
             for(int j = 0; j < 6; j++)
-                // transpose
-                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize) = (*m_leftFootJacobian)(j, i);
+            {
+                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize)
+                    = (*m_leftFootJacobian)(j, i);
+                // // transpose
+                // if(m_isLeftFootOnGround)
+                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize)
+                //         = (*m_leftFootJacobian)(j, i);
+                // else
+                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize) = 0;
+            }
 
             // right foot
             for(int j = 0; j < 6; j++)
-                // transpose
-                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6) = (*m_rightFootJacobian)(j, i);
+            {
+                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6)
+                    = (*m_rightFootJacobian)(j, i);
+                // // transpose
+                // if(m_isRightFootOnGround)
+                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6)
+                //         = (*m_rightFootJacobian)(j, i);
+                // else
+                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6) = 0;
+            }
         }
     }
     else
     {
-        for(int i = 0; i < m_sizeOfConstraint; i++)
+        for(int i = 0; i < m_sizeOfElement; i++)
         {
             int index = i + m_jacobianStartingRow;
             // mass matrix
@@ -393,10 +470,8 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
 
             // selection matrix
             for(int j = 0; j < m_selectionMatrix.columns(); j++)
-            {
                 if(m_selectionMatrix(i, j) != 0)
                     jacobian.insert(index, j + m_systemSize + 6) = m_selectionMatrix(i, j);
-            }
 
             // left foot
             for(int j = 0; j < 6; j++)
@@ -416,14 +491,13 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
 void SystemDynamicConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
                                              Eigen::VectorXd &lowerBounds)
 {
-    upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
-    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfConstraint, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
+    upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
+    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
 }
 
 LinearMomentumConstraint::LinearMomentumConstraint()
 {
-    m_sizeOfConstraint = 3;
-
+    m_sizeOfElement = 3;
     m_controller = std::make_shared<LinearPID>();
 }
 
@@ -464,7 +538,7 @@ void LinearMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 AngularMomentumConstraint::AngularMomentumConstraint()
 {
-    m_sizeOfConstraint = 3;
+    m_sizeOfElement = 3;
 
     m_controller = std::make_shared<LinearPID>();
     // set the desired trajectory (it is constant)
@@ -581,7 +655,7 @@ void AngularMomentumConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& ja
 }
 
 void AngularMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
-                                              Eigen::VectorXd &lowerBounds)
+                                               Eigen::VectorXd &lowerBounds)
 {
     m_controller->evaluateControl();
 
@@ -591,7 +665,7 @@ void AngularMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
 
 RateOfChangeConstraint::RateOfChangeConstraint(const int& sizeOfTheConstraintVector)
 {
-    m_sizeOfConstraint = sizeOfTheConstraintVector;
+    m_sizeOfElement = sizeOfTheConstraintVector;
 }
 
 void RateOfChangeConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
@@ -600,7 +674,7 @@ void RateOfChangeConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacob
     if(!m_firstTime)
         return;
 
-    for(int i = 0; i < m_sizeOfConstraint; i++)
+    for(int i = 0; i < m_sizeOfElement; i++)
         jacobian.insert(m_jacobianStartingRow + i, m_jacobianStartingColumn + i) = 1;
 
     m_firstTime = false;
@@ -609,9 +683,107 @@ void RateOfChangeConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacob
 
 void RateOfChangeConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds)
 {
-    for(int i = 0; i < m_sizeOfConstraint; i++)
+    for(int i = 0; i < m_sizeOfElement; i++)
     {
         lowerBounds(m_jacobianStartingRow + i) = (*m_previousValues)(i) - m_maximumRateOfChange(i);
         upperBounds(m_jacobianStartingRow + i) = (*m_previousValues)(i) + m_maximumRateOfChange(i);
     }
+}
+
+CartesianCostFunction::CartesianCostFunction(const CartesianElementType& elementType)
+    :CartesianElement(elementType)
+{
+    switch(elementType)
+    {
+    case CartesianElementType::POSE:
+        m_sizeOfElement = 6;
+        break;
+
+    case CartesianElementType::POSITION:
+        m_sizeOfElement = 3;
+        break;
+
+    case CartesianElementType::ORIENTATION:
+        m_sizeOfElement = 3;
+        break;
+
+    case CartesianElementType::ONE_DIMENSION:
+        m_sizeOfElement = 1;
+        break;
+    }
+}
+
+void CartesianCostFunction::evaluateHessian(Eigen::SparseMatrix<double>& hessian)
+{
+    m_hessianSubMatrix = iDynTree::toEigen(*m_roboticJacobian).transpose()
+        * iDynTree::toEigen(m_weight).asDiagonal() * iDynTree::toEigen(*m_roboticJacobian);
+
+    if(!m_firstTime)
+    {
+        for(int i = 0; i < m_hessianSubMatrix.rows(); i++)
+            for(int j = 0; j < m_hessianSubMatrix.cols(); j++)
+                hessian.coeffRef(i + m_hessianStartingRow, j +  m_hessianStartingColumn)
+                    = m_hessianSubMatrix(i ,j);
+    }
+    else
+    {
+        for(int i = 0; i < m_hessianSubMatrix.rows(); i++)
+            for(int j = 0; j < m_hessianSubMatrix.cols(); j++)
+                hessian.insert(i + m_hessianStartingRow, j +  m_hessianStartingColumn)
+                    = m_hessianSubMatrix(i ,j);
+
+        m_firstTime = false;
+    }
+}
+
+void CartesianCostFunction::evaluateGradient(Eigen::VectorXd& gradient)
+{
+    evaluateDesiredAcceleration();
+
+    m_gradientSubMatrix = iDynTree::toEigen(*m_roboticJacobian).transpose() *
+        iDynTree::toEigen(m_weight).asDiagonal();
+
+    gradient.block(m_hessianStartingRow, 0, m_roboticJacobian->cols(), 1) = -m_gradientSubMatrix *
+        (iDynTree::toEigen(m_desiredAcceleration) - iDynTree::toEigen(*m_biasAcceleration));
+}
+
+void JointRegularizationTerm::evaluateHessian(Eigen::SparseMatrix<double>& hessian)
+{
+    if(m_firstTime)
+    {
+        for(int i = 0; i < m_sizeOfElement; i++)
+            hessian.insert(m_hessianStartingRow + i, m_hessianStartingColumn + i) = m_weight(i);
+        m_firstTime = false;
+    }
+
+    else
+        for(int i = 0; i < m_sizeOfElement; i++)
+            hessian.coeffRef(m_hessianStartingRow + i, m_hessianStartingColumn + i) = m_weight(i);
+}
+
+void JointRegularizationTerm::evaluateGradient(Eigen::VectorXd& gradient)
+{
+    double desiredJointAccelerationControlled;
+
+    for(int i = 0; i < m_sizeOfElement; i++)
+    {
+        desiredJointAccelerationControlled = m_desiredJointAcceleration->getVal(i)
+            + m_derivativeGains(i) * (m_desiredJointVelocity->getVal(i) - m_jointVelocity->getVal(i))
+            + m_proportionalGains(i) * (m_desiredJointPosition->getVal(i) - m_jointPosition->getVal(i));
+
+        gradient(i + m_hessianStartingRow) = -m_weight(i) * desiredJointAccelerationControlled;
+    }
+}
+
+void InputRegularizationTerm::evaluateHessian(Eigen::SparseMatrix<double>& hessian)
+{
+    if(m_firstTime)
+    {
+        for(int i = 0; i < m_sizeOfElement; i++)
+            hessian.insert(m_hessianStartingRow + i, m_hessianStartingColumn + i) = m_weight(i);
+        m_firstTime = false;
+    }
+    else
+        for(int i = 0; i < m_sizeOfElement; i++)
+            hessian.coeffRef(m_hessianStartingRow + i, m_hessianStartingColumn + i) = m_weight(i);
 }

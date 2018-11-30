@@ -23,92 +23,36 @@
 
 #include <TimeProfiler.hpp>
 
+enum class CartesianElementType {POSE, POSITION, ORIENTATION, ONE_DIMENSION};
+
+
 /**
- * Constraint is an abstract class that embeds the generic constraint whose form is
- * g_l <= g <= g_u
- * notice: now it only implements linear constraint (in the future it will be extended)
+ * GenericCartesianElement
  */
-class Constraint
+class CartesianElement
 {
+
 protected:
-
-    int m_sizeOfConstraint;
-
-    bool m_firstTime{true};
-
-    int m_jacobianStartingRow; /**< Staring row of the jacobian sub-matrix.*/
-    int m_jacobianStartingColumn; /**< Staring column of the jacobian sub-matrix.*/
-
-    int m_hessianStartingRow; /**< Staring row of the jacobian sub-matrix.*/
-    int m_hessianStartingColumn; /**< Staring column of the jacobian submatrix.*/
-
-    /**
-     * Set the size of the constraint.
-     * @param sizeOfConstraint size of the constraint.
-     */
-    void setSizeOfConstraint(const int& sizeOfConstraint){m_sizeOfConstraint = sizeOfConstraint;};
-
-public:
-
-    /**
-     * Evaluate Jacobian.
-     */
-    virtual void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) = 0;
-
-    /**
-     * Evaluate lower and upper bounds.
-     */
-    virtual void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) = 0;
-
-    /**
-     * Set the jacobian and hessian starting row and column.
-     * @param staringRow staring row of the jacobian sub-block;
-     * @param staringColumn staring row of the jacobian sub-block.
-     */
-    void setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn);
-
-    /**
-     * Get the number of constraint
-     */
-    int getNumberOfConstraints() {return m_sizeOfConstraint;};
-
-    int getJacobianStartingRow() {return m_jacobianStartingRow;};
-
-    int getJacobianStartingColumn() {return m_jacobianStartingColumn;};
-};
-
-/**
- * Linear constraint class. It handles the linear constraints.
- */
-class LinearConstraint : public Constraint
-{
-};
-
-/**
- * GenericCartesianConstraint is an abstract class useful to manage a generic Cartesian constraint
- * i.e. foot position and orientation, CoM position.
- */
-class GenericCartesianConstraint : public LinearConstraint
-{
     /**
      * Evaluate the desired acceleration. It depends on the type of constraint (Positional,
      * Rotational)
      */
-    virtual void evaluateDesiredAcceleration() = 0;
+    void evaluateDesiredAcceleration();
 
-    bool m_isActive{true};
 
-protected:
+    bool m_isActive{true}; /**< True if the element is active */
+
     iDynTree::VectorDynSize const * m_biasAcceleration; /**< Bias acceleration J \nu. */
-
     iDynTree::MatrixDynSize const * m_roboticJacobian; /**< Robotic Jacobian in mixed representation. */
-
     iDynTree::VectorDynSize m_desiredAcceleration; /**< Desired acceleration evaluated by the
                                                       controller. */
-
     std::unordered_map<std::string, std::shared_ptr<CartesianPID>> m_controllers; /**< Set of
                                                                                      controllers. */
+    CartesianElementType m_elementType;
+
 public:
+
+    CartesianElement(const CartesianElementType& elementType);
 
     /**
      * Set bias acceleration
@@ -124,11 +68,6 @@ public:
     void setRoboticJacobian(const iDynTree::MatrixDynSize& roboticJacobian){m_roboticJacobian = &roboticJacobian;};
 
     /**
-     * Evaluate the constraint jacobian
-     */
-    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
-
-    /**
      * Get the position controller associated to the constraint.
      * @return pointer to the controller.
      */
@@ -140,61 +79,94 @@ public:
      */
     std::shared_ptr<RotationalPID> orientationController();
 
-    void activate(){m_isActive = true;};
+    void setState(bool state){m_isActive = state;};
+};
 
-    void deactivate(){m_isActive = false;};
+
+class OptimizationElement
+{
+protected:
+
+    bool m_firstTime{true};
+
+    int m_jacobianStartingRow; /**< Staring row of the jacobian sub-matrix.*/
+    int m_jacobianStartingColumn; /**< Staring column of the jacobian sub-matrix.*/
+
+    int m_hessianStartingRow; /**< Staring row of the hessian sub-matrix.*/
+    int m_hessianStartingColumn; /**< Staring column of the hessian submatrix.*/
+
+    int m_sizeOfElement;
+public:
+
+    /**
+     * Evaluate Hessian.
+     */
+    virtual void evaluateHessian(Eigen::SparseMatrix<double>& hessian){;};
+
+    /**
+     * Evaluate Jacobian.
+     */
+    virtual void evaluateGradient(Eigen::VectorXd& gradient){;};
+
+    /**
+     * Evaluate Jacobian.
+     */
+    virtual void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian){;};
+
+    /**
+     * Evaluate lower and upper bounds.
+     */
+    virtual void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds){;};
+
+    /**
+     * Set the jacobian and hessian starting row and column.
+     * @param staringRow staring row of the jacobian sub-block;
+     * @param staringColumn staring row of the jacobian sub-block.
+     */
+    void setSubMatricesStartingPosition(const int& startingRow, const int& startingColumn);
+
+    int getJacobianStartingRow() {return m_jacobianStartingRow;};
+
+    int getJacobianStartingColumn() {return m_jacobianStartingColumn;};
+};
+
+class Constraint : public OptimizationElement
+{
+
+public:
+    /**
+     * Get the number of constraint
+     */
+    int getNumberOfConstraints() {return m_sizeOfElement;};
+};
+
+/**
+ * Linear constraint class. It handles the linear constraints.
+ */
+class LinearConstraint : public Constraint
+{
+};
+
+/**
+ * CartesianConstraint is an abstract class useful to manage a generic Cartesian constraint
+ * i.e. foot position and orientation, CoM position.
+ */
+class CartesianConstraint : public LinearConstraint, public CartesianElement
+{
+
+public:
+
+    CartesianConstraint(const CartesianElementType& elementType);
+
+    /**
+     * Evaluate the constraint jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
     /**
      * Evaluate lower and upper bounds.
      */
     void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
-
-};
-
-class OneDimensionalConstraint : public GenericCartesianConstraint
-{
-    /**
-     * Evaluate the desired acceleration
-     */
-    void evaluateDesiredAcceleration() override;
-
-public:
-    /**
-     * Constructor
-     */
-    OneDimensionalConstraint();
-};
-
-class PositionConstraint : public GenericCartesianConstraint
-{
-    /**
-     * Evaluate the desired acceleration
-     */
-    void evaluateDesiredAcceleration() override;
-
-public:
-    /**
-     * Constructor
-     */
-    PositionConstraint();
-};
-
-/**
- * Cartesian Constraint class implements a Cartesian constraint
- */
-class CartesianConstraint : public GenericCartesianConstraint
-{
-    /**
-     * Evaluate the desired acceleration
-     */
-    void evaluateDesiredAcceleration() override;
-
-public:
-
-    /**
-     * Constructor
-     */
-    CartesianConstraint();
 };
 
 /**
@@ -259,10 +231,7 @@ public:
     // todo
     void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = &footToWorldTransform;};
 
-    void activate(){m_isActive = true;};
-
-    void deactivate(){m_isActive = false;};
-
+    void setFootState(bool footState){m_isActive = footState;};
     /**
      * Evaluate the jacobian
      */
@@ -285,9 +254,16 @@ class ZMPConstraint : public LinearConstraint
     iDynTree::Vector2 m_desiredZMP;
     bool m_areBoundsEvaluated = false;
 
+    bool m_isRightFootOnGround{true};
+    bool m_isLeftFootOnGround{true};
+
+
 public:
 
     ZMPConstraint();
+
+    void setRightFootState(bool isRightFootOnGround){m_isRightFootOnGround = isRightFootOnGround;};
+    void setLeftFootState(bool isLeftFootOnGround){m_isLeftFootOnGround = isLeftFootOnGround;};
 
     /**
      * Set the desired ZMP
@@ -346,8 +322,6 @@ public:
     std::shared_ptr<LinearPID> controller() {return m_controller;};
 };
 
-// todo
-// has to be implemented
 class AngularMomentumConstraint : public LinearConstraint
 {
     std::shared_ptr<LinearPID> m_controller;
@@ -393,9 +367,15 @@ class SystemDynamicConstraint : public LinearConstraint
     int m_systemSize;
     iDynSparseMatrix m_selectionMatrix;
 
+    bool m_isRightFootOnGround{true};
+    bool m_isLeftFootOnGround{true};
+
 public:
 
     SystemDynamicConstraint(const int& systemSize);
+
+    void setRightFootState(bool isRightFootOnGround){m_isRightFootOnGround = isRightFootOnGround;};
+    void setLeftFootState(bool isLeftFootOnGround){m_isLeftFootOnGround = isLeftFootOnGround;};
 
     void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
 
@@ -438,6 +418,92 @@ public:
      * Evaluate lower and upper bounds.
      */
     void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
+class CostFunctionElement : public OptimizationElement
+{
+protected:
+    iDynTree::VectorDynSize m_weight;
+
+public:
+    void setWeight(const iDynTree::VectorDynSize& weight) {m_weight = weight;};
+};
+
+class QuadraticCostFunction : public CostFunctionElement
+{
+};
+
+class CartesianCostFunction : public QuadraticCostFunction,
+                              public CartesianElement
+{
+
+    Eigen::MatrixXd m_hessianSubMatrix;
+    Eigen::MatrixXd m_gradientSubMatrix;
+
+public:
+    CartesianCostFunction(const CartesianElementType& elementType);
+
+    /**
+     * Evaluate the gradient vector
+     */
+    void evaluateGradient(Eigen::VectorXd& gradient);
+
+    /**
+     * Evaluate the Hessian matrix
+     */
+    void evaluateHessian(Eigen::SparseMatrix<double>& hessian) override;
+};
+
+class JointRegularizationTerm : public QuadraticCostFunction
+{
+
+    iDynTree::VectorDynSize m_derivativeGains;
+    iDynTree::VectorDynSize m_proportionalGains;
+
+    iDynTree::VectorDynSize const * m_desiredJointPosition;
+    iDynTree::VectorDynSize const * m_desiredJointVelocity;
+    iDynTree::VectorDynSize const * m_desiredJointAcceleration;
+    iDynTree::VectorDynSize const * m_jointPosition;
+    iDynTree::VectorDynSize const * m_jointVelocity;
+
+public:
+    JointRegularizationTerm(const int &systemSize){m_sizeOfElement = systemSize;};
+
+    void setDerivativeGains(const iDynTree::VectorDynSize &derivativeGains){m_derivativeGains = derivativeGains;};
+
+    void setProportionalGains(const iDynTree::VectorDynSize &proportionalGains){m_proportionalGains = proportionalGains;};
+
+    void setDesiredJointPosition(const iDynTree::VectorDynSize &desiredJointPosition){m_desiredJointPosition = &desiredJointPosition;};
+
+    void setDesiredJointVelocity(const iDynTree::VectorDynSize &desiredJointVelocity){m_desiredJointVelocity = &desiredJointVelocity;};
+
+    void setDesiredJointAcceleration(const iDynTree::VectorDynSize &desiredJointAcceleration){m_desiredJointAcceleration = &desiredJointAcceleration;};
+
+    void setJointPosition(const iDynTree::VectorDynSize &jointPosition){m_jointPosition = &jointPosition;};
+
+    void setJointVelocity(const iDynTree::VectorDynSize &jointVelocity){m_jointVelocity = &jointVelocity;};
+
+    /**
+     * Evaluate the Hessian matrix
+     */
+    void evaluateHessian(Eigen::SparseMatrix<double>& hessian) override;
+
+    /**
+     * Evaluate the Hessian matrix
+     */
+    void evaluateGradient(Eigen::VectorXd& gradient);
+};
+
+class InputRegularizationTerm : public QuadraticCostFunction
+{
+
+public:
+    InputRegularizationTerm(const int &systemSize){m_sizeOfElement = systemSize;};
+
+    /**
+     * Evaluate the Hessian matrix
+     */
+    void evaluateHessian(Eigen::SparseMatrix<double>& hessian) override;
 };
 
 

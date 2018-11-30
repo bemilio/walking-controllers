@@ -44,14 +44,14 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateCoMConstraint(const yarp:
     m_controlOnlyCoMHeight = config.check("controllOnlyHeight", yarp::os::Value("False")).asBool();
 
     // resize com quantities
-    std::shared_ptr<GenericCartesianConstraint> ptr;
+    std::shared_ptr<CartesianConstraint> ptr;
     if(!m_controlOnlyCoMHeight)
     {
         m_comJacobian.resize(3, m_actuatedDOFs + 6);
         m_comBiasAcceleration.resize(3);
 
         // memory allocation
-        ptr = std::make_shared<PositionConstraint>();
+        ptr = std::make_shared<CartesianConstraint>(CartesianElementType::POSE);
     }
     else
     {
@@ -59,7 +59,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateCoMConstraint(const yarp:
         m_comBiasAcceleration.resize(1);
 
         // memory allocation
-        ptr = std::make_shared<OneDimensionalConstraint>();
+        ptr = std::make_shared<CartesianConstraint>(CartesianElementType::ONE_DIMENSION);
     }
 
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
@@ -202,7 +202,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     m_leftFootJacobian.resize(6, m_actuatedDOFs + 6);
     m_leftFootBiasAcceleration.resize(6);
 
-    ptr = std::make_shared<CartesianConstraint>();
+    ptr = std::make_shared<CartesianConstraint>(CartesianElementType::POSE);
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
     ptr->positionController()->setGains(kp, kd);
     ptr->orientationController()->setGains(c0, c1, c2);
@@ -215,7 +215,7 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateFeetConstraint(const yarp
     // resize quantities
     m_rightFootJacobian.resize(6, m_actuatedDOFs + 6);
     m_rightFootBiasAcceleration.resize(6);
-    ptr = std::make_shared<CartesianConstraint>();
+    ptr = std::make_shared<CartesianConstraint>(CartesianElementType::POSE);
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
     ptr->positionController()->setGains(kp, kd);
     ptr->orientationController()->setGains(c0, c1, c2);
@@ -417,7 +417,6 @@ void WalkingTaskBasedTorqueController_osqp::instantiateSystemDynamicsConstraint(
 bool WalkingTaskBasedTorqueController_osqp::instantiateNeckSoftConstraint(const yarp::os::Searchable& config)
 {
     yarp::os::Value tempValue;
-    m_neckOrientationController = std::make_unique<RotationalPID>();
     if(config.isNull())
     {
         yError() << "[instantiateNeckSoftConstraint] Empty configuration neck soft constraint.";
@@ -426,8 +425,8 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateNeckSoftConstraint(const 
 
     // get the neck weight
     tempValue = config.find("neckWeight");
-    m_neckOrientationWeight.resize(3);
-    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, m_neckOrientationWeight))
+    iDynTree::VectorDynSize neckWeight(3);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, neckWeight))
     {
         yError() << "[instantiateNeckSoftConstraint] Initialization failed while reading neckWeight.";
         return false;
@@ -443,23 +442,31 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateNeckSoftConstraint(const 
     if(!YarpHelper::getNumberFromSearchable(config, "c2", c2))
         return false;
 
-    m_neckOrientationController->setGains(c0, c1, c2);
-
     if(!iDynTree::parseRotationMatrix(config, "additional_rotation", m_additionalRotation))
     {
         yError() << "[instantiateNeckSoftConstraint] Unable to set the additional rotation.";
         return false;
     }
 
+    m_neckBiasAcceleration.resize(3);
     m_neckJacobian.resize(3, m_actuatedDOFs + 6);
+
+    std::shared_ptr<CartesianCostFunction> ptr;
+    ptr = std::make_shared<CartesianCostFunction>(CartesianElementType::ORIENTATION);
+    ptr->setSubMatricesStartingPosition(0, 0);
+
+    ptr->setWeight(neckWeight);
+    ptr->setBiasAcceleration(m_neckBiasAcceleration);
+    ptr->setRoboticJacobian(m_neckJacobian);
+    ptr->orientationController()->setGains(c0, c1, c2);
 
     // resize useful matrix
     m_neckHessian.resize(m_numberOfVariables, m_numberOfVariables);
-    m_neckHessianSubMatrix.resize(m_actuatedDOFs + 6, m_actuatedDOFs + 6);
+    m_neckGradient = MatrixXd::Zero(m_numberOfVariables, 1);
 
-    // notice only the neck orientation is used
-    m_neckGradient.resize(m_numberOfVariables, 3);
-    m_neckGradientSubMatrix.resize(m_actuatedDOFs + 6, 3);
+    m_costFunction.insert(std::make_pair("neck", ptr));
+    m_hessianMatrices.insert(std::make_pair("neck", &m_neckHessian));
+    m_gradientVectors.insert(std::make_pair("neck", &m_neckGradient));
 
     return true;
 }
@@ -474,11 +481,15 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateRegularizationTaskConstra
         return false;
     }
 
+    m_jointRegularizationGradient = MatrixXd::Zero(m_numberOfVariables, 1);
+    m_jointRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+
     m_desiredJointPosition.resize(m_actuatedDOFs);
     m_desiredJointVelocity.resize(m_actuatedDOFs);
     m_desiredJointAcceleration.resize(m_actuatedDOFs);
     m_desiredJointVelocity.zero();
     m_desiredJointAcceleration.zero();
+
     tempValue = config.find("jointRegularization");
     if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, m_desiredJointPosition))
     {
@@ -499,37 +510,42 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateRegularizationTaskConstra
         return false;
     }
 
-    //  m_jointRegularizationHessian = H' \lamda H
-    m_jointRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
-    for(int i = 0; i < m_actuatedDOFs; i++)
-        m_jointRegularizationHessian.insert(i + 6, i + 6) = jointRegularizationWeights(i);
-
-
-    // evaluate constant sub-matrix of the gradient matrix
-    m_jointRegularizationGradient.resize(m_numberOfVariables, m_actuatedDOFs);
-    for(int i = 0; i < m_actuatedDOFs; i++)
-        m_jointRegularizationGradient.insert(i + 6, i) = jointRegularizationWeights(i);
-
     // set the matrix related to the joint regularization
-    tempValue = config.find("jointRegularizationProportionalGains");
-    m_jointRegularizationProportionalGains.resize(m_actuatedDOFs);
-    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue,
-                                                    m_jointRegularizationProportionalGains))
+    tempValue = config.find("proportionalGains");
+    iDynTree::VectorDynSize proportionalGains(m_actuatedDOFs);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, proportionalGains))
     {
-        yError() << "Initialization failed while reading jointRegularizationProportionalGains vector.";
+        yError() << "Initialization failed while reading proportionalGains vector.";
         return false;
     }
 
-    tempValue = config.find("jointRegularizationDerivativeGains");
-    m_jointRegularizationDerivativeGains.resize(m_actuatedDOFs);
-    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, m_jointRegularizationDerivativeGains))
+    tempValue = config.find("derivativeGains");
+    iDynTree::VectorDynSize derivativeGains(m_actuatedDOFs);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, derivativeGains))
     {
-        yError() << "Initialization failed while reading jointRegularizationDerivativeGains vector.";
+        yError() << "Initialization failed while reading dxerivativeGains vector.";
         return false;
     }
 
-    // todo move in a separate class
-    m_desiredJointAccelerationController.resize(m_actuatedDOFs);
+    std::shared_ptr<JointRegularizationTerm> ptr;
+    ptr = std::make_shared<JointRegularizationTerm>(m_actuatedDOFs);
+
+    ptr->setSubMatricesStartingPosition(6, 0);
+
+    ptr->setWeight(jointRegularizationWeights);
+    ptr->setDerivativeGains(derivativeGains);
+    ptr->setProportionalGains(proportionalGains);
+
+    ptr->setDesiredJointPosition(m_desiredJointPosition);
+    ptr->setDesiredJointVelocity(m_desiredJointVelocity);
+    ptr->setDesiredJointAcceleration(m_desiredJointAcceleration);
+    ptr->setJointPosition(m_jointPosition);
+    ptr->setJointVelocity(m_jointVelocity);
+
+    m_costFunction.insert(std::make_pair("regularization_joint", ptr));
+    m_hessianMatrices.insert(std::make_pair("regularization_joint", &m_jointRegularizationHessian));
+    m_gradientVectors.insert(std::make_pair("regularization_joint", &m_jointRegularizationGradient));
+
 
     return true;
 }
@@ -552,16 +568,17 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateTorqueRegularizationConst
         return false;
     }
 
-    //  m_torqueRegularizationHessian = H' \lamda H
-    m_torqueRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
-    for(int i = 0; i < m_actuatedDOFs; i++)
-        m_torqueRegularizationHessian.insert(i + m_actuatedDOFs + 6,
-                                            i + m_actuatedDOFs + 6) = torqueRegularizationWeights(i);
+    std::shared_ptr<InputRegularizationTerm> ptr;
+    ptr = std::make_shared<InputRegularizationTerm>(m_actuatedDOFs);
+    ptr->setSubMatricesStartingPosition(6 + m_actuatedDOFs, 0);
+    ptr->setWeight(torqueRegularizationWeights);
 
-    m_torqueRegularizationGradient.resize(m_numberOfVariables, m_actuatedDOFs);
-    for(int i = 0; i < m_actuatedDOFs; i++)
-        m_torqueRegularizationGradient.insert(i + m_actuatedDOFs + 6, i)
-            = torqueRegularizationWeights(i);
+    m_torqueRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+    m_torqueRegularizationGradient = MatrixXd::Zero(m_numberOfVariables, 1);
+
+    m_costFunction.insert(std::make_pair("regularization_torque", ptr));
+    m_hessianMatrices.insert(std::make_pair("regularization_torque", &m_torqueRegularizationHessian));
+    m_gradientVectors.insert(std::make_pair("regularization_torque", &m_torqueRegularizationGradient));
     return true;
 }
 
@@ -582,15 +599,34 @@ bool WalkingTaskBasedTorqueController_osqp::instantiateForceRegularizationConstr
         return false;
     }
 
-
     if(!YarpHelper::getNumberFromSearchable(config, "regularizationForceOffset", m_regularizationForceOffset))
     {
         yError() << "[instantiateForceRegularizationConstraint] Unable to get regularization force offset";
         return false;
     }
 
+    m_leftForceRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+    m_leftForceRegularizationGradient = MatrixXd::Zero(m_numberOfVariables, 1);
 
-    m_forceRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+    m_rightForceRegularizationHessian.resize(m_numberOfVariables, m_numberOfVariables);
+    m_rightForceRegularizationGradient = MatrixXd::Zero(m_numberOfVariables, 1);
+
+    std::shared_ptr<InputRegularizationTerm> ptr;
+    ptr = std::make_shared<InputRegularizationTerm>(6);
+    ptr->setSubMatricesStartingPosition(6 + m_actuatedDOFs + m_actuatedDOFs, 0);
+    m_costFunction.insert(std::make_pair("regularization_left_force", ptr));
+    m_hessianMatrices.insert(std::make_pair("regularization_left_force",
+                                            &m_leftForceRegularizationHessian));
+    m_gradientVectors.insert(std::make_pair("regularization_left_force",
+                                            &m_leftForceRegularizationGradient));
+
+    ptr = std::make_shared<InputRegularizationTerm>(6);
+    ptr->setSubMatricesStartingPosition(6 + m_actuatedDOFs + m_actuatedDOFs + 6, 0);
+    m_costFunction.insert(std::make_pair("regularization_right_force", ptr));
+    m_hessianMatrices.insert(std::make_pair("regularization_right_force",
+                                            &m_rightForceRegularizationHessian));
+    m_gradientVectors.insert(std::make_pair("regularization_right_force",
+                                            &m_rightForceRegularizationGradient));
 
     return true;
 }
@@ -671,7 +707,7 @@ bool WalkingTaskBasedTorqueController_osqp::initialize(const yarp::os::Searchabl
     yarp::os::Bottle& contactForcesOption = config.findGroup("CONTACT_FORCES");
     if(!instantiateContactForcesConstraint(contactForcesOption))
     {
-        yError() << "[initialize] Unable to get the instantiate the feet constraints.";
+        yError() << "[initialize] Unable to get the instantiate the force feet constraints.";
         return false;
     }
 
@@ -899,22 +935,44 @@ bool WalkingTaskBasedTorqueController_osqp::setInternalRobotState(const iDynTree
     return true;
 }
 
-void WalkingTaskBasedTorqueController_osqp::setDesiredNeckTrajectory(const iDynTree::Rotation& desiredNeckOrientation,
+bool WalkingTaskBasedTorqueController_osqp::setDesiredNeckTrajectory(const iDynTree::Rotation& desiredNeckOrientation,
                                                                      const iDynTree::Vector3& desiredNeckVelocity,
                                                                      const iDynTree::Vector3& desiredNeckAcceleration)
 {
-    // debug
+
+    auto cost = m_costFunction.find("neck");
+    if(cost == m_costFunction.end())
+    {
+        yError() << "[setDesiredNeckTrajectory] unable to find the neck trajectory element. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+
+    auto ptr = std::static_pointer_cast<CartesianCostFunction>(cost->second);
+    ptr->orientationController()->setDesiredTrajectory(desiredNeckAcceleration,
+                                                       desiredNeckVelocity,
+                                                       desiredNeckOrientation * m_additionalRotation);
+
     m_desiredNeckOrientation = desiredNeckOrientation * m_additionalRotation;
-    // todo are you sure about these equations?
-    m_neckOrientationController->setDesiredTrajectory(desiredNeckAcceleration,
-                                                      desiredNeckVelocity,
-                                                      desiredNeckOrientation * m_additionalRotation);
+
+    return true;
 }
 
-void WalkingTaskBasedTorqueController_osqp::setNeckState(const iDynTree::Rotation& neckOrientation,
+bool WalkingTaskBasedTorqueController_osqp::setNeckState(const iDynTree::Rotation& neckOrientation,
                                                          const iDynTree::Twist& neckVelocity)
 {
-    m_neckOrientationController->setFeedback(neckVelocity.getAngularVec3(), neckOrientation);
+    auto cost = m_costFunction.find("neck");
+    if(cost == m_costFunction.end())
+    {
+        yError() << "[setDesiredNeckTrajectory] unable to find the neck trajectory element. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+
+    auto ptr = std::static_pointer_cast<CartesianCostFunction>(cost->second);
+    ptr->orientationController()->setFeedback(neckVelocity.getAngularVec3(), neckOrientation);
+
+    return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setNeckJacobian(const iDynTree::MatrixDynSize& neckJacobian)
@@ -924,6 +982,7 @@ bool WalkingTaskBasedTorqueController_osqp::setNeckJacobian(const iDynTree::Matr
         yError() << "[setNeckMJacobian] the number of rows has to be equal to 6.";
         return false;
     }
+
     if(neckJacobian.cols() != m_actuatedDOFs + 6)
     {
         yError() << "[setNeckMJacobian] the number of rows has to be equal to" << m_actuatedDOFs + 6;
@@ -987,12 +1046,6 @@ bool WalkingTaskBasedTorqueController_osqp::setDesiredFeetTrajectory(const iDynT
     ptr->orientationController()->setDesiredTrajectory(dummy,
                                                        rightFootTwist.getAngularVec3(),
                                                        rightFootToWorldTransform.getRotation());
-
-    if(leftFootToWorldTransform.getPosition()(2) > 0)
-        yInfo() << "left detached";
-    if(rightFootToWorldTransform.getPosition()(2) > 0)
-        yInfo() << "left detached";
-
     return true;
 }
 
@@ -1120,7 +1173,7 @@ bool WalkingTaskBasedTorqueController_osqp::setDesiredCoMTrajectory(const iDynTr
             return false;
         }
 
-        auto ptr = std::static_pointer_cast<GenericCartesianConstraint>(constraint->second);
+        auto ptr = std::static_pointer_cast<CartesianConstraint>(constraint->second);
         ptr->positionController()->setDesiredTrajectory(dummy, comVelocity, comPosition);
     }
     return true;
@@ -1138,7 +1191,7 @@ bool WalkingTaskBasedTorqueController_osqp::setCoMState(const iDynTree::Position
                      << "Please call 'initialize()' method";
             return false;
         }
-        auto ptr = std::static_pointer_cast<GenericCartesianConstraint>(constraint->second);
+        auto ptr = std::static_pointer_cast<CartesianConstraint>(constraint->second);
         ptr->positionController()->setFeedback(comVelocity, comPosition);
     }
     m_comPosition = comPosition;
@@ -1217,6 +1270,7 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
         return false;
     }
     ptrForceConstraint = std::static_pointer_cast<ForceConstraint>(constraint->second);
+    ptrForceConstraint->setFootState(leftInContact);
 
     constraint = m_constraints.find("left_foot");
     if(constraint == m_constraints.end())
@@ -1227,18 +1281,6 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
     }
     ptrFootConstraint = std::static_pointer_cast<CartesianConstraint>(constraint->second);
 
-    if(leftInContact)
-    {
-        // ptrFootConstraint->deactivate();
-        ptrForceConstraint->activate();
-    }
-    else
-    {
-        // ptrFootConstraint->activate();
-        ptrForceConstraint->deactivate();
-        yInfo() << "left deactivate";
-    }
-
     // right foot
     constraint = m_constraints.find("right_force");
     if(constraint == m_constraints.end())
@@ -1248,6 +1290,7 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
         return false;
     }
     ptrForceConstraint = std::static_pointer_cast<ForceConstraint>(constraint->second);
+    ptrForceConstraint->setFootState(rightInContact);
 
     constraint = m_constraints.find("right_foot");
     if(constraint == m_constraints.end())
@@ -1258,85 +1301,60 @@ bool WalkingTaskBasedTorqueController_osqp::setFeetState(const bool &leftInConta
     }
     ptrFootConstraint = std::static_pointer_cast<CartesianConstraint>(constraint->second);
 
-    if(rightInContact)
-    {
-        // ptrFootConstraint->deactivate();
-        ptrForceConstraint->activate();
-    }
-    else
-    {
-        // ptrFootConstraint->activate();
-        ptrForceConstraint->deactivate();
-        yInfo() << "right deactivate";
-    }
-
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setFeetWeightPercentage(const double &weightInLeft,
                                                                     const double &weightInRight)
 {
+    iDynTree::VectorDynSize weightLeft(6), weightRight(6);
 
-    std::cerr << "weight left: "<<weightInLeft << " weight right: " << weightInRight << "\n";
-
-    if(m_optimizer->isInitialized())
+    for(int i = 0; i < 6; i++)
     {
-        for(int i = 0; i < 6; i++)
-        {
-            m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
-                                                  m_actuatedDOFs + 6 + m_actuatedDOFs + i)
-                = m_regularizationForceScale * std::fabs(weightInLeft) + m_regularizationForceOffset;
+        weightLeft(i) = m_regularizationForceScale * std::fabs(weightInLeft)
+            + m_regularizationForceOffset;
 
-            m_forceRegularizationHessian.coeffRef(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
-                                                  m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
-                = m_regularizationForceScale * std::fabs(weightInRight) + m_regularizationForceOffset;
-        }
+        weightRight(i) = m_regularizationForceScale * std::fabs(weightInRight)
+            + m_regularizationForceOffset;
     }
-    else
+
+    auto cost = m_costFunction.find("regularization_left_force");
+    if(cost == m_costFunction.end())
     {
-        for(int i = 0; i < 6; i++)
-        {
-            m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + i,
-                                                m_actuatedDOFs + 6 + m_actuatedDOFs + i)
-                = m_regularizationForceScale * std::fabs(weightInLeft) + m_regularizationForceOffset;
-
-            m_forceRegularizationHessian.insert(m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i,
-                                                m_actuatedDOFs + 6 + m_actuatedDOFs + 6 + i)
-                = m_regularizationForceScale * std::fabs(weightInRight) + m_regularizationForceOffset;
-        }
+        yError() << "[setDesiredNeckTrajectory] unable to find the neck trajectory element. "
+                 << "Please call 'initialize()' method";
+        return false;
     }
+    auto ptr = std::static_pointer_cast<InputRegularizationTerm>(cost->second);
+    ptr->setWeight(weightLeft);
+
+    cost = m_costFunction.find("regularization_right_force");
+    if(cost == m_costFunction.end())
+    {
+        yError() << "[setDesiredNeckTrajectory] unable to find the neck trajectory element. "
+                 << "Please call 'initialize()' method";
+        return false;
+    }
+    ptr = std::static_pointer_cast<InputRegularizationTerm>(cost->second);
+    ptr->setWeight(weightRight);
 
     return true;
-
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setHessianMatrix()
 {
-    // neck orientation
-    iDynTree::toEigen(m_neckHessianSubMatrix) = iDynTree::toEigen(m_neckJacobian).transpose() *
-        iDynTree::toEigen(m_neckOrientationWeight).asDiagonal() * iDynTree::toEigen(m_neckJacobian);
-
-    // check if it is the first time
-    if(m_optimizer->isInitialized())
+    std::string key;
+    Eigen::SparseMatrix<double> hessianEigen(m_numberOfVariables, m_numberOfVariables);
+    for(const auto& element: m_costFunction)
     {
-        for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckHessianSubMatrix.cols(); j++)
-                m_neckHessian.coeffRef(i, j) = m_neckHessianSubMatrix(i,j);
+        key = element.first;
+        element.second->evaluateHessian(*(m_hessianMatrices.at(key)));
+        hessianEigen+= *(m_hessianMatrices.at(key));
     }
-    else
-    {
-        for(int i = 0; i < m_neckHessianSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckHessianSubMatrix.cols(); j++)
-                m_neckHessian.insert(i, j) = m_neckHessianSubMatrix(i,j);
-    }
-
-    // evaluate the hessian matrix
-    m_hessianEigen = m_neckHessian + m_jointRegularizationHessian + m_torqueRegularizationHessian
-        + m_forceRegularizationHessian;
 
     if(m_optimizer->isInitialized())
     {
-        if(!m_optimizer->updateHessianMatrix(m_hessianEigen))
+        if(!m_optimizer->updateHessianMatrix(hessianEigen))
         {
             yError() << "[setHessianMatrix] Unable to update the hessian matrix.";
             return false;
@@ -1344,56 +1362,32 @@ bool WalkingTaskBasedTorqueController_osqp::setHessianMatrix()
     }
     else
     {
-        if(!m_optimizer->data()->setHessianMatrix(m_hessianEigen))
+        if(!m_optimizer->data()->setHessianMatrix(hessianEigen))
         {
             yError() << "[setHessianMatrix] Unable to set first time the hessian matrix.";
             return false;
         }
     }
 
+    m_hessianEigen = hessianEigen;
+
     return true;
 }
 
 bool WalkingTaskBasedTorqueController_osqp::setGradientVector()
 {
-    // regularization joint
-    iDynTree::toEigen(m_desiredJointAccelerationController)
-        = iDynTree::toEigen(m_desiredJointAcceleration)
-        + iDynTree::toEigen(m_jointRegularizationDerivativeGains).asDiagonal() *
-        (iDynTree::toEigen(m_desiredJointVelocity) - iDynTree::toEigen(m_jointVelocity))
-        + iDynTree::toEigen(m_jointRegularizationProportionalGains).asDiagonal() *
-        (iDynTree::toEigen(m_desiredJointPosition) - iDynTree::toEigen(m_jointPosition));
-
-    // neck orientation
-    m_neckOrientationController->evaluateControl();
-    auto neckDesiredAcceleration = m_neckOrientationController->getControl();
-
-    iDynTree::toEigen(m_neckGradientSubMatrix) = iDynTree::toEigen(m_neckJacobian).transpose() *
-        iDynTree::toEigen(m_neckOrientationWeight).asDiagonal();
-
-    // check if it is the first time
-    if(m_optimizer->isInitialized())
+    std::string key;
+    Eigen::VectorXd gradientEigen = MatrixXd::Zero(m_numberOfVariables, 1);
+    for(const auto& element: m_costFunction)
     {
-        for(int i = 0; i < m_neckGradientSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
-                m_neckGradient.coeffRef(i, j) = m_neckGradientSubMatrix(i,j);
+        key = element.first;
+        element.second->evaluateGradient(*(m_gradientVectors.at(key)));
+        gradientEigen += *(m_gradientVectors.at(key));
     }
-    else
-    {
-        for(int i = 0; i < m_neckGradientSubMatrix.rows(); i++)
-            for(int j = 0; j < m_neckGradientSubMatrix.cols(); j++)
-                m_neckGradient.insert(i, j) = m_neckGradientSubMatrix(i,j);
-    }
-
-    m_gradient =
-        - m_jointRegularizationGradient * iDynTree::toEigen(m_desiredJointAccelerationController)
-        - m_neckGradient * (iDynTree::toEigen(neckDesiredAcceleration) -
-                            iDynTree::toEigen(m_neckBiasAcceleration));
-        // - iDynTree::toEigen(m_torqueRegularizationGradient) * m_solution.block(m_actuatedDOFs + 6, 0, m_actuatedDOFs + 12, 1);
 
     if(m_optimizer->isInitialized())
     {
-        if(!m_optimizer->updateGradient(m_gradient))
+        if(!m_optimizer->updateGradient(gradientEigen))
         {
             yError() << "[setGradient] Unable to update the gradient.";
             return false;
@@ -1401,12 +1395,14 @@ bool WalkingTaskBasedTorqueController_osqp::setGradientVector()
     }
     else
     {
-        if(!m_optimizer->data()->setGradient(m_gradient))
+        if(!m_optimizer->data()->setGradient(gradientEigen))
         {
             yError() << "[setGradient] Unable to set first time the gradient.";
             return false;
         }
     }
+
+    m_gradient = gradientEigen;
 
     return true;
 }

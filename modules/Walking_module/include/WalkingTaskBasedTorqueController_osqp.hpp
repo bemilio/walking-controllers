@@ -60,16 +60,7 @@ class WalkingTaskBasedTorqueController_osqp
 
     // Joint task
     Eigen::SparseMatrix<double> m_jointRegularizationHessian;
-    Eigen::SparseMatrix<double> m_jointRegularizationGradient;
-
-    iDynTree::VectorDynSize m_jointRegularizationWeights; /**< Vector containing the joint
-                                                             regularization weights. */
-    iDynTree::VectorDynSize m_jointRegularizationProportionalGains; /**< Vector containing the joint
-                                                                       regularization gains
-                                                                       (proportional). */
-    iDynTree::VectorDynSize m_jointRegularizationDerivativeGains; /**< Vector containing the joint
-                                                                     regularization gains
-                                                                     (derivative). */
+    Eigen::VectorXd m_jointRegularizationGradient;
 
     iDynTree::VectorDynSize m_desiredJointPosition;
     iDynTree::VectorDynSize m_desiredJointVelocity;
@@ -78,27 +69,17 @@ class WalkingTaskBasedTorqueController_osqp
     iDynTree::VectorDynSize m_jointPosition;
     iDynTree::VectorDynSize m_jointVelocity;
 
-    iDynTree::VectorDynSize m_desiredJointAccelerationController;
-
     // TODO move in a class
     // Neck task
-    std::unique_ptr<RotationalPID> m_neckOrientationController; /**< Pointer to the neck orientation
-                                                                   controller */
     iDynTree::Rotation m_additionalRotation; /**< Additional rotation matrix (it is useful to rotate
                                                 the desiredNeckOrientation rotation matrix). */
-    iDynTree::Vector3 m_neckBiasAcceleration; /**< Neck bias acceleration \f$\dot{J} \nu \f$
-                                                 (angular part). */
+    iDynTree::VectorDynSize m_neckBiasAcceleration; /**< Neck bias acceleration \f$\dot{J} \nu \f$
+                                                       (angular part). */
 
     Eigen::SparseMatrix<double> m_neckHessian;
-    iDynTree::MatrixDynSize m_neckHessianSubMatrix;
-    iDynTree::Triplets m_neckHessianSubMatrixTriplets;
-
-    Eigen::SparseMatrix<double> m_neckGradient;
-    iDynTree::MatrixDynSize m_neckGradientSubMatrix;
-    iDynTree::Triplets m_neckGradientSubMatrixTriplets;
+    Eigen::VectorXd m_neckGradient;
 
     iDynTree::MatrixDynSize m_neckJacobian; /**< Neck jacobian (mixed representation). */
-    iDynTree::VectorDynSize m_neckOrientationWeight; /**< Neck weight matrix. */
 
     // this term is should be embedded somewhere
     iDynTree::MatrixDynSize m_leftFootJacobian;
@@ -106,13 +87,17 @@ class WalkingTaskBasedTorqueController_osqp
 
     // regularization task (torque)
     Eigen::SparseMatrix<double> m_torqueRegularizationHessian;
-    Eigen::SparseMatrix<double> m_torqueRegularizationGradient;
+    Eigen::VectorXd m_torqueRegularizationGradient;
 
     // regularization task (force)
-    Eigen::SparseMatrix<double> m_forceRegularizationHessian;
+    Eigen::SparseMatrix<double> m_leftForceRegularizationHessian;
+    Eigen::SparseMatrix<double> m_rightForceRegularizationHessian;
+
+    Eigen::VectorXd m_leftForceRegularizationGradient;
+    Eigen::VectorXd m_rightForceRegularizationGradient;
+
     double m_regularizationForceScale;
     double m_regularizationForceOffset;
-
 
     // feet
     iDynTree::Transform m_leftFootToWorldTransform;
@@ -129,7 +114,14 @@ class WalkingTaskBasedTorqueController_osqp
     iDynTree::Rotation m_desiredNeckOrientation;
 
     std::unordered_map<std::string, std::shared_ptr<Constraint>> m_constraints;
+    std::unordered_map<std::string, std::shared_ptr<CostFunctionElement>> m_costFunction;
 
+    std::unordered_map<std::string, Eigen::SparseMatrix<double>*> m_hessianMatrices;
+    std::unordered_map<std::string, Eigen::VectorXd*> m_gradientVectors;
+
+
+
+    //cost
 
     bool instantiateCoMConstraint(const yarp::os::Searchable& config);
 
@@ -190,11 +182,11 @@ public:
     bool setInternalRobotState(const iDynTree::VectorDynSize& jointPosition,
                                const iDynTree::VectorDynSize& jointVelocity);
 
-    void setDesiredNeckTrajectory(const iDynTree::Rotation& desiredNeckOrientation,
+    bool setDesiredNeckTrajectory(const iDynTree::Rotation& desiredNeckOrientation,
                                   const iDynTree::Vector3& desiredNeckVelocity,
                                   const iDynTree::Vector3& desiredNeckAcceleration);
 
-    void setNeckState(const iDynTree::Rotation& neckOrientation,
+    bool setNeckState(const iDynTree::Rotation& neckOrientation,
                       const iDynTree::Twist& neckVelocity);
 
     bool setNeckJacobian(const iDynTree::MatrixDynSize& neckJacobian);
