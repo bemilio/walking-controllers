@@ -36,27 +36,27 @@ bool JoypadModule::configure(yarp::os::ResourceFinder &rf)
     setName(name.c_str());
 
     // set the deadzone interval
-    if(!YarpHelper::getDoubleFromSearchable(rf, "deadzone", m_deadzone))
+    if(!YarpHelper::getNumberFromSearchable(rf, "deadzone", m_deadzone))
     {
         yError() << "[configure] Unable to get a double from a searchable";
         return false;
     }
 
     // set the maximum value measured by the joypad
-    if(!YarpHelper::getDoubleFromSearchable(rf, "fullscale", m_fullscale))
+    if(!YarpHelper::getNumberFromSearchable(rf, "fullscale", m_fullscale))
     {
         yError() << "[configure] Unable to get a double from a searchable";
         return false;
     }
 
     // set scaling factors
-    if(!YarpHelper::getDoubleFromSearchable(rf, "scale_x", m_scaleX))
+    if(!YarpHelper::getNumberFromSearchable(rf, "scale_x", m_scaleX))
     {
         yError() << "[configure] Unable to get a double from a searchable";
         return false;
     }
 
-    if(!YarpHelper::getDoubleFromSearchable(rf, "scale_y", m_scaleY))
+    if(!YarpHelper::getNumberFromSearchable(rf, "scale_y", m_scaleY))
     {
         yError() << "[configure] Unable to get a double from a searchable";
         return false;
