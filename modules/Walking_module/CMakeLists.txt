@@ -22,7 +22,7 @@ find_package(qpOASES REQUIRED)
 find_package(Threads REQUIRED)
 
 ## debug
-find_package(EigenMatio CONFIG REQUIRED)
+# find_package(EigenMatio CONFIG REQUIRED)
 
 include(FindPackageHandleStandardArgs)
 
@@ -97,8 +97,8 @@ target_link_libraries(${EXE_TARGET_NAME}
   osqp::osqp
   icubWalking-service
   Threads::Threads
-  ${qpOASES_LIBRARIES}
-  EigenMatio
-  "-lmatio")
+  ${qpOASES_LIBRARIES})
+  # EigenMatio
+  # "-lmatio")
 
 install(TARGETS ${EXE_TARGET_NAME} DESTINATION bin)
