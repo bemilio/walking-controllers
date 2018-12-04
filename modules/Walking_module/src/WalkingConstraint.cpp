@@ -40,21 +40,30 @@ CartesianElement::CartesianElement(const CartesianElementType& elementType)
         m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
         m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
         m_desiredAcceleration.resize(6);
+        m_desiredAcceleration.zero();
         break;
 
     case CartesianElementType::POSITION:
         m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
         m_desiredAcceleration.resize(3);
+        m_desiredAcceleration.zero();
         break;
 
     case CartesianElementType::ORIENTATION:
         m_controllers.insert({"orientation_pid", std::make_shared<RotationalPID>()});
         m_desiredAcceleration.resize(3);
+        m_desiredAcceleration.zero();
         break;
 
     case CartesianElementType::ONE_DIMENSION:
         m_controllers.insert({"position_pid", std::make_shared<LinearPID>()});
         m_desiredAcceleration.resize(1);
+        m_desiredAcceleration.zero();
+        break;
+
+    case CartesianElementType::CONTACT:
+        m_desiredAcceleration.resize(6);
+        m_desiredAcceleration.zero();
         break;
     }
 
@@ -113,6 +122,9 @@ void CartesianElement::evaluateDesiredAcceleration()
         m_controllers["position_pid"]->evaluateControl();
         m_desiredAcceleration(0) = m_controllers["position_pid"]->getControl()(2);
         break;
+
+    case CartesianElementType::CONTACT:
+        break;
     }
 }
 
@@ -136,9 +148,12 @@ CartesianConstraint::CartesianConstraint(const CartesianElementType& elementType
     case CartesianElementType::ONE_DIMENSION:
         m_sizeOfElement = 1;
         break;
+
+    case CartesianElementType::CONTACT:
+        m_sizeOfElement = 6;
+        break;
     }
 }
-
 
 void CartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
@@ -161,17 +176,9 @@ void CartesianConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian
 
 void CartesianConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds)
 {
-    if(m_isActive)
-    {
-        evaluateDesiredAcceleration();
-        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
-            iDynTree::toEigen(m_desiredAcceleration) - iDynTree::toEigen(*m_biasAcceleration);
-    }
-    else
-    {
-        upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
-            - iDynTree::toEigen(*m_biasAcceleration);
-    }
+    evaluateDesiredAcceleration();
+    upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
+        iDynTree::toEigen(m_desiredAcceleration) - iDynTree::toEigen(*m_biasAcceleration);
 
     lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) =
         upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1);
@@ -308,16 +315,10 @@ void ForceConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::Vector
             upperBounds(i + m_jacobianStartingRow) = 0;
             continue;
         }
-        if(m_isActive)
-        {
-            lowerBounds(i + m_jacobianStartingRow) = -OsqpEigen::INFTY;
-            upperBounds(i + m_jacobianStartingRow) = -m_minimalNormalForce;
-        }
-        else
-        {
-            lowerBounds(i + m_jacobianStartingRow) = 0;
-            upperBounds(i + m_jacobianStartingRow) = 0;
-        }
+
+        lowerBounds(i + m_jacobianStartingRow) = -OsqpEigen::INFTY;
+        upperBounds(i + m_jacobianStartingRow) = -m_minimalNormalForce;
+
     }
     return;
 }
@@ -325,74 +326,10 @@ void ForceConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::Vector
 ZMPConstraint::ZMPConstraint()
 {
     m_sizeOfElement = 2;
-
     m_areBoundsEvaluated = false;
 }
 
-void ZMPConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
-{
-    double xL = m_leftFootToWorldTransform->getPosition()(0);
-    double yL = m_leftFootToWorldTransform->getPosition()(1);
-
-    double xR = m_rightFootToWorldTransform->getPosition()(0);
-    double yR = m_rightFootToWorldTransform->getPosition()(1);
-
-    if(m_firstTime)
-    {
-        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
-        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
-
-        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
-        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 1;
-
-        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
-        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
-
-        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
-        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = -1;
-
-        m_firstTime = false;
-    }
-    else
-    {
-        if(m_isLeftFootOnGround)
-        {
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
-
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
-        }
-        else
-        {
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = 0;
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 0;
-
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = 0;
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = 0;
-
-        }
-        if(m_isRightFootOnGround)
-        {
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 1;
-
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = -1;
-        }
-        else
-        {
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = 0;
-            jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 0;
-
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = 0;
-            jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = 0;
-        }
-    }
-}
-
-void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
-                                   Eigen::VectorXd &lowerBounds)
+void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds)
 {
     // since the bounds are constant they can been evaluated only once
     if(m_areBoundsEvaluated)
@@ -405,6 +342,74 @@ void ZMPConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
     }
 
     m_areBoundsEvaluated = true;
+}
+
+void ZMPConstraintDoubleSupport::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+{
+    double xL = m_leftFootToWorldTransform->getPosition()(0);
+    double yL = m_leftFootToWorldTransform->getPosition()(1);
+
+    double xR = m_rightFootToWorldTransform->getPosition()(0);
+    double yR = m_rightFootToWorldTransform->getPosition()(1);
+
+    if(m_firstTime)
+    {
+        // x
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 1;
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
+        // y
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = -1;
+
+        m_firstTime = false;
+    }
+    else
+    {
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - xL;
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) - yL;
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
+
+        // right
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(0) - xR;
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4 + 6) = 1;
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2 + 6) = m_desiredZMP(1) - yR;
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3 + 6) = -1;
+    }
+}
+
+void ZMPConstraintSingleSupport::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+{
+    double x = m_stanceFootToWorldTransform->getPosition()(0);
+    double y = m_stanceFootToWorldTransform->getPosition()(1);
+
+
+    if(m_firstTime)
+    {
+        // x
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - x;
+        jacobian.insert(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
+
+        // y
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) -y;
+        jacobian.insert(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
+
+        m_firstTime = false;
+    }
+    else
+    {
+        // x
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 2) = m_desiredZMP(0) - x;
+        jacobian.coeffRef(m_jacobianStartingRow, m_jacobianStartingColumn + 4) = 1;
+
+        // y
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 2) = m_desiredZMP(1) -y;
+        jacobian.coeffRef(m_jacobianStartingRow + 1, m_jacobianStartingColumn + 3) = -1;
+    }
 }
 
 SystemDynamicConstraint::SystemDynamicConstraint(const int& systemSize)
@@ -420,7 +425,14 @@ SystemDynamicConstraint::SystemDynamicConstraint(const int& systemSize)
     m_selectionMatrix.setFromTriplets(selectionMatrixTriplets);
 }
 
-void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
+void SystemDynamicConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
+                                             Eigen::VectorXd &lowerBounds)
+{
+    upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
+    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
+}
+
+void SystemDynamicConstraintDoubleSupport::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
     if(!m_firstTime)
     {
@@ -434,29 +446,13 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
 
             // left foot
             for(int j = 0; j < 6; j++)
-            {
                 jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize)
                     = (*m_leftFootJacobian)(j, i);
-                // // transpose
-                // if(m_isLeftFootOnGround)
-                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize)
-                //         = (*m_leftFootJacobian)(j, i);
-                // else
-                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize) = 0;
-            }
 
             // right foot
             for(int j = 0; j < 6; j++)
-            {
                 jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6)
                     = (*m_rightFootJacobian)(j, i);
-                // // transpose
-                // if(m_isRightFootOnGround)
-                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6)
-                //         = (*m_rightFootJacobian)(j, i);
-                // else
-                //     jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize + 6) = 0;
-            }
         }
     }
     else
@@ -487,12 +483,46 @@ void SystemDynamicConstraint::evaluateJacobian(Eigen::SparseMatrix<double>& jaco
     }
 }
 
-
-void SystemDynamicConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
-                                             Eigen::VectorXd &lowerBounds)
+void SystemDynamicConstraintSingleSupport::evaluateJacobian(Eigen::SparseMatrix<double>& jacobian)
 {
-    upperBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
-    lowerBounds.block(m_jacobianStartingRow, 0, m_sizeOfElement, 1) = iDynTree::toEigen(*m_generalizedBiasForces);
+    if(!m_firstTime)
+    {
+        for(int i = 0; i < m_sizeOfElement; i++)
+        {
+            int index = i + m_jacobianStartingRow;
+
+            // mass matrix
+            for(int j = 0; j < m_systemSize + 6; j++)
+                jacobian.coeffRef(index, j) = -(*m_massMatrix)(i, j);
+
+            // stance foot
+            for(int j = 0; j < 6; j++)
+                jacobian.coeffRef(index, j + m_systemSize + 6 + m_systemSize)
+                    = (*m_stanceFootJacobian)(j, i);
+        }
+    }
+    else
+    {
+        for(int i = 0; i < m_sizeOfElement; i++)
+        {
+            int index = i + m_jacobianStartingRow;
+            // mass matrix
+            for(int j = 0; j < m_systemSize + 6; j++)
+                jacobian.insert(index, j) = -(*m_massMatrix)(i, j);
+
+            // selection matrix
+            for(int j = 0; j < m_selectionMatrix.columns(); j++)
+                if(m_selectionMatrix(i, j) != 0)
+                    jacobian.insert(index, j + m_systemSize + 6) = m_selectionMatrix(i, j);
+
+            // left foot
+            for(int j = 0; j < 6; j++)
+                // transpose
+                jacobian.insert(index, j + m_systemSize + 6 + m_systemSize)
+                    = (*m_stanceFootJacobian)(j, i);
+        }
+        m_firstTime = false;
+    }
 }
 
 LinearMomentumConstraint::LinearMomentumConstraint()
@@ -708,6 +738,7 @@ CartesianCostFunction::CartesianCostFunction(const CartesianElementType& element
         break;
 
     case CartesianElementType::ONE_DIMENSION:
+        yInfo() << "oneeeeee";
         m_sizeOfElement = 1;
         break;
     }

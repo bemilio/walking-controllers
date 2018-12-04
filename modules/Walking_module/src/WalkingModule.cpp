@@ -1011,6 +1011,9 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
                                    const iDynTree::Vector2& desiredZMP,
                                    iDynTree::VectorDynSize &output)
 {
+    // do at the beginning!
+    m_taskBasedTorqueSolver->setFeetState(m_leftInContact.front(), m_rightInContact.front());
+
     iDynTree::MatrixDynSize jacobian, comJacobian;
     jacobian.resize(6, m_actuatedDOFs + 6);
     comJacobian.resize(3, m_actuatedDOFs + 6);
@@ -1021,8 +1024,8 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
     if(!m_taskBasedTorqueSolver->setMassMatrix(massMatrix))
         return false;
 
-    if(!m_taskBasedTorqueSolver->setLinearAngularMomentum(m_FKSolver->getLinearAngularMomentum()))
-       return false;
+    // if(!m_taskBasedTorqueSolver->setLinearAngularMomentum(m_FKSolver->getLinearAngularMomentum()))
+    //    return false;
 
     iDynTree::VectorDynSize generalizedBiasForces(m_actuatedDOFs + 6);
     m_FKSolver->getGeneralizedBiasForces(generalizedBiasForces);
@@ -1110,19 +1113,10 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
         return false;
     }
 
-    if(!m_taskBasedTorqueSolver->setCoMBiasAcceleration(m_FKSolver->getCoMBiasAcceleration()))
-    {
-        yError() << "[solveTaskBased] Unable to set the com bias acceleration.";
-        return false;
-
-    }
+    m_taskBasedTorqueSolver->setCoMBiasAcceleration(m_FKSolver->getCoMBiasAcceleration());
 
     // feet state (contacts)
-    if(!m_taskBasedTorqueSolver->setFeetState(m_leftInContact.front(), m_rightInContact.front()))
-    {
-        yError() << "[solveTaskBased] Unable to set the feet state.";
-        return false;
-    }
+
 
     if(!m_taskBasedTorqueSolver->setDesiredZMP(desiredZMP))
     {
@@ -1143,11 +1137,7 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
         return false;
     }
 
-    if(!m_taskBasedTorqueSolver->getSolution(output))
-    {
-        yError() << "[solveTaskBased] Unable to get the QP-IK problem solution.";
-        return false;
-    }
+    m_taskBasedTorqueSolver->getSolution(output);
 
     return true;
 }
@@ -1682,15 +1672,22 @@ bool WalkingModule::updateModule()
                 else
                     m_IKSolver->getDesiredNeckOrientation(torsoDesired);
             }
-            else
-            {
-                torsoDesired = m_taskBasedTorqueSolver->getDesiredNeckOrientation();
-            }
+            // else
+            // {
+            //     torsoDesired = m_taskBasedTorqueSolver->getDesiredNeckOrientation();
+            // }
 
-            auto leftTemp = m_taskBasedTorqueSolver->getLeftWrench();
-            auto rightTemp = m_taskBasedTorqueSolver->getRightWrench();
+            // iDynTree::Wrench leftTemp = m_taskBasedTorqueSolver->getLeftWrench();
+            // iDynTree::Wrench rightTemp = m_taskBasedTorqueSolver->getRightWrench();
 
-            auto zmpTemp = m_taskBasedTorqueSolver->getZMP();
+            // iDynTree::Vector2 zmpTemp = m_taskBasedTorqueSolver->getZMP();
+
+
+            iDynTree::Wrench leftTemp;
+            iDynTree::Wrench rightTemp;
+            iDynTree::Vector2 zmpTemp;
+            m_taskBasedTorqueSolver->getWrenches(leftTemp, rightTemp);
+            m_taskBasedTorqueSolver->getZMP(zmpTemp);
 
             m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
                                       desiredVRP,
@@ -2732,11 +2729,11 @@ bool WalkingModule::startWalking()
     iDynTree::VectorDynSize measuredTorque(m_actuatedDOFs);
     m_torqueInterface->getTorques(measuredTorque.data());
 
-    if(!m_taskBasedTorqueSolver->setInitialValues(measuredTorque, m_leftWrench, m_rightWrench))
-    {
-        yError() << "[startWalking] Unable to set initial value for the torque solver";
-        return false;
-    }
+    // if(!m_taskBasedTorqueSolver->setInitialValues(measuredTorque, m_leftWrench, m_rightWrench))
+    // {
+    //     yError() << "[startWalking] Unable to set initial value for the torque solver";
+    //     return false;
+    // }
 
     if(m_dumpData)
     {

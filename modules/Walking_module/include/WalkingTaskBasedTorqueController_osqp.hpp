@@ -11,168 +11,35 @@
 
 #include <iDynTree/Core/SpatialMomentum.h>
 
-#include <OsqpEigen/OsqpEigen.h>
-
-#include <CartesianPID.hpp>
-#include <WalkingConstraint.hpp>
-
-#include <TimeProfiler.hpp>
+#include <WalkingTaskBasedTorqueSolver.hpp>
 
 class WalkingTaskBasedTorqueController_osqp
 {
 
-    bool m_useCoMConstraint;
-    bool m_useLinearMomentumConstraint;
-    bool m_useAngularMomentumConstraint;
-    bool m_useZMPConstraint;
-
-    bool m_controlOnlyCoMHeight;
-
-    //todo
-    std::unique_ptr<TimeProfiler> m_profiler; /**< Time profiler. */
-
-    std::unique_ptr<OsqpEigen::Solver> m_optimizer{nullptr}; /**< QP solver. */
-
-    bool m_isSolutionEvaluated;
-
     int m_actuatedDOFs;
-    int m_numberOfVariables; /**<Number of variables in the QP problem (# of joints + 12) */
-    int m_numberOfConstraints; /**<Number of constraints in the QP problem */
 
-    iDynTree::MatrixDynSize m_inputMatrix;
+    bool m_isDoubleSupportPhase{true};
 
-    //
-    Eigen::SparseMatrix<double> m_hessianEigen;
-    Eigen::VectorXd m_gradient;
+    bool m_leftInContact{true};
+    bool m_rightInContact{true};
 
-    Eigen::SparseMatrix<double>  m_constraintMatrix;
-
-    Eigen::VectorXd m_upperBound;
-    Eigen::VectorXd m_lowerBound;
-
-    Eigen::VectorXd m_solution;
-
-    iDynTree::VectorDynSize m_desiredJointTorque;
-
-    // Dynamical quantities
-    iDynTree::MatrixDynSize m_massMatrix; /**< Mass matrix. */
-    iDynTree::VectorDynSize m_generalizedBiasForces; /**< Generalized bias forces vector. */
-
-    // Joint task
-    Eigen::SparseMatrix<double> m_jointRegularizationHessian;
-    Eigen::VectorXd m_jointRegularizationGradient;
-
-    iDynTree::VectorDynSize m_desiredJointPosition;
-    iDynTree::VectorDynSize m_desiredJointVelocity;
-    iDynTree::VectorDynSize m_desiredJointAcceleration;
-
-    iDynTree::VectorDynSize m_jointPosition;
-    iDynTree::VectorDynSize m_jointVelocity;
-
-    // TODO move in a class
-    // Neck task
-    iDynTree::Rotation m_additionalRotation; /**< Additional rotation matrix (it is useful to rotate
-                                                the desiredNeckOrientation rotation matrix). */
-    iDynTree::VectorDynSize m_neckBiasAcceleration; /**< Neck bias acceleration \f$\dot{J} \nu \f$
-                                                       (angular part). */
-
-    Eigen::SparseMatrix<double> m_neckHessian;
-    Eigen::VectorXd m_neckGradient;
-
-    iDynTree::MatrixDynSize m_neckJacobian; /**< Neck jacobian (mixed representation). */
-
-    // this term is should be embedded somewhere
-    iDynTree::MatrixDynSize m_leftFootJacobian;
-    iDynTree::MatrixDynSize m_rightFootJacobian;
-
-    // regularization task (torque)
-    Eigen::SparseMatrix<double> m_torqueRegularizationHessian;
-    Eigen::VectorXd m_torqueRegularizationGradient;
-
-    // regularization task (force)
-    Eigen::SparseMatrix<double> m_leftForceRegularizationHessian;
-    Eigen::SparseMatrix<double> m_rightForceRegularizationHessian;
-
-    Eigen::VectorXd m_leftForceRegularizationGradient;
-    Eigen::VectorXd m_rightForceRegularizationGradient;
-
-    double m_regularizationForceScale;
-    double m_regularizationForceOffset;
-
-    // feet
-    iDynTree::Transform m_leftFootToWorldTransform;
-    iDynTree::Transform m_rightFootToWorldTransform;
-    iDynTree::VectorDynSize m_leftFootBiasAcceleration;
-    iDynTree::VectorDynSize m_rightFootBiasAcceleration;
-
-    // com
-    iDynTree::MatrixDynSize m_comJacobian;
-    iDynTree::VectorDynSize m_comBiasAcceleration;
-    iDynTree::Position m_comPosition;
-
-    // todo remove me
-    iDynTree::Rotation m_desiredNeckOrientation;
-
-    std::unordered_map<std::string, std::shared_ptr<Constraint>> m_constraints;
-    std::unordered_map<std::string, std::shared_ptr<CostFunctionElement>> m_costFunction;
-
-    std::unordered_map<std::string, Eigen::SparseMatrix<double>*> m_hessianMatrices;
-    std::unordered_map<std::string, Eigen::VectorXd*> m_gradientVectors;
-
-
-
-    //cost
-
-    bool instantiateCoMConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateLinearMomentumConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateAngularMomentumConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateFeetConstraint(const yarp::os::Searchable& config);
-
-    void instantiateZMPConstraint(const yarp::os::Searchable& config);
-
-    void instantiateSystemDynamicsConstraint();
-
-    bool instantiateRateOfChangeConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateContactForcesConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateNeckSoftConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateRegularizationTaskConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateTorqueRegularizationConstraint(const yarp::os::Searchable& config);
-
-    bool instantiateForceRegularizationConstraint(const yarp::os::Searchable& config);
-
-    bool setHessianMatrix();
-
-    bool setGradientVector();
-
-    bool setLinearConstraintMatrix();
-
-    bool setBounds();
-
-    bool isSolutionFeasible();
+    std::unique_ptr<TaskBasedTorqueSolverSingleSupport> m_singleSupportSolver;
+    std::unique_ptr<TaskBasedTorqueSolverDoubleSupport> m_doubleSupportSolver;
 
 public:
+
     bool initialize(const yarp::os::Searchable& config,
                     const int& actuatedDOFs,
                     const iDynTree::VectorDynSize& minJointTorque,
                     const iDynTree::VectorDynSize& maxJointTorque);
 
-
-    bool setInitialValues(const iDynTree::VectorDynSize& jointTorque,
-                          const iDynTree::Wrench& leftWrench,
-                          const iDynTree::Wrench& rightWrench);
+    void setFeetState(const bool &leftInContact, const bool &rightInContact);
 
     bool setMassMatrix(const iDynTree::MatrixDynSize& massMatrix);
 
     bool setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces);
 
-    bool setLinearAngularMomentum(const iDynTree::SpatialMomentum& linearAngularMomentum);
+    // bool setLinearAngularMomentum(const iDynTree::SpatialMomentum& linearAngularMomentum);
 
     bool setDesiredJointTrajectory(const iDynTree::VectorDynSize& desiredJointPosition,
                                    const iDynTree::VectorDynSize& desiredJointVelocity,
@@ -220,9 +87,7 @@ public:
 
     bool setCoMJacobian(const iDynTree::MatrixDynSize& comJacobian);
 
-    bool setCoMBiasAcceleration(const iDynTree::Vector3 &comBiasAcceleration);
-
-    bool setFeetState(const bool &leftInContact, const bool &rightInContact);
+    void setCoMBiasAcceleration(const iDynTree::Vector3 &comBiasAcceleration);
 
     bool setFeetWeightPercentage(const double &weightInLeft, const double &weightInRight);
 
@@ -237,17 +102,12 @@ public:
     /**
      * Get the solution of the optimization problem.
      * @param output joint torque
-     * @return true/false in case of success/failure.
      */
-    bool getSolution(iDynTree::VectorDynSize& output);
+    void getSolution(iDynTree::VectorDynSize& output);
 
-    iDynTree::Wrench getLeftWrench();
+    void getWrenches(iDynTree::Wrench& left, iDynTree::Wrench& right);
 
-    iDynTree::Wrench getRightWrench();
-
-    iDynTree::Vector2 getZMP();
-
-    iDynTree::Vector3 getDesiredNeckOrientation();
+    void getZMP(iDynTree::Vector2& zmp);
 };
 
 #endif

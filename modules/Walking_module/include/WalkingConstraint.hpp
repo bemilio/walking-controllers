@@ -23,7 +23,7 @@
 
 #include <TimeProfiler.hpp>
 
-enum class CartesianElementType {POSE, POSITION, ORIENTATION, ONE_DIMENSION};
+enum class CartesianElementType {POSE, POSITION, ORIENTATION, ONE_DIMENSION, CONTACT};
 
 
 /**
@@ -175,8 +175,6 @@ public:
  */
 class ForceConstraint : public LinearConstraint
 {
-    bool m_isActive;
-
     Eigen::MatrixXd m_transform;
 
     double m_staticFrictionCoefficient; /**< Static linear coefficient of friction */
@@ -231,7 +229,6 @@ public:
     // todo
     void setFootToWorldTransform(const iDynTree::Transform& footToWorldTransform){m_footToWorldTransform = &footToWorldTransform;};
 
-    void setFootState(bool footState){m_isActive = footState;};
     /**
      * Evaluate the jacobian
      */
@@ -248,28 +245,36 @@ public:
  */
 class ZMPConstraint : public LinearConstraint
 {
-    iDynTree::Transform const * m_leftFootToWorldTransform;
-    iDynTree::Transform const * m_rightFootToWorldTransform;
 
-    iDynTree::Vector2 m_desiredZMP;
     bool m_areBoundsEvaluated = false;
 
-    bool m_isRightFootOnGround{true};
-    bool m_isLeftFootOnGround{true};
+protected:
 
+    iDynTree::Vector2 m_desiredZMP;
 
 public:
-
     ZMPConstraint();
-
-    void setRightFootState(bool isRightFootOnGround){m_isRightFootOnGround = isRightFootOnGround;};
-    void setLeftFootState(bool isLeftFootOnGround){m_isLeftFootOnGround = isLeftFootOnGround;};
 
     /**
      * Set the desired ZMP
      * @param zmp desired ZMP
      */
     void setDesiredZMP(const iDynTree::Vector2& zmp){m_desiredZMP = zmp;};
+
+    /**
+     * Evaluate the lower and upper bounds
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
+class ZMPConstraintDoubleSupport : public ZMPConstraint
+{
+    iDynTree::Transform const * m_leftFootToWorldTransform;
+    iDynTree::Transform const * m_rightFootToWorldTransform;
+
+public:
+
+    ZMPConstraintDoubleSupport() : ZMPConstraint() {};
 
     /**
      * Set the left foot to world transformation
@@ -287,11 +292,26 @@ public:
      * Evaluate the jacobian
      */
     void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+};
+
+class ZMPConstraintSingleSupport : public ZMPConstraint
+{
+    iDynTree::Transform const * m_stanceFootToWorldTransform;
+
+public:
+
+    ZMPConstraintSingleSupport() : ZMPConstraint() {};
 
     /**
-     * Evaluate the lower and upper bounds
+     * Set the left foot to world transformation
+     * @param leftFootToWorldTransform tranformation between the left foot and the world frame world_H_leftFoot
      */
-    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+    void setStanceFootToWorldTransform(const iDynTree::Transform& stanceFootToWorldTransform){m_stanceFootToWorldTransform = &stanceFootToWorldTransform;};
+
+    /**
+     * Evaluate the jacobian
+     */
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 };
 
 /**
@@ -359,41 +379,63 @@ public:
  */
 class SystemDynamicConstraint : public LinearConstraint
 {
-    iDynTree::MatrixDynSize const * m_massMatrix;
-    iDynTree::MatrixDynSize const * m_leftFootJacobian;
-    iDynTree::MatrixDynSize const * m_rightFootJacobian;
     iDynTree::VectorDynSize const * m_generalizedBiasForces;
 
+protected:
+    iDynTree::MatrixDynSize const * m_massMatrix;
     int m_systemSize;
     iDynSparseMatrix m_selectionMatrix;
-
-    bool m_isRightFootOnGround{true};
-    bool m_isLeftFootOnGround{true};
 
 public:
 
     SystemDynamicConstraint(const int& systemSize);
 
-    void setRightFootState(bool isRightFootOnGround){m_isRightFootOnGround = isRightFootOnGround;};
-    void setLeftFootState(bool isLeftFootOnGround){m_isLeftFootOnGround = isLeftFootOnGround;};
-
-    void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
-
-    void setRightFootJacobian(const iDynTree::MatrixDynSize& rightFootJacobian){m_rightFootJacobian = &rightFootJacobian;};
 
     void setMassMatrix(const iDynTree::MatrixDynSize& massMatrix){m_massMatrix = &massMatrix;};
 
     void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces){m_generalizedBiasForces = &generalizedBiasForces;};
 
     /**
+     * Evaluate lower and upper bounds.
+     */
+    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+};
+
+class SystemDynamicConstraintDoubleSupport : public SystemDynamicConstraint
+{
+    iDynTree::MatrixDynSize const * m_leftFootJacobian;
+    iDynTree::MatrixDynSize const * m_rightFootJacobian;
+
+public:
+
+    SystemDynamicConstraintDoubleSupport(const int& systemSize) : SystemDynamicConstraint(systemSize){};
+
+    void setLeftFootJacobian(const iDynTree::MatrixDynSize& leftFootJacobian){m_leftFootJacobian = &leftFootJacobian;};
+
+    void setRightFootJacobian(const iDynTree::MatrixDynSize& rightFootJacobian){m_rightFootJacobian = &rightFootJacobian;};
+
+    /**
      * Evaluate the constraint jacobian
      */
     void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
 
+};
+
+class SystemDynamicConstraintSingleSupport : public SystemDynamicConstraint
+{
+    iDynTree::MatrixDynSize const * m_stanceFootJacobian;
+
+public:
+
+    SystemDynamicConstraintSingleSupport(const int& systemSize) : SystemDynamicConstraint(systemSize){};
+
+    void setStanceFootJacobian(const iDynTree::MatrixDynSize& stanceFootJacobian){m_stanceFootJacobian = &stanceFootJacobian;};
+
     /**
-     * Evaluate lower and upper bounds.
+     * Evaluate the constraint jacobian
      */
-    void evaluateBounds(Eigen::VectorXd &upperBounds, Eigen::VectorXd &lowerBounds) override;
+    void evaluateJacobian(Eigen::SparseMatrix<double>& jacobian) override;
+
 };
 
 class RateOfChangeConstraint : public LinearConstraint
