@@ -276,6 +276,9 @@ bool WalkingModule::configureRobot(const yarp::os::Searchable& rf)
     m_velocityFeedbackInDegreesFiltered.resize(m_actuatedDOFs);
     m_velocityFeedbackInDegreesFiltered.zero();
 
+    m_positionFeedbackInDegreesPrevious.resize(m_actuatedDOFs);
+    m_positionFeedbackInDegreesPrevious.zero();
+
     // check if the robot is alive
     bool okPosition = false;
     bool okVelocity = false;
@@ -287,6 +290,9 @@ bool WalkingModule::configureRobot(const yarp::os::Searchable& rf)
         if(!okPosition || !okVelocity)
             yarp::os::Time::delay(0.1);
     }
+
+    m_positionFeedbackInDegreesPrevious = m_positionFeedbackInDegrees;
+
     if(!okPosition)
     {
         yError() << "[configure] Unable to read encoders.";
@@ -328,20 +334,9 @@ bool WalkingModule::configureRobot(const yarp::os::Searchable& rf)
             return false;
         }
 
-
         // set filters
         // m_positionFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(10, m_dT);
         m_velocityFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(cutFrequency, m_dT);
-
-        // double tau = 2 * M_PI / cutFrequency;
-        // yarp::sig::Vector num(2);
-        // yarp::sig::Vector den(2);
-        // num(0) = m_dT;
-        // num(1) = m_dT;
-        // den(0) = 2 * tau + m_dT;
-        // den(1) = -2 * tau + m_dT;
-        // m_velocityFilter = std::make_unique<WalkingLPFilter>();
-        // m_velocityFilter->initialize(m_dT, cutFrequency);
 
         // m_positionFilter->init(m_positionFeedbackInDegrees);
         m_velocityFilter->init(m_velocityFeedbackInDegrees);
@@ -619,6 +614,7 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     m_useVelocity = rf.check("use_velocity", yarp::os::Value(false)).asBool();
     m_useVelocityControllerAsIK = rf.check("use_velocity_controller_as_IK", yarp::os::Value(false)).asBool();
     m_useTorqueController = rf.check("use_torque_controller", yarp::os::Value(false)).asBool();
+    m_evaluateVelocity = rf.check("use_finite_difference_for_velocity", yarp::os::Value(false)).asBool();
 
     if(!setControlledJoints(rf))
     {
@@ -1033,7 +1029,7 @@ bool WalkingModule::solveTaskBased(const iDynTree::Position& desiredCoMPosition,
         return false;
 
     if(!m_taskBasedTorqueSolver->setInternalRobotState(m_positionFeedbackInRadians,
-                                                      m_velocityFeedbackInRadians))
+                                                       m_velocityFeedbackInRadians))
     {
         yError() << "[solveTaskBased] Unable to set the internal robot state";
         return false;
@@ -1332,7 +1328,6 @@ bool WalkingModule::updateModule()
                 yError() << "[updateModule] Unable to evaluate the DCM control output.";
                 return false;
             }
-
 
             if(!m_walkingDCMReactiveController->getControllerOutput(desiredVRP))
             {
@@ -1807,7 +1802,23 @@ bool WalkingModule::getFeedbacks(unsigned int maxAttempts)
             okPosition = m_encodersInterface->getEncoders(m_positionFeedbackInDegrees.data());
 
         if(!okVelocity)
-            okVelocity = m_encodersInterface->getEncoderSpeeds(m_velocityFeedbackInDegrees.data());
+        {
+            if(!m_evaluateVelocity)
+            {
+                okVelocity = m_encodersInterface->getEncoderSpeeds(m_velocityFeedbackInDegrees.data());
+            }
+            else
+            {
+                if(okPosition)
+                {
+                    iDynTree::toEigen(m_velocityFeedbackInDegrees) = (iDynTree::toEigen(m_positionFeedbackInDegrees) -
+                                                                      iDynTree::toEigen(m_positionFeedbackInDegreesPrevious)) / m_dT;
+
+                    m_positionFeedbackInDegreesPrevious = m_positionFeedbackInDegrees;
+                    okVelocity = true;
+                }
+            }
+        }
 
         if(!okLeftWrench)
         {

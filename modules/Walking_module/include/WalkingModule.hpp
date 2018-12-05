@@ -76,6 +76,7 @@ class WalkingModule:
     bool m_useRightHand; /**< Use the right hand inside the  inverse kinematics. */
     bool m_useVelocityModulation; /**< Use velocity modulation. */
     bool m_useTorqueController; /**< Use task based torque controller. */
+    bool m_evaluateVelocity; /**< Use finite differences to evaluate the joint velocity. */
 
     std::unique_ptr<TrajectoryGenerator> m_trajectoryGenerator; /**< Pointer to the trajectory generator object. */
     std::unique_ptr<WalkingController> m_walkingController; /**< Pointer to the walking DCM MPC object. */
@@ -148,6 +149,7 @@ class WalkingModule:
     yarp::os::Bottle m_remoteControlBoards; /**< Contain all the name of the controlled joints. */
 
     yarp::sig::Vector m_positionFeedbackInDegrees; /**< Vector containing the current joint position [deg]. */
+    yarp::sig::Vector m_positionFeedbackInDegreesPrevious; /**< Vector containing the previous joint position [deg]. */
     yarp::sig::Vector m_velocityFeedbackInDegrees; /**< Vector containing the current joint velocity [deg/s]. */
 
     iDynTree::VectorDynSize m_qDesired; /**< Vector containing the results of the IK algorithm [rad]. */
