@@ -20,6 +20,7 @@
 
 class TaskBasedTorqueSolver
 {
+protected:
     bool m_useCoMConstraint;
     bool m_useLinearMomentumConstraint;
     bool m_useAngularMomentumConstraint;
@@ -203,6 +204,8 @@ public:
     virtual iDynTree::Vector2 getZMP() = 0;
 
     iDynTree::Vector3 getDesiredNeckOrientation();
+
+    virtual bool tempPrint() = 0;
 };
 
 
@@ -253,6 +256,8 @@ public:
     iDynTree::Wrench getRightWrench();
 
     iDynTree::Vector2 getZMP() override;
+
+    bool tempPrint(){return true;}
 };
 
 
@@ -298,6 +303,8 @@ public:
     iDynTree::Wrench getStanceWrench();
 
     iDynTree::Vector2 getZMP() override;
+
+    bool tempPrint();
 };
 
 #endif

@@ -15,6 +15,8 @@
 #include <WalkingTaskBasedTorqueSolver.hpp>
 #include <Utils.hpp>
 
+#include <EigenMatio/EigenMatio.hpp>
+
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixXd;
 
 bool TaskBasedTorqueSolver::instantiateCoMConstraint(const yarp::os::Searchable& config)
@@ -27,18 +29,30 @@ bool TaskBasedTorqueSolver::instantiateCoMConstraint(const yarp::os::Searchable&
     }
     m_useCoMConstraint = true;
 
-    double kp;
-    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    bool useDefaultKd = config.check("useDefaultKd", yarp::os::Value("False")).asBool();
+
+    yarp::os::Value tempValue;
+    iDynTree::Vector3 kp;
+    tempValue = config.find("kp");
+    if(!YarpHelper::yarpListToiDynTreeVectorFixSize(tempValue, kp))
     {
-        yError() << "[instantiateCoMConstraint] Unable to get proportional gain";
+        yError() << "[initialize] Unable to convert a YARP list to an iDynTree::VectorFixSize, "
+                 << "joint regularization";
         return false;
     }
 
-    double kd;
-    if(!YarpHelper::getNumberFromSearchable(config, "kd", kd))
+    iDynTree::Vector3 kd;
+    if(useDefaultKd)
+        iDynTree::toEigen(kd) = 2 * iDynTree::toEigen(kp).array().sqrt();
+    else
     {
-        yError() << "[instantiateCoMConstraint] Unable to get derivative gain";
-        return false;
+        tempValue = config.find("kd");
+        if(!YarpHelper::yarpListToiDynTreeVectorFixSize(tempValue, kd))
+        {
+            yError() << "[initialize] Unable to convert a YARP list to an iDynTree::VectorFixSize, "
+                     << "joint regularization";
+            return false;
+        }
     }
 
     m_controlOnlyCoMHeight = config.check("controllOnlyHeight", yarp::os::Value("False")).asBool();
@@ -201,15 +215,22 @@ bool TaskBasedTorqueSolver::instantiateNeckSoftConstraint(const yarp::os::Search
         return false;
     }
 
-    double c0, c1, c2;
+    double c0, kp, kd;
     if(!YarpHelper::getNumberFromSearchable(config, "c0", c0))
         return false;
 
-    if(!YarpHelper::getNumberFromSearchable(config, "c1", c1))
+    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
         return false;
 
-    if(!YarpHelper::getNumberFromSearchable(config, "c2", c2))
-        return false;
+    bool useDefaultKd = config.check("useDefaultKd", yarp::os::Value("False")).asBool();
+    if(useDefaultKd)
+        kd = 2 * std::sqrt(kp);
+    else
+    {
+        if(!YarpHelper::getNumberFromSearchable(config, "kd", kd))
+            return false;
+    }
+
 
     if(!iDynTree::parseRotationMatrix(config, "additional_rotation", m_additionalRotation))
     {
@@ -227,7 +248,7 @@ bool TaskBasedTorqueSolver::instantiateNeckSoftConstraint(const yarp::os::Search
     ptr->setWeight(neckWeight);
     ptr->setBiasAcceleration(m_neckBiasAcceleration);
     ptr->setRoboticJacobian(m_neckJacobian);
-    ptr->orientationController()->setGains(c0, c1, c2);
+    ptr->orientationController()->setGains(c0, kd, kp);
 
     // resize useful matrix
     m_neckHessian.resize(m_numberOfVariables, m_numberOfVariables);
@@ -288,12 +309,19 @@ bool TaskBasedTorqueSolver::instantiateRegularizationTaskConstraint(const yarp::
         return false;
     }
 
-    tempValue = config.find("derivativeGains");
     iDynTree::VectorDynSize derivativeGains(m_actuatedDOFs);
-    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, derivativeGains))
+    bool useDefaultKd = config.check("useDefaultKd", yarp::os::Value("False")).asBool();
+
+    if(useDefaultKd)
+        iDynTree::toEigen(derivativeGains) = 2 * iDynTree::toEigen(proportionalGains).array().sqrt();
+    else
     {
-        yError() << "Initialization failed while reading dxerivativeGains vector.";
-        return false;
+        tempValue = config.find("derivativeGains");
+        if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, derivativeGains))
+        {
+            yError() << "Initialization failed while reading derivativeGains vector.";
+            return false;
+        }
     }
 
     std::shared_ptr<JointRegularizationTerm> ptr;
@@ -651,7 +679,7 @@ bool TaskBasedTorqueSolver::setDesiredCoMTrajectory(const iDynTree::Position& co
         }
 
         auto ptr = std::static_pointer_cast<CartesianConstraint>(constraint->second);
-        ptr->positionController()->setDesiredTrajectory(dummy, comVelocity, comPosition);
+        ptr->positionController()->setDesiredTrajectory(comAcceleration, comVelocity, comPosition);
     }
     return true;
 }
@@ -790,17 +818,17 @@ bool TaskBasedTorqueSolver::setHessianMatrix()
 bool TaskBasedTorqueSolver::setGradientVector()
 {
     std::string key;
-    Eigen::VectorXd gradientEigen = MatrixXd::Zero(m_numberOfVariables, 1);
+    m_gradient = MatrixXd::Zero(m_numberOfVariables, 1);
     for(const auto& element: m_costFunction)
     {
         key = element.first;
         element.second->evaluateGradient(*(m_gradientVectors.at(key)));
-        gradientEigen += *(m_gradientVectors.at(key));
+        m_gradient += *(m_gradientVectors.at(key));
     }
 
     if(m_optimizer->isInitialized())
     {
-        if(!m_optimizer->updateGradient(gradientEigen))
+        if(!m_optimizer->updateGradient(m_gradient))
         {
             yError() << "[setGradient] Unable to update the gradient.";
             return false;
@@ -808,14 +836,12 @@ bool TaskBasedTorqueSolver::setGradientVector()
     }
     else
     {
-        if(!m_optimizer->data()->setGradient(gradientEigen))
+        if(!m_optimizer->data()->setGradient(m_gradient))
         {
             yError() << "[setGradient] Unable to set first time the gradient.";
             return false;
         }
     }
-
-    m_gradient = gradientEigen;
 
     return true;
 }
@@ -932,25 +958,13 @@ bool TaskBasedTorqueSolver::solve()
 
     if(!m_optimizer->solve())
     {
-        std::cerr << "hessian = [\n";
-        std::cerr<< Eigen::MatrixXd(m_hessianEigen) << "\n";
-        std::cerr << "];\n";
-
-        std::cerr << "gradient = [\n";
-        std::cerr<< Eigen::MatrixXd(m_gradient) << "\n";
-        std::cerr << "];\n";
-
-        std::cerr << "constraint_j = [\n";
-        std::cerr<< Eigen::MatrixXd(m_constraintMatrix) << "\n";
-        std::cerr << "];\n";
-
-        std::cerr << "lower_bound = [\n";
-        std::cerr<< Eigen::MatrixXd(m_lowerBound) << "\n";
-        std::cerr << "];\n";
-
-        std::cerr << "upper_bound = [\n";
-        std::cerr<< Eigen::MatrixXd(m_upperBound) << "\n";
-        std::cerr << "];\n";
+        Eigen::MatioFile file("data.mat");
+        file.write_mat("hessian", Eigen::MatrixXd(m_hessianEigen));
+        file.write_mat("gradient", Eigen::MatrixXd(m_gradient));
+        file.write_mat("constraint", Eigen::MatrixXd(m_constraintMatrix));
+        file.write_mat("lowerBound", Eigen::MatrixXd(m_lowerBound));
+        file.write_mat("upperBound", Eigen::MatrixXd(m_upperBound));
+        file.write_mat("massMatrix", iDynTree::toEigen(m_massMatrix));
 
         yError() << "[solve] Unable to solve the problem.";
         return false;
@@ -967,6 +981,11 @@ bool TaskBasedTorqueSolver::solve()
 
     for(int i = 0; i < m_actuatedDOFs; i++)
         m_desiredJointTorque(i) = m_solution(i + m_actuatedDOFs + 6);
+
+
+
+    if(!tempPrint())
+        return false;
 
     // Eigen::VectorXd product;
     // auto leftWrench = getLeftWrench();
@@ -1419,6 +1438,8 @@ iDynTree::Vector2 TaskBasedTorqueSolverDoubleSupport::getZMP()
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
+
+
     return zmp;
 }
 
@@ -1712,6 +1733,10 @@ bool TaskBasedTorqueSolverSingleSupport::setDesiredFeetTrajectory(const iDynTree
     ptr->orientationController()->setDesiredTrajectory(dummy,
                                                        swingFootTwist.getAngularVec3(),
                                                        swingFootToWorldTransform.getRotation());
+
+    // yInfo() << swingFootToWorldTransform.toString();
+    // yInfo() << swingFootTwist.toString();
+
     return true;
 }
 
@@ -1785,4 +1810,29 @@ iDynTree::Vector2 TaskBasedTorqueSolverSingleSupport::getZMP()
     zmp(1) = zmpPos(1);
 
     return zmp;
+}
+
+bool TaskBasedTorqueSolverSingleSupport::tempPrint()
+{
+
+    Eigen::VectorXd swingFootAcceleration = iDynTree::toEigen(m_swingFootJacobian)
+        * m_solution.block(0,0,m_actuatedDOFs + 6, 1);
+
+    std::cerr << "swingFootAcceleration (asked by the qp) "<< swingFootAcceleration << "\n";
+
+
+    // Eigen::MatioFile file("data.mat");
+    // file.write_mat("hessian", Eigen::MatrixXd(m_hessianEigen));
+    // file.write_mat("gradient", Eigen::MatrixXd(m_gradient));
+    // file.write_mat("constraint", Eigen::MatrixXd(m_constraintMatrix));
+    // file.write_mat("lowerBound", Eigen::MatrixXd(m_lowerBound));
+    // file.write_mat("upperBound", Eigen::MatrixXd(m_upperBound));
+    // file.write_mat("massMatrix", iDynTree::toEigen(m_massMatrix));
+
+    // file.write_mat("stanceFootJacobian", iDynTree::toEigen(m_stanceFootJacobian));
+    // file.write_mat("swingFootJacobian", iDynTree::toEigen(m_swingFootJacobian));
+
+    // file.write_mat("solution", m_solution);
+
+    return true;
 }
