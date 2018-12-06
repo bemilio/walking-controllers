@@ -186,6 +186,7 @@ bool WalkingFK::initialize(const yarp::os::Searchable& config,
     m_comVelocityFilter->init(m_comVelocityFiltered);
 
     m_useFilters = config.check("use_filters", yarp::os::Value(false)).asBool();
+    m_firstStep = true;
 
     return true;
 }
@@ -277,7 +278,9 @@ bool WalkingFK::evaluateWorldToBaseTransformation(const iDynTree::Transform& lef
         }
     }
 
-    m_firstStep = false;
+    if(m_firstStep)
+        m_firstStep = false;
+
     return true;
 }
 
@@ -295,8 +298,6 @@ bool WalkingFK::setInternalRobotState(const iDynTree::VectorDynSize& positionFee
         yError() << "[setRobotState] Error while updating the state.";
         return false;
     }
-
-    m_firstStep = true;
 
     return true;
 }
