@@ -43,6 +43,7 @@
 #include <WalkingPIDHandler.hpp>
 #include <WalkingLogger.hpp>
 #include <TimeProfiler.hpp>
+#include <ClockServer.h>
 
 // iCub-ctrl
 #include <iCub/ctrl/filters.h>
@@ -59,6 +60,12 @@ class WalkingModule:
     public yarp::os::RFModule,
     public WalkingCommands
 {
+     bool m_useGazeboClock;
+    yarp::os::Port m_clockClient;
+    GazeboYarpPlugins::ClockServer m_clockServer;
+    std::string m_clockServerName;
+    int m_numberOfSteps;
+
     double m_dT; /**< RFModule period. */
     double m_time; /**< Current time. */
     std::string m_robot; /**< Robot name. */
@@ -119,8 +126,8 @@ class WalkingModule:
     std::deque<iDynTree::Twist> m_rightAccelerationTrajectory; /**< Deque containing the acceleration trajectory of the right foot. */
 
 
-    std::deque<iDynTree::Vector2> m_DCMPositionDesired; /**< Deque containing the desired DCM position. */
-    std::deque<iDynTree::Vector2> m_DCMVelocityDesired; /**< Deque containing the desired DCM velocity. */
+    std::deque<iDynTree::Vector2> m_DCMPositionDesiredTrajectory; /**< Deque containing the desired DCM position. */
+    std::deque<iDynTree::Vector2> m_DCMVelocityDesiredTrajectory; /**< Deque containing the desired DCM velocity. */
     std::deque<bool> m_leftInContact; /**< Deque containing the left foot state. */
     std::deque<bool> m_rightInContact; /**< Deque containing the right foot state. */
     std::deque<double> m_comHeightTrajectory; /**< Deque containing the CoM height trajectory. */
@@ -155,8 +162,7 @@ class WalkingModule:
     iDynTree::VectorDynSize m_qDesired; /**< Vector containing the results of the IK algorithm [rad]. */
     iDynTree::VectorDynSize m_desiredTorque; /**< Vector containing the desired joint torque. */
     // todo
-    iDynTree::VectorDynSize m_dqDesired_osqp; /**< Vector containing the results of the QP-IK algorithm [rad/s]. */
-    iDynTree::VectorDynSize m_dqDesired_qpOASES; /**< Vector containing the results of the QP-IK algorithm [rad/s]. */
+    iDynTree::VectorDynSize m_dqDesired; /**< Vector containing the results of the QP-IK algorithm [rad/s]. */
     iDynTree::VectorDynSize m_positionFeedbackInRadians; /**< Vector containing the current joint position [rad]. */
     iDynTree::VectorDynSize m_velocityFeedbackInRadians; /**< Vector containing the current joint velocity [rad/s]. */
     iDynTree::VectorDynSize m_toDegBuffer; /**< Vector containing the desired joint positions that will be sent to the robot [deg]. */
@@ -178,6 +184,7 @@ class WalkingModule:
     bool m_usePositionFilter; /**< True if the joint position filter is used. */
 
     iDynTree::Rotation m_inertial_R_worldFrame; /**< Rotation between the inertial and the world frame. */
+    iDynTree::Rotation m_modifiedInertial;
 
     yarp::os::BufferedPort<yarp::sig::Vector> m_leftWrenchPort; /**< Left foot wrench port. */
     yarp::os::BufferedPort<yarp::sig::Vector> m_rightWrenchPort; /**< Right foot wrench port. */
@@ -237,6 +244,23 @@ class WalkingModule:
     double m_nominalStepDurationIni; /**< Nominal step duration associated to minForwardVelocity. */
     double m_nominalStepDurationFinal; /**< Nominal step duration associated to maxForwardVelocity. */
 
+    iDynTree::Position m_CoMPosition;
+    iDynTree::Vector3 m_CoMVelocity;
+    iDynTree::Vector3 m_DCMPosition;
+    iDynTree::Vector2 m_ZMPPosition;
+
+    iDynTree::Vector2 m_desiredZMPPosition;
+    iDynTree::Vector2 m_desiredCoMPositionXY;
+    iDynTree::Vector2 m_desiredCoMVelocityXY;
+
+    iDynTree::Vector3 m_desiredDCMPosition;
+    iDynTree::Vector3 m_desiredDCMVelocity;
+    iDynTree::Position m_desiredCoMPosition;
+    iDynTree::Vector3 m_desiredCoMVelocity;
+    iDynTree::Vector3 m_desiredCoMAcceleration;
+
+    iDynTree::Vector3 m_desiredVRPPosition;
+
     /**
      * Configure the Force torque sensors. The FT ports are only opened please use yarpamanger
      * to connect them.
@@ -265,6 +289,8 @@ class WalkingModule:
      * @return true in case of success and false otherwise.
      */
     bool configureRobot(const yarp::os::Searchable& config);
+
+    void configureGazeboClock(const yarp::os::Searchable& config);
 
     /**
      * Get the name of the controlled joints from the resource finder
@@ -353,51 +379,34 @@ class WalkingModule:
     bool updateFKSolver();
 
     /**
-     * Set the QP-IK problem.
-     * @param solver is the pointer to the solver (osqp or qpOASES)
-     * @param desiredCoMPosition desired CoM position;
-     * @param desiredCoMVelocity desired CoM velocity;
-     * @param desiredNeckOrientation desired neck orientation (rotation matrix);
-     * @param output is the output of the solver (i.e. the desired joint velocity)
+     * Solve the QP-IK problem.
      * @return true in case of success and false otherwise.
      */
-    bool solveQPIK(auto& solver, const iDynTree::Position& desiredCoMPosition,
-                   const iDynTree::Vector3& desiredCoMVelocity,
-                   const iDynTree::Position& actualCoMPosition,
-                   const iDynTree::Rotation& desiredNeckOrientation,
-                   iDynTree::VectorDynSize &output);
-
-    //todo
-    bool solveTaskBased(const iDynTree::Position& desiredCoMPosition,
-                        const iDynTree::Vector3& desiredCoMVelocity,
-                        const iDynTree::Vector3& desiredCoMAcceleration,
-                        const iDynTree::Position& actualCoMPosition,
-                        const iDynTree::Vector3& actualCoMVelocity,
-                        const iDynTree::Rotation& desiredNeckOrientation,
-                        const iDynTree::Vector2& desiredZMP,
-                        iDynTree::VectorDynSize &output);
+    bool solveQPIK();
 
     /**
-     * Evaluate the position of CoM.
-     * @param comPosition position of the center of mass;
-     * @param comVelocity velocity of the center of mass.
+     * Solve the QP-Task based problem.
      * @return true in case of success and false otherwise.
      */
-    bool evaluateCoM(iDynTree::Position& comPosition, iDynTree::Vector3& comVelocity);
+    bool solveTaskBased();
 
     /**
-     * Evaluate the position of 2D-Divergent component of motion.
-     * @param dcm 2d-Divergent component of motion.
+     * Evaluate the position and the velocity of CoM.
      * @return true in case of success and false otherwise.
      */
-    bool evaluateDCM(iDynTree::Vector3& dcm);
+    bool evaluateCoM();
 
     /**
-     * Evaluate the position of Zero momentum point.
-     * @param zmp zero momentum point.
+     * Evaluate the position of Divergent component of motion.
      * @return true in case of success and false otherwise.
      */
-    bool evaluateZMP(iDynTree::Vector2& zmp);
+    bool evaluateDCM();
+
+    /**
+     * Evaluate the position of Zero moment point.
+     * @return true in case of success and false otherwise.
+     */
+    bool evaluateZMP();
 
     /**
      * Generate the first trajectory.
@@ -452,6 +461,10 @@ class WalkingModule:
     double linearInterpolation(const double& x0, const double& y0,
                                const double& xf, const double& yf,
                                const double& x);
+
+    bool solveMPCProblem(bool resetTrajectory);
+
+    bool solveReactiveControlProblem();
 public:
 
      /**
