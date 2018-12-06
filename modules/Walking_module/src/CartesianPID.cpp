@@ -64,6 +64,15 @@ void RotationalPID::evaluateControl()
 
 void LinearPID::setGains(const double& kp, const double& kd)
 {
+    for(int i = 0; i < 3; i++)
+    {
+        m_kp(i) = kp;
+        m_kd(i) = kd;
+    }
+}
+
+void LinearPID::setGains(const iDynTree::Vector3& kp, const iDynTree::Vector3& kd)
+{
     m_kp = kp;
     m_kd = kd;
 }
@@ -86,11 +95,10 @@ void LinearPID::setFeedback(const iDynTree::Vector3 &velocity,
 
 void LinearPID::evaluateControl()
 {
-    Eigen::Vector3d error;
-    error = iDynTree::toEigen(m_desiredPosition) - iDynTree::toEigen(m_position);
-    Eigen::Vector3d dotError;
-    dotError = iDynTree::toEigen(m_desiredVelocity) - iDynTree::toEigen(m_velocity);
+    m_error = iDynTree::toEigen(m_desiredPosition) - iDynTree::toEigen(m_position);
+    m_dotError = iDynTree::toEigen(m_desiredVelocity) - iDynTree::toEigen(m_velocity);
 
-    iDynTree::toEigen(m_controllerOutput) = iDynTree::toEigen(m_desiredAcceleration) +
-        m_kp * error + m_kd * dotError;
+    iDynTree::toEigen(m_controllerOutput) = iDynTree::toEigen(m_desiredAcceleration)
+        + iDynTree::toEigen(m_kp).asDiagonal() * m_error
+        + iDynTree::toEigen(m_kd).asDiagonal() * m_dotError;
 }

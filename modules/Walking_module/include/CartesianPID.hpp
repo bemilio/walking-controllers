@@ -18,7 +18,7 @@
  */
 class CartesianPID
 {
-protected:
+public:
     iDynTree::Vector3 m_desiredAcceleration; /**< Desired acceleration (feedforward). */
     iDynTree::Vector3 m_desiredVelocity;  /**< Desired velocity. */
 
@@ -46,6 +46,7 @@ public:
  */
 class RotationalPID : public CartesianPID
 {
+public:
     double m_c0; /**< Rotational PID Gain. */
     double m_c1; /**< Rotational PID Gain. */
     double m_c2; /**< Rotational PID Gain. */
@@ -92,21 +93,31 @@ public:
  */
 class LinearPID : public CartesianPID
 {
-    double m_kp; /**< Proportional gain */
-    double m_kd; /**< Derivative gain */
+    iDynTree::Vector3 m_kp; /**< Proportional gain */
+    iDynTree::Vector3 m_kd; /**< Derivative gain */
 
     iDynTree::Vector3 m_desiredPosition; /**< Desired position. */
 
     iDynTree::Vector3 m_position; /**< Actual position. */
 
+    Eigen::Vector3d m_error;
+    Eigen::Vector3d m_dotError;
 public:
 
     /**
      * Set PID Gains
-     * @param kp proportional gain;
-     * @param kd derivative gain.
+     * @param kp proportional gain (scalar);
+     * @param kd derivative gain (scalar).
      */
     void setGains(const double& kp, const double& kd);
+
+    /**
+     * Set PID Gains
+     * @param kp proportional gain (vector);
+     * @param kd derivative gain (vector).
+     */
+    void setGains(const iDynTree::Vector3& kp, const iDynTree::Vector3& kd);
+
 
     /**
      * Set the desired trajectory.
