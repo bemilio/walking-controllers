@@ -1313,9 +1313,9 @@ bool WalkingModule::solveReactiveControlProblem()
     // DCMPositionDesired3D(1) = m_DCMPositionDesiredTrajectory.front()(1);
     // DCMPositionDesired3D(2) = m_comHeightTrajectory.front();
 
-    m_desiredDCMPosition(0) = 0;
-    m_desiredDCMPosition(1) = omega * amplitude * std::cos(omega * m_time);
-    m_desiredDCMPosition(2) = m_comHeightVelocity.front();
+    m_desiredDCMVelocity(0) = 0;
+    m_desiredDCMVelocity(1) = omega * amplitude * std::cos(omega * m_time);
+    m_desiredDCMVelocity(2) = m_comHeightVelocity.front();
 
     // DCMVelocityDesired3D(0) = m_DCMVelocityDesiredTrajectory.front()(0);
     // DCMVelocityDesired3D(1) = m_DCMVelocityDesiredTrajectory.front()(1);
