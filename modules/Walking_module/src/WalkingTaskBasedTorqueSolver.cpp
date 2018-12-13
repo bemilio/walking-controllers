@@ -1451,39 +1451,40 @@ bool TaskBasedTorqueSolverSingleSupport::instantiateFeetConstraint(const yarp::o
         return false;
     }
 
-    double kp;
-    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    bool useDefaultKd = config.check("useDefaultKd", yarp::os::Value("False")).asBool();
+
+    double kpLinear;
+    if(!YarpHelper::getNumberFromSearchable(config, "kpLinear", kpLinear))
     {
         yError() << "[instantiateFeetConstraint] Unable to get proportional gain";
         return false;
     }
 
-    double kd;
-    if(!YarpHelper::getNumberFromSearchable(config, "kd", kd))
+    double kdLinear;
+    if(useDefaultKd)
+        kdLinear = 2 * std::sqrt(kpLinear);
+    else
     {
-        yError() << "[instantiateFeetConstraint] Unable to get derivative gain";
-        return false;
+        if(!YarpHelper::getNumberFromSearchable(config, "kdLinear", kdLinear))
+        {
+            yError() << "[instantiateFeetConstraint] Unable to get derivative gain";
+            return false;
+        }
     }
 
-    double c0;
+    double c0, kpAngular, kdAngular;
     if(!YarpHelper::getNumberFromSearchable(config, "c0", c0))
-    {
-        yError() << "[instantiateFeetConstraint] Unable to get c0";
         return false;
-    }
 
-    double c1;
-    if(!YarpHelper::getNumberFromSearchable(config, "c1", c1))
-    {
-        yError() << "[instantiateFeetConstraint] Unable to get c1";
+    if(!YarpHelper::getNumberFromSearchable(config, "kpAngular", kpAngular))
         return false;
-    }
 
-    double c2;
-    if(!YarpHelper::getNumberFromSearchable(config, "c2", c2))
+    if(useDefaultKd)
+        kdAngular = 2 * std::sqrt(kpAngular);
+    else
     {
-        yError() << "[instantiateFeetConstraint] Unable to get c2";
-        return false;
+        if(!YarpHelper::getNumberFromSearchable(config, "kdAngular", kdAngular))
+            return false;
     }
 
     std::shared_ptr<CartesianConstraint> ptr;
@@ -1507,8 +1508,8 @@ bool TaskBasedTorqueSolverSingleSupport::instantiateFeetConstraint(const yarp::o
 
     ptr = std::make_shared<CartesianConstraint>(CartesianElementType::POSE);
     ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
-    ptr->positionController()->setGains(kp, kd);
-    ptr->orientationController()->setGains(c0, c1, c2);
+    ptr->positionController()->setGains(kpLinear, kdLinear);
+    ptr->orientationController()->setGains(c0, kdAngular, kpAngular);
     ptr->setRoboticJacobian(m_swingFootJacobian);
     ptr->setBiasAcceleration(m_swingFootBiasAcceleration);
 

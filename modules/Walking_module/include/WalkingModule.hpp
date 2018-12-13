@@ -261,6 +261,10 @@ class WalkingModule:
 
     iDynTree::Vector3 m_desiredVRPPosition;
 
+
+    iDynTree::Transform m_desiredLeftFootToWorldTransform;
+    iDynTree::Transform m_desiredLeftFootToWorldTransformOffset;
+
     /**
      * Configure the Force torque sensors. The FT ports are only opened please use yarpamanger
      * to connect them.

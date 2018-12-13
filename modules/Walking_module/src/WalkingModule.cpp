@@ -34,6 +34,8 @@ void WalkingModule::propagateTime()
 
 bool WalkingModule::propagateReferenceSignals()
 {
+    return true;
+
     // check if vector is not initialized
     if(m_leftTrajectory.empty()
        || m_rightTrajectory.empty()
@@ -1130,7 +1132,8 @@ bool WalkingModule::solveQPIK()
 bool WalkingModule::solveTaskBased()
 {
     // do at the beginning!
-    m_taskBasedTorqueSolver->setFeetState(m_leftInContact.front(), m_rightInContact.front());
+    // m_taskBasedTorqueSolver->setFeetState(m_leftInContact.front(), m_rightInContact.front());
+    m_taskBasedTorqueSolver->setFeetState(false, true);
 
     iDynTree::MatrixDynSize jacobian, comJacobian;
     jacobian.resize(6, m_actuatedDOFs + 6);
@@ -1173,16 +1176,47 @@ bool WalkingModule::solveTaskBased()
     m_taskBasedTorqueSolver->setNeckBiasAcceleration(m_FKSolver->getNeckBiasAcceleration());
 
     // feet
-    if(!m_taskBasedTorqueSolver->setDesiredFeetTrajectory(m_leftTrajectory.front(),
-                                                          m_rightTrajectory.front(),
-                                                          m_leftTwistTrajectory.front(),
-                                                          m_rightTwistTrajectory.front(),
-                                                          m_leftAccelerationTrajectory.front(),
-                                                          m_rightAccelerationTrajectory.front()))
+    iDynTree::Twist dummyTwist, twistLeft, accelerationLeft;
+    dummyTwist.zero();
+    twistLeft.zero();
+    accelerationLeft.zero();
+    iDynTree::Transform trans;
+    iDynTree::Position dummyPos;
+    dummyPos.zero();
+    trans.setRotation(iDynTree::Rotation::Identity());
+    trans.setPosition(dummyPos);
+
+
+    double amplitude = 0.05;
+    double omega = 0.2;
+    double frequency = 2 * M_PI * omega;
+    m_desiredLeftFootToWorldTransformOffset = m_desiredLeftFootToWorldTransform;
+    iDynTree::Position desiredLeftFootPosition = m_desiredLeftFootToWorldTransform.getPosition();
+    desiredLeftFootPosition(2) += amplitude * std::sin(frequency * m_time);
+    m_desiredLeftFootToWorldTransformOffset.setPosition(desiredLeftFootPosition);
+
+    twistLeft.getLinearVec3()(2) += amplitude * frequency * std::cos(frequency * m_time);
+    accelerationLeft.getLinearVec3()(2) += -amplitude * frequency * frequency *  std::sin(frequency * m_time);
+
+    if(!m_taskBasedTorqueSolver->setDesiredFeetTrajectory(m_desiredLeftFootToWorldTransformOffset,
+                                                          trans,
+                                                          twistLeft, dummyTwist, accelerationLeft, dummyTwist))
     {
         yError() << "[solveTaskbased] Unable to set the desired feet trajectory";
         return false;
     }
+
+    // if(!m_taskBasedTorqueSolver->setDesiredFeetTrajectory(m_leftTrajectory.front(),
+    //                                                       m_rightTrajectory.front(),
+    //                                                       m_leftTwistTrajectory.front(),
+    //                                                       m_rightTwistTrajectory.front(),
+    //                                                       m_leftAccelerationTrajectory.front(),
+    //                                                       m_rightAccelerationTrajectory.front()))
+    // {
+    //     yError() << "[solveTaskbased] Unable to set the desired feet trajectory";
+    //     return false;
+    // }
+
 
     if(!m_taskBasedTorqueSolver->setFeetState(m_FKSolver->getLeftFootToWorldTransform(),
                                               m_FKSolver->getLeftFootVelocity(),
@@ -1302,24 +1336,13 @@ bool WalkingModule::solveReactiveControlProblem()
 {
     m_walkingDCMReactiveController->setFeedback(m_DCMPosition);
 
-    double omega = 2 * 0.4 * M_PI;
-    double amplitude = 0.04;
-    m_desiredDCMPosition(0) = 0;
-    m_desiredDCMPosition(1) = amplitude * std::sin(omega * m_time);
-    m_desiredDCMPosition(2) = m_comHeightTrajectory.front();
+    // m_desiredDCMPosition(0) = m_DCMPositionDesiredTrajectory.front()(0);
+    // m_desiredDCMPosition(1) = m_DCMPositionDesiredTrajectory.front()(1);
+    // m_desiredDCMPosition(2) = m_comHeightVelocity.front();
 
-
-    // DCMPositionDesired3D(0) = m_DCMPositionDesiredTrajectory.front()(0);
-    // DCMPositionDesired3D(1) = m_DCMPositionDesiredTrajectory.front()(1);
-    // DCMPositionDesired3D(2) = m_comHeightTrajectory.front();
-
-    m_desiredDCMVelocity(0) = 0;
-    m_desiredDCMVelocity(1) = omega * amplitude * std::cos(omega * m_time);
-    m_desiredDCMVelocity(2) = m_comHeightVelocity.front();
-
-    // DCMVelocityDesired3D(0) = m_DCMVelocityDesiredTrajectory.front()(0);
-    // DCMVelocityDesired3D(1) = m_DCMVelocityDesiredTrajectory.front()(1);
-    // DCMVelocityDesired3D(2) = m_comHeightVelocity.front();
+    // m_desiredDCMVelocity(0) = m_DCMVelocityDesiredTrajectory.front()(0);
+    // m_desiredDCMVelocity(1) = m_DCMVelocityDesiredTrajectory.front()(1);
+    // m_desiredDCMVelocity(2) = m_comHeightVelocity.front();
 
     m_walkingDCMReactiveController->setReferenceSignal(m_desiredDCMPosition, m_desiredDCMVelocity);
 
@@ -1619,32 +1642,14 @@ bool WalkingModule::updateModule()
         {
             m_profiler->setInitTime("TORQUE");
 
-            // iDynTree::Vector3 desiredCoMVelocity;
-            // desiredCoMVelocity(0) = outputZMPCoMControllerVelocity(0);
-            // desiredCoMVelocity(1) = outputZMPCoMControllerVelocity(1);
-            // desiredCoMVelocity(2) = m_comHeightVelocity.front();
+            // m_desiredCoMPosition(2) = m_comHeightTrajectory.front();
+            // m_desiredCoMVelocity(2) = m_comHeightVelocity.front();
+            // m_desiredCoMAcceleration(2) = 0;
 
-            double omega = 2 * 0.1 * M_PI;
-            double amplitude = 0.04;
-            m_desiredCoMPosition(0) = 0;
-            m_desiredCoMPosition(1) = amplitude * std::sin(omega * m_time);
-            m_desiredCoMPosition(2) = m_comHeightTrajectory.front();
-
-            m_desiredCoMVelocity(0) = 0;
-            m_desiredCoMVelocity(1) = amplitude * omega * std::cos(omega * m_time);
-            m_desiredCoMVelocity(2) = 0;
-
-            // iDynTree::Vector3 desiredCoMVelocity;
-            // desiredCoMVelocity(0) = desiredCoMVelocityXY(0);
-            // desiredCoMVelocity(1) = desiredCoMVelocityXY(1);
-            // desiredCoMVelocity(2) = m_comHeightVelocity.front();
+            m_desiredCoMVelocity.zero();
 
             // iDynTree::toEigen(desiredCoMAcceleration) = 9.81 / measuredCoM(2) * (iDynTree::toEigen(measuredCoM)
                                                                                  // - iDynTree::toEigen(desiredVRP));
-
-            m_desiredCoMAcceleration(0) = 0;
-            m_desiredCoMAcceleration(1) = -amplitude * omega * omega *  std::sin(omega * m_time);
-            m_desiredCoMAcceleration(2) = 0;
 
             if(!solveTaskBased())
             {
@@ -1707,8 +1712,10 @@ bool WalkingModule::updateModule()
                                       m_CoMPosition, m_desiredCoMPosition,
                                       leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
                                       rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
-                                      m_leftTrajectory.front().getPosition(),
-                                      m_leftTrajectory.front().getRotation().asRPY(),
+                                      m_desiredLeftFootToWorldTransformOffset.getPosition(),
+                                      m_desiredLeftFootToWorldTransformOffset.getRotation().asRPY(),
+                                      // m_leftTrajectory.front().getPosition(),
+                                      // m_leftTrajectory.front().getRotation().asRPY(),
                                       m_rightTrajectory.front().getPosition(),
                                       m_rightTrajectory.front().getRotation().asRPY(),
                                       torsoDesired,
@@ -2259,11 +2266,6 @@ bool WalkingModule::prepareRobot(bool onTheFly)
 
     m_firstStep = true;
 
-
-    iDynTree::Position measuredCoM;
-    iDynTree::Vector3 measuredCoMVelocity;
-    iDynTree::Transform leftToRightTransform;
-
     // get the current state of the robot
     // this is necessary because the trajectories for the joints, CoM height and neck orientation
     // depend on the current state of the robot
@@ -2273,191 +2275,249 @@ bool WalkingModule::prepareRobot(bool onTheFly)
         return false;
     }
 
-    if(onTheFly)
+    if(!updateFKSolver())
+        return false;
+
+    if(!m_FKSolver->evaluateCoM())
     {
-        if(!m_FKSolver->setBaseOnTheFly())
-	{
-            yError() << "[onTheFlyStartWalking] Unable to set the onTheFly base.";
-            return false;
-	}
-
-	if(!m_FKSolver->setInternalRobotState(m_positionFeedbackInRadians, m_velocityFeedbackInRadians))
-	{
-            yError() << "[onTheFlyStartWalking] Unable to evaluate the CoM.";
-            return false;
-	}
-
-	// evaluate the left to right transformation, the inertial frame is on the left foot
-	leftToRightTransform = m_FKSolver->getRightFootToWorldTransform();
-
-	// evaluate the first trajectory. The robot does not move!
-	if(!generateFirstTrajectories(leftToRightTransform))
-	{
-            yError() << "[onTheFlyStartWalking] Failed to evaluate the first trajectories.";
-            return false;
-	}
-    }
-    else
-    {
-        // evaluate the first trajectory. The robot does not move! So the first trajectory
-        if(!generateFirstTrajectories())
-        {
-	    yError() << "[prepareRobot] Failed to evaluate the first trajectories.";
-	    return false;
-        }
-    }
-
-    // reset the gains
-    if (m_PIDHandler->usingGainScheduling())
-    {
-        if (!(m_PIDHandler->reset()))
-            return false;
-    }
-
-    for(unsigned j = 0; j < m_actuatedDOFs; ++j)
-        m_positionFeedbackInRadians(j) = iDynTree::deg2rad(m_positionFeedbackInDegrees(j));
-
-    if(!m_IKSolver->setFullModelFeedBack(m_positionFeedbackInRadians))
-    {
-        yError() << "[prepareRobot] Error while setting the feedback to the IK solver.";
+        yError() << "[evaluateCoM] Unable to evaluate the CoM.";
         return false;
     }
 
-    iDynTree::Position desiredCoMPosition;
-    desiredCoMPosition(0) = m_DCMPositionDesiredTrajectory.front()(0);
-    desiredCoMPosition(1) = m_DCMPositionDesiredTrajectory.front()(1);
-    desiredCoMPosition(2) = m_comHeightTrajectory.front();
 
-    if(m_IKSolver->usingAdditionalRotationTarget())
+    if(!m_FKSolver->evaluateDCM())
     {
-        // get the yow angle of both feet
-        double yawLeft = m_leftTrajectory.front().getRotation().asRPY()(2);
-        double yawRight = m_rightTrajectory.front().getRotation().asRPY()(2);
-
-        // evaluate the mean of the angles
-        double meanYaw = std::atan2(std::sin(yawLeft) + std::sin(yawRight),
-                                    std::cos(yawLeft) + std::cos(yawRight));
-        iDynTree::Rotation yawRotation, modifiedInertial;
-
-        // it is important to notice that the inertial frames rotate with the robot
-        yawRotation = iDynTree::Rotation::RotZ(meanYaw);
-
-        yawRotation = yawRotation.inverse();
-        modifiedInertial = yawRotation * m_inertial_R_worldFrame;
-
-        if(!m_IKSolver->updateIntertiaToWorldFrameRotation(modifiedInertial))
-        {
-            yError() << "[prepareRobot] Error updating the inertia to world frame rotation.";
-            return false;
-        }
-    }
-
-    if(!m_IKSolver->computeIK(m_leftTrajectory.front(), m_rightTrajectory.front(),
-                              desiredCoMPosition, m_qDesired))
-    {
-        yError() << "[prepareRobot] Inverse Kinematics failed while computing the initial position.";
+        yError() << "[evaluateCoM] Unable to evaluate the CoM.";
         return false;
     }
 
-    if(!setPositionReferences(m_qDesired, 5.0))
+    if(!m_FKSolver->getCoMPosition(m_desiredCoMPosition))
     {
-        yError() << "[prepareRobot] Error while setting the initial position.";
+        yError() << "[evaluateCoM] Unable to get the COM position.";
         return false;
     }
 
-    if(!switchToControlMode(VOCAB_CM_POSITION_DIRECT))
+    if(!m_FKSolver->getDCM(m_desiredDCMPosition))
     {
-        yError() << "[prepareRobot] Failed in setting POSITION DIRECT mode.";
+        yError() << "[evaluateCoM] Unable to get the DCM position.";
         return false;
     }
 
-    // send the reference again in order to reduce error
-    if(!setDirectPositionReferences(m_qDesired))
-    {
-        yError() << "[prepareRobot] Error while setting the initial position using "
-                 << "POSITION DIRECT mode.";
-        return false;
-    }
-
-    if(m_useQPIK)
-    {
-        // if the velocity controller is used as IK you cannot use set velocity
-        if(m_useVelocity && !m_useVelocityControllerAsIK)
-            if(!switchToControlMode(VOCAB_CM_VELOCITY))
-            {
-                yError() << "[prepareRobot] Failed in setting VELOCITY mode.";
-                return false;
-            }
-    }
-
-    // get feedback to initialize integrator and hands minimum jerk trajectories
-    if(!getFeedbacks(10))
-    {
-        yError() << "[prepareRobot] Unable to get the feedback.";
-        return false;
-    }
-
-    yarp::sig::Vector buffer(m_positionFeedbackInRadians.size());
-    iDynTree::toYarp(m_positionFeedbackInRadians, buffer);
-    // instantiate Integrator object
-    m_velocityIntegral = std::make_unique<iCub::ctrl::Integrator>(m_dT, buffer);
-
-    // reset the models
-    m_walkingZMPController->reset(m_DCMPositionDesiredTrajectory.front());
-    m_stableDCMModel->reset(m_DCMPositionDesiredTrajectory.front());
-
-    if(m_useLeftHand || m_useRightHand)
-    {
-        iDynTree::Position position;
-        iDynTree::Rotation rotation;
-        iDynTree::Transform handToRootLink;
-        yarp::sig::Vector handBuffer(6);
-        if(!updateFKSolver())
-        {
-            yError() << "[prepareRobot] Unable to update FK.";
-            return false;
-        }
-
-        if(m_useLeftHand)
-        {
-            handToRootLink = m_FKSolver->getHeadLinkToWorldTransform().inverse() *
-                m_FKSolver->getLeftHandToWorldTransform();
-
-            position = handToRootLink.getPosition();
-            rotation = handToRootLink.getRotation();
-
-            for(int i = 0; i<3; i++)
-                handBuffer(i) = position(i);
-
-            rotation.getRPY(handBuffer(3), handBuffer(4), handBuffer(5));
-
-            m_desiredLeftHandPoseYarp = handBuffer;
-            m_desiredLeftHandSmoother->init(handBuffer);
-
-        }
-
-        if(m_useRightHand)
-        {
-            handToRootLink = m_FKSolver->getHeadLinkToWorldTransform().inverse() *
-                m_FKSolver->getRightHandToWorldTransform();
-
-            position = handToRootLink.getPosition();
-            rotation = handToRootLink.getRotation();
-
-            for(int i = 0; i < 3; i++)
-                handBuffer(i) = position(i);
-
-            rotation.getRPY(handBuffer(3), handBuffer(4), handBuffer(5));
-
-            m_desiredRightHandPoseYarp = handBuffer;
-            m_desiredRightHandSmoother->init(handBuffer);
-        }
-    }
+    m_desiredDCMVelocity.zero();
+    m_desiredLeftFootToWorldTransform = m_FKSolver->getLeftFootToWorldTransform();
+    m_desiredLeftFootToWorldTransform.setRotation(iDynTree::Rotation::Identity());
 
 
     m_robotState = WalkingFSM::Prepared;
     return true;
 }
+
+
+// bool WalkingModule::prepareRobot(bool onTheFly)
+// {
+//     if(m_robotState != WalkingFSM::Configured)
+//     {
+//         yError() << "[prepareRobot] You cannot prepare the robot again.";
+//         return false;
+//     }
+
+//     m_firstStep = true;
+
+//     // get the current state of the robot
+//     // this is necessary because the trajectories for the joints, CoM height and neck orientation
+//     // depend on the current state of the robot
+//     if(!getFeedbacks(10))
+//     {
+//         yError() << "[onTheFlyStartWalking] Unable to get the feedback.";
+//         return false;
+//     }
+
+//     if(onTheFly)
+//     {
+//         iDynTree::Transform leftToRightTransform;
+
+//         if(!m_FKSolver->setBaseOnTheFly())
+// 	{
+//             yError() << "[onTheFlyStartWalking] Unable to set the onTheFly base.";
+//             return false;
+// 	}
+
+// 	if(!m_FKSolver->setInternalRobotState(m_positionFeedbackInRadians, m_velocityFeedbackInRadians))
+// 	{
+//             yError() << "[onTheFlyStartWalking] Unable to evaluate the CoM.";
+//             return false;
+// 	}
+
+// 	// evaluate the left to right transformation, the inertial frame is on the left foot
+// 	leftToRightTransform = m_FKSolver->getRightFootToWorldTransform();
+
+// 	// evaluate the first trajectory. The robot does not move!
+// 	if(!generateFirstTrajectories(leftToRightTransform))
+// 	{
+//             yError() << "[onTheFlyStartWalking] Failed to evaluate the first trajectories.";
+//             return false;
+// 	}
+//     }
+//     else
+//     {
+//         // evaluate the first trajectory. The robot does not move! So the first trajectory
+//         if(!generateFirstTrajectories())
+//         {
+// 	    yError() << "[prepareRobot] Failed to evaluate the first trajectories.";
+// 	    return false;
+//         }
+//     }
+
+//     // reset the gains
+//     if (m_PIDHandler->usingGainScheduling())
+//     {
+//         if (!(m_PIDHandler->reset()))
+//             return false;
+//     }
+
+//     for(unsigned j = 0; j < m_actuatedDOFs; ++j)
+//         m_positionFeedbackInRadians(j) = iDynTree::deg2rad(m_positionFeedbackInDegrees(j));
+
+//     if(!m_IKSolver->setFullModelFeedBack(m_positionFeedbackInRadians))
+//     {
+//         yError() << "[prepareRobot] Error while setting the feedback to the IK solver.";
+//         return false;
+//     }
+
+//     iDynTree::Position desiredCoMPosition;
+//     desiredCoMPosition(0) = m_DCMPositionDesiredTrajectory.front()(0);
+//     desiredCoMPosition(1) = m_DCMPositionDesiredTrajectory.front()(1);
+//     desiredCoMPosition(2) = m_comHeightTrajectory.front();
+
+//     if(m_IKSolver->usingAdditionalRotationTarget())
+//     {
+//         // get the yow angle of both feet
+//         double yawLeft = m_leftTrajectory.front().getRotation().asRPY()(2);
+//         double yawRight = m_rightTrajectory.front().getRotation().asRPY()(2);
+
+//         // evaluate the mean of the angles
+//         double meanYaw = std::atan2(std::sin(yawLeft) + std::sin(yawRight),
+//                                     std::cos(yawLeft) + std::cos(yawRight));
+//         iDynTree::Rotation yawRotation, modifiedInertial;
+
+//         // it is important to notice that the inertial frames rotate with the robot
+//         yawRotation = iDynTree::Rotation::RotZ(meanYaw);
+
+//         yawRotation = yawRotation.inverse();
+//         modifiedInertial = yawRotation * m_inertial_R_worldFrame;
+
+//         if(!m_IKSolver->updateIntertiaToWorldFrameRotation(modifiedInertial))
+//         {
+//             yError() << "[prepareRobot] Error updating the inertia to world frame rotation.";
+//             return false;
+//         }
+//     }
+
+//     if(!m_IKSolver->computeIK(m_leftTrajectory.front(), m_rightTrajectory.front(),
+//                               desiredCoMPosition, m_qDesired))
+//     {
+//         yError() << "[prepareRobot] Inverse Kinematics failed while computing the initial position.";
+//         return false;
+//     }
+
+//     if(!setPositionReferences(m_qDesired, 5.0))
+//     {
+//         yError() << "[prepareRobot] Error while setting the initial position.";
+//         return false;
+//     }
+
+//     if(!switchToControlMode(VOCAB_CM_POSITION_DIRECT))
+//     {
+//         yError() << "[prepareRobot] Failed in setting POSITION DIRECT mode.";
+//         return false;
+//     }
+
+//     // send the reference again in order to reduce error
+//     if(!setDirectPositionReferences(m_qDesired))
+//     {
+//         yError() << "[prepareRobot] Error while setting the initial position using "
+//                  << "POSITION DIRECT mode.";
+//         return false;
+//     }
+
+//     if(m_useQPIK)
+//     {
+//         // if the velocity controller is used as IK you cannot use set velocity
+//         if(m_useVelocity && !m_useVelocityControllerAsIK)
+//             if(!switchToControlMode(VOCAB_CM_VELOCITY))
+//             {
+//                 yError() << "[prepareRobot] Failed in setting VELOCITY mode.";
+//                 return false;
+//             }
+//     }
+
+//     // get feedback to initialize integrator and hands minimum jerk trajectories
+//     if(!getFeedbacks(10))
+//     {
+//         yError() << "[prepareRobot] Unable to get the feedback.";
+//         return false;
+//     }
+
+//     yarp::sig::Vector buffer(m_positionFeedbackInRadians.size());
+//     iDynTree::toYarp(m_positionFeedbackInRadians, buffer);
+//     // instantiate Integrator object
+//     m_velocityIntegral = std::make_unique<iCub::ctrl::Integrator>(m_dT, buffer);
+
+//     // reset the models
+//     m_walkingZMPController->reset(m_DCMPositionDesiredTrajectory.front());
+//     m_stableDCMModel->reset(m_DCMPositionDesiredTrajectory.front());
+
+//     if(m_useLeftHand || m_useRightHand)
+//     {
+//         iDynTree::Position position;
+//         iDynTree::Rotation rotation;
+//         iDynTree::Transform handToRootLink;
+//         yarp::sig::Vector handBuffer(6);
+//         if(!updateFKSolver())
+//         {
+//             yError() << "[prepareRobot] Unable to update FK.";
+//             return false;
+//         }
+
+//         if(m_useLeftHand)
+//         {
+//             handToRootLink = m_FKSolver->getHeadLinkToWorldTransform().inverse() *
+//                 m_FKSolver->getLeftHandToWorldTransform();
+
+//             position = handToRootLink.getPosition();
+//             rotation = handToRootLink.getRotation();
+
+//             for(int i = 0; i<3; i++)
+//                 handBuffer(i) = position(i);
+
+//             rotation.getRPY(handBuffer(3), handBuffer(4), handBuffer(5));
+
+//             m_desiredLeftHandPoseYarp = handBuffer;
+//             m_desiredLeftHandSmoother->init(handBuffer);
+
+//         }
+
+//         if(m_useRightHand)
+//         {
+//             handToRootLink = m_FKSolver->getHeadLinkToWorldTransform().inverse() *
+//                 m_FKSolver->getRightHandToWorldTransform();
+
+//             position = handToRootLink.getPosition();
+//             rotation = handToRootLink.getRotation();
+
+//             for(int i = 0; i < 3; i++)
+//                 handBuffer(i) = position(i);
+
+//             rotation.getRPY(handBuffer(3), handBuffer(4), handBuffer(5));
+
+//             m_desiredRightHandPoseYarp = handBuffer;
+//             m_desiredRightHandSmoother->init(handBuffer);
+//         }
+//     }
+
+//     m_robotState = WalkingFSM::Prepared;
+//     return true;
+// }
 
 bool WalkingModule::generateFirstTrajectories(const iDynTree::Transform &leftToRightTransform)
 {
@@ -2632,13 +2692,29 @@ bool WalkingModule::updateFKSolver()
     //     }
     // }
 
+    // standard
+    // if(!m_FKSolver->evaluateWorldToBaseTransformation(m_leftTrajectory.front(),
+    //                                                   m_rightTrajectory.front(),
+    //                                                   m_isLeftFixedFrame.front()))
+    // {
+    //     yError() << "[updateFKSolver] Unable to evaluate the world to base transformation.";
+    //     return false;
+    // }
+
+    // dummy transformation only for testing
+    iDynTree::Transform trans;
+    iDynTree::Position dummy;
+    dummy.zero();
+    trans.setRotation(iDynTree::Rotation::Identity());
+    trans.setPosition(dummy);
     if(!m_FKSolver->evaluateWorldToBaseTransformation(m_leftTrajectory.front(),
-                                                      m_rightTrajectory.front(),
-                                                      m_isLeftFixedFrame.front()))
+                                                      trans,
+                                                      false))
     {
         yError() << "[updateFKSolver] Unable to evaluate the world to base transformation.";
         return false;
     }
+
 
     if(!m_FKSolver->setInternalRobotState(m_positionFeedbackInRadians, m_velocityFeedbackInRadians))
     {
