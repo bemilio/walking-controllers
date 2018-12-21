@@ -162,6 +162,9 @@ bool JoypadModule::close()
 
 bool JoypadModule::updateModule()
 {
+    yarp::os::Bottle cmd, outcome;
+    std::vector<float> buttonMapping(4);
+
     // prepare robot (A button)
     m_joypadController->getButton(0, buttonMapping[0]);
 

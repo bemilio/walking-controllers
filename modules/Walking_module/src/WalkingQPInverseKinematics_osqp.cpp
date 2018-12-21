@@ -47,13 +47,13 @@ bool WalkingQPIK_osqp::initializeMatrices(const yarp::os::Searchable& config)
     if(m_useLeftHand || m_useRightHand)
     {
         m_handWeightMatrix.resize(6, 6);
-        if(!YarpHelper::getDoubleFromSearchable(config, "k_posHand", m_kPosHand))
+        if(!YarpHelper::getNumberFromSearchable(config, "k_posHand", m_kPosHand))
         {
             yError() << "Initialization failed while reading k_posHand.";
             return false;
         }
 
-        if(!YarpHelper::getDoubleFromSearchable(config, "k_attHand", m_kAttHand))
+        if(!YarpHelper::getNumberFromSearchable(config, "k_attHand", m_kAttHand))
         {
             yError() << "Initialization failed while reading k_attHand.";
             return false;
@@ -78,7 +78,7 @@ bool WalkingQPIK_osqp::initializeMatrices(const yarp::os::Searchable& config)
             }
 
             double smoothingTime;
-            if(!YarpHelper::getDoubleFromSearchable(config, "smoothingTime", smoothingTime))
+            if(!YarpHelper::getNumberFromSearchable(config, "smoothingTime", smoothingTime))
             {
                 yError() << "Initialization failed while reading smoothingTime.";
                 return false;
@@ -142,8 +142,6 @@ bool WalkingQPIK_osqp::initializeMatrices(const yarp::os::Searchable& config)
     for(int i = 0; i < m_actuatedDOFs; i++)
         m_jointRegulatizationGains(i, i) = jointRegularizationGains(i);
 
-
-    1;4205;0c<<<<<<< cb2a02f81290f20c360c22271f6f47788693b8fc
     if(!YarpHelper::getNumberFromSearchable(config, "k_posFoot", m_kPosFoot))
     {
         yError() << "Initialization failed while reading k_posFoot.";
@@ -174,7 +172,7 @@ bool WalkingQPIK_osqp::initializeMatrices(const yarp::os::Searchable& config)
         return false;
     }
 
-    if(!YarpHelper::getDoubleFromSearchable(config, "k_intPosCom", m_kICom))
+    if(!YarpHelper::getNumberFromSearchable(config, "k_intPosCom", m_kICom))
     {
         yError() << "Initialization failed while reading k_intPosCom.";
         return false;
@@ -226,7 +224,7 @@ bool WalkingQPIK_osqp::initialize(const yarp::os::Searchable& config,
         return false;
     }
 
-    if(!YarpHelper::getDoubleFromSearchable(config, "sampling_time", m_dT))
+    if(!YarpHelper::getNumberFromSearchable(config, "sampling_time", m_dT))
     {
         yError() << "Initialization failed while reading sampling_time.";
         return false;

@@ -19,6 +19,9 @@
 #include <iDynTree/KinDynComputations.h>
 #include <qpOASES.hpp>
 
+#include <iCub/ctrl/pids.h>
+#include <iCub/ctrl/minJerkCtrl.h>
+
 #include <Utils.hpp>
 
 class WalkingQPIK_qpOASES
