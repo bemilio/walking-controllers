@@ -1360,7 +1360,17 @@ bool WalkingModule::updateModule()
             else
                 m_IKSolver->getDesiredNeckOrientation(torsoDesired);
 
-            m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(),
+            auto leftHand = m_FKSolver->getLeftHandToWorldTransform();
+            auto rightHand = m_FKSolver->getRightHandToWorldTransform();
+            auto leftHandDes = m_FKSolver->getHeadLinkToWorldTransform() * m_desiredLeftHandToRootLinkTransform;
+            auto rightHandDes = m_FKSolver->getHeadLinkToWorldTransform() * m_desiredRightHandToRootLinkTransform;
+            auto rootLink = m_FKSolver->getRootLinkToWorldTransform();
+            m_walkingLogger->sendData(leftHand.getPosition(), leftHand.getRotation().asRPY(),
+                                      leftHandDes.getPosition(), leftHandDes.getRotation().asRPY(),
+                                      rightHand.getPosition(), rightHand.getRotation().asRPY(),
+                                      rightHandDes.getPosition(), rightHandDes.getRotation().asRPY(),
+                                      rootLink.getPosition(), rootLink.getRotation().asRPY(),
+                                      measuredDCM, m_DCMPositionDesired.front(),
                                       m_DCMVelocityDesired.front(),
                                       measuredZMP, desiredZMP,
                                       measuredCoM,
@@ -2337,10 +2347,11 @@ bool WalkingModule::startWalking()
     if(m_dumpData)
     {
         m_walkingLogger->startRecord({"record",
-              // "l_arm_x", "l_arm_y", "l_arm_z", "l_arm_roll", "l_arm_pitch", "l_arm_yaw",
-              // "l_arm_des_x", "l_arm_des_y", "l_arm_des_z", "l_arm_des_roll", "l_arm_des_pitch", "l_arm_des_yaw",
-              // "r_arm_x", "r_arm_y", "r_arm_z", "r_arm_roll", "r_arm_pitch", "r_arm_yaw",
-              // "r_arm_des_x", "r_arm_des_y", "r_arm_des_z", "r_arm_des_roll", "r_arm_des_pitch", "r_arm_des_yaw"});
+                    "l_arm_x", "l_arm_y", "l_arm_z", "l_arm_roll", "l_arm_pitch", "l_arm_yaw",
+                    "l_arm_des_x", "l_arm_des_y", "l_arm_des_z", "l_arm_des_roll", "l_arm_des_pitch", "l_arm_des_yaw",
+                    "r_arm_x", "r_arm_y", "r_arm_z", "r_arm_roll", "r_arm_pitch", "r_arm_yaw",
+                    "r_arm_des_x", "r_arm_des_y", "r_arm_des_z", "r_arm_des_roll", "r_arm_des_pitch", "r_arm_des_yaw",
+                    "root_x", "root_y", "root_z", "root_roll", "root_pitch", "root_yaw",
                     "dcm_x", "dcm_y",
                     "dcm_des_x", "dcm_des_y",
                     "dcm_des_dx", "dcm_des_dy",
