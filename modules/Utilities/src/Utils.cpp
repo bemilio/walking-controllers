@@ -118,6 +118,19 @@ iDynSparseMatrix iDynTreeHelper::SparseMatrix::fromEigen(const Eigen::SparseMatr
     return iDynTreeSparseMatrix;
 }
 
+bool YarpHelper::getVectorDynSizeFromSearchable(const yarp::os::Searchable& config, const std::string& key,
+                                                iDynTree::VectorDynSize& output)
+{
+    yarp::os::Value* value;
+    if(!config.check(key, value))
+    {
+        yError() << "[getNumberFromSearchable] Missing field "<< key;
+        return false;
+    }
+
+    return yarpListToiDynTreeVectorDynSize(*value, output);
+}
+
 bool YarpHelper::yarpListToiDynTreeVectorDynSize(const yarp::os::Value& input, iDynTree::VectorDynSize& output)
 {
     if (input.isNull())

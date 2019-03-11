@@ -50,6 +50,9 @@ set(${EXE_TARGET_NAME}_SRC
   src/WalkingConstraint.cpp
   src/WalkingTaskBasedTorqueSolver.cpp
   src/WalkingTaskBasedTorqueController.cpp
+  src/ContactWrenchMapping.cpp
+  src/ContactWrenchMapper.cpp
+  src/WalkingFeedbackLinearizationTorqueController.cpp
   )
 
 # set hpp files
@@ -74,6 +77,9 @@ set(${EXE_TARGET_NAME}_HDR
   include/WalkingConstraint.hpp
   include/WalkingTaskBasedTorqueSolver.hpp
   include/WalkingTaskBasedTorqueController.hpp
+  include/ContactWrenchMapping.hpp
+  include/ContactWrenchMapper.hpp
+  include/FeedbackLinearizationTorqueController.hpp
   )
 
 # add include directories to the build.

@@ -39,6 +39,9 @@
 #include <WalkingLogger.hpp>
 #include <TimeProfiler.hpp>
 
+#include <ContactWrenchMapper.hpp>
+#include <FeedbackLinearizationTorqueController.hpp>
+
 // iCub-ctrl
 #include <iCub/ctrl/filters.h>
 #include <iCub/ctrl/minJerkCtrl.h>
@@ -74,6 +77,8 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::shared_ptr<WalkingQPIK_osqp> m_QPIKSolver_osqp; /**< Pointer to the inverse kinematics solver (osqp). */
     std::shared_ptr<WalkingQPIK_qpOASES> m_QPIKSolver_qpOASES; /**< Pointer to the inverse kinematics solver (qpOASES). */
     std::unique_ptr<WalkingTaskBasedTorqueController> m_taskBasedTorqueSolver; /**< Pointer to the task-based torque solver. */
+    std::unique_ptr<ContactWrenchMapper> m_contactWrenchMapping; /**< Pointer to the task-based torque solver. */
+    std::unique_ptr<FeedbackLinearizationTorqueController> m_feedbackLinearizationController; /**< Pointer to the task-based torque solver. */
     std::unique_ptr<WalkingFK> m_FKSolver; /**< Pointer to the forward kinematics solver. */
     std::unique_ptr<StableDCMModel> m_stableDCMModel; /**< Pointer to the stable DCM dynamics. */
     std::unique_ptr<WalkingPIDHandler> m_PIDHandler; /**< Pointer to the PID handler object. */
@@ -197,6 +202,9 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
                         const iDynTree::Vector3& desiredVRPPosition,
                         iDynTree::VectorDynSize &outputTorque,
                         iDynTree::VectorDynSize &outputAcceleration);
+
+    bool solveFeedbackLinearization(const iDynTree::Vector3& desiredVRPPosition,
+                                    iDynTree::VectorDynSize &outputTorque);
 
     /**
      * Generate the first trajectory.

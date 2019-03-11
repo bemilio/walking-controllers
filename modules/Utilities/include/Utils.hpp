@@ -152,7 +152,6 @@ namespace YarpHelper
     bool getNumberFromSearchable(const yarp::os::Searchable& config, const std::string& key,
                                  double& number);
 
-
     /**
      * Extract a double from a searchable object.
      * @param config is the searchable object;
@@ -172,6 +171,16 @@ namespace YarpHelper
      */
     template <unsigned int n>
     bool yarpListToiDynTreeVectorFixSize(const yarp::os::Value& input, iDynTree::VectorFixSize<n>& output);
+
+    /**
+     * Extract a vector from a searchable object.
+     * @param config is the searchable object;
+     * @param key the name to check for;
+     * @param output is the vector
+     * @return true/false in case of success/failure
+     */
+    bool getVectorDynSizeFromSearchable(const yarp::os::Searchable& config, const std::string& key,
+                                        iDynTree::VectorDynSize& output);
 
     /**
      * Convert a yarp value into an iDynTree::VectorDynSize
