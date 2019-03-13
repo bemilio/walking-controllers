@@ -203,9 +203,11 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
                         iDynTree::VectorDynSize &outputTorque,
                         iDynTree::VectorDynSize &outputAcceleration);
 
-    bool solveFeedbackLinearization(const iDynTree::Vector3& desiredVRPPosition,
+    bool solveFeedbackLinearization(const iDynTree::Position& desiredCoMPosition,
+                                    const iDynTree::Vector3& desiredCoMVelocity,
+                                    const iDynTree::Vector3& desiredCoMAcceleration,
+                                    const iDynTree::Vector3& desiredVRPPosition,
                                     iDynTree::VectorDynSize &outputTorque);
-
     /**
      * Generate the first trajectory.
      * This method has to be called before updateTrajectories() method.

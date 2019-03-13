@@ -39,6 +39,8 @@ void WalkingModule::propagateTime()
     m_time += m_dT;
 }
 
+iDynTree::VectorDynSize torqueDesired;
+
 bool WalkingModule::advanceReferenceSignals()
 {
     // check if vector is not initialized
@@ -571,16 +573,20 @@ void WalkingModule::checkWaitCondition(const std::deque<bool>& footInContact,
     yInfo() << "[checkWaitCondition] Wait condition " << m_waitCondition;
 }
 
-bool WalkingModule::solveFeedbackLinearization(const iDynTree::Vector3& desiredVRPPosition,
+bool WalkingModule::solveFeedbackLinearization(const iDynTree::Position& desiredCoMPosition,
+                                               const iDynTree::Vector3& desiredCoMVelocity,
+                                               const iDynTree::Vector3& desiredCoMAcceleration,
+                                               const iDynTree::Vector3& desiredVRPPosition,
                                                iDynTree::VectorDynSize &outputTorque)
 {
     // do at the beginning!
     // TODO
     m_contactWrenchMapping->setFeetState(m_leftInContact.front(), m_rightInContact.front());
+    m_feedbackLinearizationController->setFeetState(m_leftInContact.front(), m_rightInContact.front());
 
     iDynTree::VectorDynSize dummyJoint(m_robotControlHelper->getActuatedDoFs());
     dummyJoint.zero();
-    m_feedbackLinearizationController->setDesiredJointTrajectory(m_qDesired, m_dqDesired,
+    m_feedbackLinearizationController->setDesiredJointTrajectory(m_qDesired, dummyJoint,
                                                                  dummyJoint);
 
     iDynTree::MatrixDynSize jacobian;
@@ -590,6 +596,7 @@ bool WalkingModule::solveFeedbackLinearization(const iDynTree::Vector3& desiredV
                                        m_robotControlHelper->getActuatedDoFs() + 6);
     m_FKSolver->getFreeFloatingMassMatrix(massMatrix);
     m_feedbackLinearizationController->setMassMatrix(massMatrix);
+    m_contactWrenchMapping->setMass(massMatrix(0,0));
 
     iDynTree::VectorDynSize generalizedBiasForces(m_robotControlHelper->getActuatedDoFs() + 6);
     m_FKSolver->getGeneralizedBiasForces(generalizedBiasForces);
@@ -623,11 +630,22 @@ bool WalkingModule::solveFeedbackLinearization(const iDynTree::Vector3& desiredV
         return false;
     }
 
+    if(!m_contactWrenchMapping->setDesiredCoMTrajectory(desiredCoMPosition, desiredCoMVelocity,
+                                                        desiredCoMAcceleration))
+    {
+        yError() << "[solveTaskbased] Unable to set the com trajectory";
+        return false;
+    }
+
+
     if(!m_contactWrenchMapping->setDesiredVRP(desiredVRPPosition))
     {
         yError() << "[solveTaskBased] Unable to set the feet state.";
         return false;
     }
+
+    if(!m_contactWrenchMapping->setCentroidalTotalMomentum(m_FKSolver->getCentroidalTotalMomentum()))
+       return false;
 
     if(!m_contactWrenchMapping->setFeetWeightPercentage(m_weightInLeft.front(),
                                                         m_weightInRight.front()))
@@ -643,6 +661,9 @@ bool WalkingModule::solveFeedbackLinearization(const iDynTree::Vector3& desiredV
     }
 
     const iDynTree::VectorDynSize& desiredContactWrenches = m_contactWrenchMapping->solution();
+
+    yInfo() << "desiredContactWrenches " << desiredContactWrenches.toString();
+
     iDynTree::Wrench desiredLeftWrench, desiredRightWrench;
     for(int i= 0; i < 6; i++)
     {
@@ -654,14 +675,20 @@ bool WalkingModule::solveFeedbackLinearization(const iDynTree::Vector3& desiredV
     m_feedbackLinearizationController->setMeasuredWrench(m_robotControlHelper->getLeftWrench(),
                                                          m_robotControlHelper->getRightWrench());
 
-    m_feedbackLinearizationController->setFeetVelocities(m_FKSolver->getLeftFootVelocity(),
-                                                         m_FKSolver->getRightFootVelocity());
+    m_feedbackLinearizationController->setFeetState(m_FKSolver->getLeftFootToWorldTransform(),
+                                                    m_FKSolver->getLeftFootVelocity(),
+                                                    m_FKSolver->getRightFootToWorldTransform(),
+                                                    m_FKSolver->getRightFootVelocity());
+
+    m_feedbackLinearizationController->setDesiredFeetTrajectory(m_leftTrajectory.front(),
+                                                                m_leftTwistTrajectory.front(),
+                                                                m_leftAccelerationTrajectory.front(),
+                                                                m_rightTrajectory.front(),
+                                                                m_rightTwistTrajectory.front(),
+                                                                m_rightAccelerationTrajectory.front());
+
     m_feedbackLinearizationController->evaluatedDesiredTorque();
-
     outputTorque = m_feedbackLinearizationController->desiredTorque();
-
-    yInfo() << outputTorque.toString();
-
     return true;
 }
 
@@ -1360,16 +1387,17 @@ bool WalkingModule::updateModule()
             // torque controller
             m_profiler->setInitTime("Torque");
 
-            // if(!solveTaskBased(yawRotation, desiredCoMPosition, desiredCoMVelocity,
-            //                    desiredCoMAcceleration, desiredZMP, desiredVRP, m_torqueDesired,
-            //                    m_ddqDesired))
-            // {
-            //     yError() << "[updateModule] Unable to solve the task based problem.";
-            //     return false;
-            // }
+            if(!solveTaskBased(yawRotation, desiredCoMPosition, desiredCoMVelocity,
+                               desiredCoMAcceleration, desiredZMP, desiredVRP, m_torqueDesired,
+                               m_ddqDesired))
+            {
+                yError() << "[updateModule] Unable to solve the task based problem.";
+                return false;
+            }
 
-            iDynTree::VectorDynSize torqueDesired(m_robotControlHelper->getActuatedDoFs());
-            if(!solveFeedbackLinearization(desiredVRP, m_torqueDesired))
+            torqueDesired.resize(m_robotControlHelper->getActuatedDoFs());
+            if(!solveFeedbackLinearization(desiredCoMPosition, desiredCoMVelocity,
+                                           desiredCoMAcceleration, desiredVRP, torqueDesired))
             {
                 yError() << "[updateModule] Unable to solve the feedback linearization.";
                 return false;
@@ -1438,8 +1466,11 @@ bool WalkingModule::updateModule()
             //     }
             // }
 
+
+            auto contact = m_contactWrenchMapping->solution();
             iDynTree::Wrench left, right;
             if(m_useTorque)
+
                 m_taskBasedTorqueSolver->getWrenches(left, right);
 
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
@@ -1464,7 +1495,7 @@ bool WalkingModule::updateModule()
                                       m_leftTrajectory.front().getPosition(), m_leftTrajectory.front().getRotation().asRPY(),
                                       m_rightTrajectory.front().getPosition(), m_rightTrajectory.front().getRotation().asRPY(),
                                       m_robotControlHelper->getLeftWrench(), m_robotControlHelper->getRightWrench(),
-                                      left, right,
+                                      contact,
                                       desiredNeckOrientation,
                                       m_FKSolver->getNeckOrientation().asRPY(),
                                       m_torqueDesired,

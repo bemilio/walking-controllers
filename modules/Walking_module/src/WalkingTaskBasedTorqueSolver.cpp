@@ -513,7 +513,6 @@ bool TaskBasedTorqueSolver::initialize(const yarp::os::Searchable& config,
         return false;
     }
 
-
     yarp::os::Bottle& feetConstraintOptions = config.findGroup("FEET");
     if(!instantiateFeetConstraint(feetConstraintOptions))
     {

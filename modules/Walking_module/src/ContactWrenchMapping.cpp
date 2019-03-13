@@ -19,6 +19,8 @@
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixXd;
 
+double m_mass;
+
 bool ContactWrenchMapping::initialize(const yarp::os::Searchable& config)
 {
 
@@ -52,6 +54,18 @@ bool ContactWrenchMapping::initialize(const yarp::os::Searchable& config)
     if(!instantiateLinearMomentumCostFunction(linearMomentumOptions))
     {
         yError() << "[initialize] Unable to instantiate the linear momentum cost.";
+        return false;
+    }
+
+    yarp::os::Bottle& angularMomentumConstraintOptions = config.findGroup("ANGULAR_MOMENTUM");
+    if(!instantiateAngularMomentumConstraint(angularMomentumConstraintOptions))
+    {
+        yError() << "[initialize] Unable to instantiate the Angular Momentum constraint.";
+        return false;
+    }
+    if(!instantiateAngularMomentumCostFunction(angularMomentumConstraintOptions))
+    {
+        yError() << "[initialize] Unable to instantiate the Angular Momentum constraint.";
         return false;
     }
 
@@ -113,12 +127,6 @@ bool ContactWrenchMapping::initialize(const yarp::os::Searchable& config)
     return true;
 }
 
-bool ContactWrenchMapping::setCentroidalTotalMomentum(const iDynTree::SpatialMomentum& centroidalTotalMomentum)
-{
-    return true;
-}
-
-
 bool ContactWrenchMapping::setCoMState(const iDynTree::Position& comPosition,
                                         const iDynTree::Vector3& comVelocity)
 {
@@ -135,6 +143,7 @@ bool ContactWrenchMapping::setCoMState(const iDynTree::Position& comPosition,
 
         auto ptr = std::static_pointer_cast<LinearMomentumConstraint>(constraint->second);
         ptr->setCoMPosition(comPosition);
+        ptr->setCoMVelocity(comVelocity);
     }
 
     if(m_useLinearMomentumCostFunction)
@@ -152,8 +161,95 @@ bool ContactWrenchMapping::setCoMState(const iDynTree::Position& comPosition,
         ptr->setCoMPosition(comPosition);
     }
 
+    if(m_useAngularMomentumConstraint)
+    {
+        auto constraint = m_constraints.find("angular_momentum_constraint");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setCoMState] unable to find the angular momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::dynamic_pointer_cast<AngularMomentumElement>(constraint->second);
+        ptr->setCoMPosition(comPosition);
+    }
+
+    if(m_useAngularMomentumCostFunction)
+    {
+        auto costFunction = m_costFunctions.find("angular_momentum_costFunction");
+        if(costFunction == m_costFunctions.end())
+        {
+            yError() << "[setCoMState] unable to find the angular momentum costFunction. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::dynamic_pointer_cast<AngularMomentumElement>(costFunction->second);
+        ptr->setCoMPosition(comPosition);
+    }
+
     return true;
 }
+
+bool ContactWrenchMapping::setDesiredCoMTrajectory(const iDynTree::Position& comPosition,
+                                                   const iDynTree::Vector3& comVelocity,
+                                                    const iDynTree::Vector3& comAcceleration)
+{
+    if(m_useLinearMomentumConstraint)
+    {
+        // save com desired trajectory
+        auto constraint = m_constraints.find("linear_momentum_constraint");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setCoMState] unable to find the linear momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::static_pointer_cast<LinearMomentumConstraint>(constraint->second);
+
+        yInfo() << comPosition.toString();
+        ptr->setDesiredCoMPosition(comPosition);
+        ptr->setDesiredCoMVelocity(comVelocity);
+        ptr->setDesiredCoMAcceleration(comAcceleration);
+    }
+        return true;
+}
+
+
+bool ContactWrenchMapping::setCentroidalTotalMomentum(const iDynTree::SpatialMomentum& centroidalTotalMomentum)
+{
+    if(m_useAngularMomentumConstraint)
+    {
+        auto constraint = m_constraints.find("angular_momentum_constraint");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setLinearAngularMomentum] unable to find the angular momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::dynamic_pointer_cast<AngularMomentumElement>(constraint->second);
+        ptr->setAngularMomentum(centroidalTotalMomentum.getAngularVec3());
+    }
+
+    if(m_useAngularMomentumCostFunction)
+    {
+        auto costFunction = m_costFunctions.find("angular_momentum_costFunction");
+        if(costFunction == m_costFunctions.end())
+        {
+            yError() << "[setCoMState] unable to find the angular momentum costFunction. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::dynamic_pointer_cast<AngularMomentumElement>(costFunction->second);
+        ptr->setAngularMomentum(centroidalTotalMomentum.getAngularVec3());
+    }
+    return true;
+}
+
 
 bool ContactWrenchMapping::setDesiredVRP(const iDynTree::Vector3 &vrp)
 {
@@ -424,7 +520,15 @@ bool ContactWrenchMapping::solve()
 
     iDynTree::toEigen(m_solution) = m_optimizer->getSolution();
 
+    iDynTree::Vector3 totalForce;
 
+    Eigen::Vector3d gravity;
+    gravity << 0, 0, 9.81;
+
+    iDynTree::toEigen(totalForce) = iDynTree::toEigen(m_solution).block(0, 0, 3, 0) +
+        iDynTree::toEigen(m_solution).block(6, 0, 3, 0);
+
+    yInfo() << "totalForce " << totalForce.toString();
     return true;
 }
 
@@ -596,12 +700,30 @@ void ContactWrenchMappingDoubleSupport::instantiateLinearMomentumConstraint(cons
     m_useLinearMomentumConstraint = config.check("useAsConstraint", yarp::os::Value("False")).asBool();
     if(m_useLinearMomentumConstraint)
     {
+
+        yarp::os::Value kpValue = config.find("kp");
+        iDynTree::VectorDynSize kp(3);
+        if(!YarpHelper::yarpListToiDynTreeVectorDynSize(kpValue, kp))
+        {
+            yError() << "[ContactWrenchMappingSingleSupport::instantiateLinearMomentumCostFunction] Initialization failed while reading kp vector.";
+            return;
+        }
+
+
+        yarp::os::Value kdValue = config.find("kd");
+        iDynTree::VectorDynSize kd(3);
+        if(!YarpHelper::yarpListToiDynTreeVectorDynSize(kdValue, kd))
+        {
+            yError() << "[ContactWrenchMappingSingleSupport::instantiateLinearMomentumCostFunction] Initialization failed while reading kd vector.";
+            return;
+        }
+
         // memory allocation
         auto ptr = std::make_shared<LinearMomentumConstraint>(LinearMomentumConstraint::Type::DOUBLE_SUPPORT);
         // only the forces are used to control the linear momentum
         ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
-        // TODO remove me please
-        ptr->setRobotMass(33.0766);
+        ptr->setKd(kd);
+        ptr->setKp(kp);
 
         m_constraints.insert(std::make_pair("linear_momentum_constraint", ptr));
         m_numberOfConstraints += ptr->getNumberOfConstraints();
@@ -622,6 +744,8 @@ bool ContactWrenchMappingDoubleSupport::instantiateLinearMomentumCostFunction(co
             return false;
         }
 
+
+
         // memory allocation
         auto ptr = std::make_shared<LinearMomentumCostFunction>(LinearMomentumCostFunction::Type::DOUBLE_SUPPORT);
         // only the forces are used to control the linear momentum
@@ -636,6 +760,26 @@ bool ContactWrenchMappingDoubleSupport::instantiateLinearMomentumCostFunction(co
                                                 std::make_unique<Eigen::VectorXd>(Eigen::VectorXd::Zero(m_numberOfVariables))));
     }
     return true;
+}
+
+void ContactWrenchMapping::setRobotMass(double mass)
+{
+    if(!m_optimizer->isInitialized())
+    {
+        auto constraint = m_constraints.find("linear_momentum_constraint");
+        if(constraint == m_constraints.end())
+        {
+            yError() << "[setMassMatrix] unable to find the linear momentum constraint. "
+                     << "Please call 'initialize()' method";
+            return;
+        }
+
+        // TODO remove me
+        m_mass = mass;
+
+        auto ptr = std::static_pointer_cast<LinearMomentumConstraint>(constraint->second);
+        ptr->setRobotMass(mass);
+    }
 }
 
 void ContactWrenchMappingDoubleSupport::setNumberOfVariables()
@@ -818,12 +962,33 @@ void ContactWrenchMappingSingleSupport::instantiateLinearMomentumConstraint(cons
         yWarning() << "[ContactWrenchMappingSingleSupport::instantiateLinearMomentumConstraint] The linear momentum will not be used as a constraint";
         return;
     }
+
+    yarp::os::Value kpValue = config.find("kp");
+    iDynTree::VectorDynSize kp(3);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(kpValue, kp))
+    {
+        yError() << "[ContactWrenchMappingSingleSupport::instantiateLinearMomentumCostFunction] Initialization failed while reading kp vector.";
+        return;
+    }
+
+
+    yarp::os::Value kdValue = config.find("kd");
+    iDynTree::VectorDynSize kd(3);
+    if(!YarpHelper::yarpListToiDynTreeVectorDynSize(kdValue, kd))
+    {
+        yError() << "[ContactWrenchMappingSingleSupport::instantiateLinearMomentumCostFunction] Initialization failed while reading kd vector.";
+        return;
+    }
+
+
     if(m_useLinearMomentumConstraint)
     {
         // memory allocation
         auto ptr = std::make_shared<LinearMomentumConstraint>(LinearMomentumConstraint::Type::SINGLE_SUPPORT);
         // only the forces are used to control the linear momentum
         ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
+        ptr->setKp(kp);
+        ptr->setKd(kd);
 
         m_constraints.insert(std::make_pair("linear_momentum_constraint", ptr));
         m_numberOfConstraints += ptr->getNumberOfConstraints();
@@ -881,4 +1046,174 @@ void ContactWrenchMappingSingleSupport::setFeetJacobian(const iDynTree::MatrixDy
                                                          const iDynTree::MatrixDynSize& swingFootJacobian)
 {
     m_stanceFootJacobian = stanceFootJacobian;
+}
+
+
+bool ContactWrenchMappingSingleSupport::instantiateAngularMomentumConstraint(const yarp::os::Searchable& config)
+{
+    if(config.isNull())
+    {
+        yInfo() << "[instantiateAngularMomentumConstraint] Empty configuration file. The angular momentum Constraint will not be used";
+        m_useAngularMomentumConstraint = false;
+        return true;
+    }
+    m_useAngularMomentumConstraint = true;
+
+    double kp;
+    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    {
+        yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+        return false;
+    }
+
+    double ki;
+    if(!YarpHelper::getNumberFromSearchable(config, "ki", ki))
+    {
+        yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+        return false;
+    }
+
+    std::shared_ptr<AngularMomentumConstraintSingleSupport> ptr;
+    ptr = std::make_shared<AngularMomentumConstraintSingleSupport>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
+    ptr->setKp(kp);
+    ptr->setKi(ki);
+
+    ptr->setStanceFootToWorldTransform(m_stanceFootToWorldTransform);
+
+    m_constraints.insert(std::make_pair("angular_momentum_constraint", ptr));
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
+
+    return true;
+}
+
+bool ContactWrenchMappingDoubleSupport::instantiateAngularMomentumConstraint(const yarp::os::Searchable& config)
+{
+    if(config.isNull())
+    {
+        yInfo() << "[instantiateAngularMomentumConstraint] Empty configuration file. The angular momentum Constraint will not be used";
+        m_useAngularMomentumConstraint = false;
+        return true;
+    }
+    m_useAngularMomentumConstraint = true;
+
+    double kp;
+    if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+    {
+        yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+        return false;
+    }
+
+    double ki;
+    if(!YarpHelper::getNumberFromSearchable(config, "ki", ki))
+    {
+        yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+        return false;
+    }
+
+    std::shared_ptr<AngularMomentumConstraintDoubleSupport> ptr;
+    ptr = std::make_shared<AngularMomentumConstraintDoubleSupport>();
+    ptr->setSubMatricesStartingPosition(m_numberOfConstraints, 0);
+    ptr->setKp(kp);
+    ptr->setKi(ki);
+
+    ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
+    ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+
+    m_constraints.insert(std::make_pair("angular_momentum_constraint", ptr));
+    m_numberOfConstraints += ptr->getNumberOfConstraints();
+
+    return true;
+}
+
+bool ContactWrenchMappingSingleSupport::instantiateAngularMomentumCostFunction(const yarp::os::Searchable& config)
+{
+    m_useAngularMomentumCostFunction = config.check("useAsCostFunction", yarp::os::Value("False")).asBool();
+    if(m_useAngularMomentumCostFunction)
+    {
+        yarp::os::Value tempValue = config.find("weight");
+        iDynTree::VectorDynSize weight(3);
+        if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, weight))
+        {
+            yError() << "[ContactWrenchMappingSingleSupport::instantiateAngularMomentumCostFunction] Initialization failed while reading weight vector.";
+            return false;
+        }
+
+        double kp;
+        if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+        {
+            yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+            return false;
+        }
+
+        double ki;
+        if(!YarpHelper::getNumberFromSearchable(config, "ki", ki))
+        {
+            yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+            return false;
+        }
+
+        auto ptr = std::make_shared<AngularMomentumCostFunctionSingleSupport>();
+        ptr->setSubMatricesStartingPosition(0, 0);
+        ptr->setWeight(weight);
+        ptr->setKp(kp);
+        ptr->setKi(ki);
+
+        ptr->setStanceFootToWorldTransform(m_stanceFootToWorldTransform);
+
+        m_costFunctions.insert(std::make_pair("angular_momentum_costFunction", ptr));
+
+        m_hessianMatrices.insert(std::make_pair("angular_momentum_costFunction",
+                                                std::make_unique<Eigen::SparseMatrix<double>>(m_numberOfVariables, m_numberOfVariables)));
+        m_gradientVectors.insert(std::make_pair("angular_momentum_costFunction",
+                                                std::make_unique<Eigen::VectorXd>(Eigen::VectorXd::Zero(m_numberOfVariables))));
+    }
+    return true;
+}
+
+bool ContactWrenchMappingDoubleSupport::instantiateAngularMomentumCostFunction(const yarp::os::Searchable& config)
+{
+    m_useAngularMomentumCostFunction = config.check("useAsCostFunction", yarp::os::Value("False")).asBool();
+    if(m_useAngularMomentumCostFunction)
+    {
+        yarp::os::Value tempValue = config.find("weight");
+        iDynTree::VectorDynSize weight(3);
+        if(!YarpHelper::yarpListToiDynTreeVectorDynSize(tempValue, weight))
+        {
+            yError() << "[ContactWrenchMappingSingleSupport::instantiateAngularMomentumCostFunction] Initialization failed while reading weight vector.";
+            return false;
+        }
+
+        double kp;
+        if(!YarpHelper::getNumberFromSearchable(config, "kp", kp))
+        {
+            yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+            return false;
+        }
+
+        double ki;
+        if(!YarpHelper::getNumberFromSearchable(config, "ki", ki))
+        {
+            yError() << "[instantiateAngularMomentumConstraint] Unable to get proportional gain";
+            return false;
+        }
+
+        auto ptr = std::make_shared<AngularMomentumCostFunctionDoubleSupport>();
+        ptr->setSubMatricesStartingPosition(0, 0);
+        ptr->setWeight(weight);
+        ptr->setKp(kp);
+        ptr->setKi(ki);
+
+
+        ptr->setLeftFootToWorldTransform(m_leftFootToWorldTransform);
+        ptr->setRightFootToWorldTransform(m_rightFootToWorldTransform);
+
+        m_costFunctions.insert(std::make_pair("angular_momentum_costFunction", ptr));
+
+        m_hessianMatrices.insert(std::make_pair("angular_momentum_costFunction",
+                                                std::make_unique<Eigen::SparseMatrix<double>>(m_numberOfVariables, m_numberOfVariables)));
+        m_gradientVectors.insert(std::make_pair("angular_momentum_costFunction",
+                                                std::make_unique<Eigen::VectorXd>(Eigen::VectorXd::Zero(m_numberOfVariables))));
+    }
+    return true;
 }

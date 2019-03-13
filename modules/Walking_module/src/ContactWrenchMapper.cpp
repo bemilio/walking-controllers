@@ -39,6 +39,14 @@ bool ContactWrenchMapper::initialize(const yarp::os::Searchable& config,
     return true;
 }
 
+void ContactWrenchMapper::setMass(const double& mass)
+{
+    if(m_isDoubleSupportPhase)
+        m_doubleSupportSolver->setRobotMass(mass);
+    else
+        m_singleSupportSolver->setRobotMass(mass);
+}
+
 void ContactWrenchMapper::setFeetState(const bool &leftInContact, const bool &rightInContact)
 {
     m_leftInContact = leftInContact;
@@ -63,8 +71,6 @@ bool ContactWrenchMapper::setCentroidalTotalMomentum(const iDynTree::SpatialMome
     else
         return m_singleSupportSolver->setCentroidalTotalMomentum(centroidalTotalMomentum);
 }
-
-
 
 bool ContactWrenchMapper::setFeetState(const iDynTree::Transform& leftFootToWorldTransform,
                                        const iDynTree::Transform& rightFootToWorldTransform)
@@ -140,7 +146,7 @@ bool ContactWrenchMapper::setFeetJacobian(const iDynTree::MatrixDynSize& leftFoo
 }
 
 bool ContactWrenchMapper::setCoMState(const iDynTree::Position& comPosition,
-                                                   const iDynTree::Vector3& comVelocity)
+                                      const iDynTree::Vector3& comVelocity)
 {
     if(m_isDoubleSupportPhase)
     {
@@ -181,6 +187,30 @@ bool ContactWrenchMapper::setDesiredVRP(const iDynTree::Vector3 &vrp)
     }
     return true;
 }
+
+bool ContactWrenchMapper::setDesiredCoMTrajectory(const iDynTree::Position& comPosition,
+                                                  const iDynTree::Vector3& comVelocity,
+                                                  const iDynTree::Vector3& comAcceleration)
+{
+    if(m_isDoubleSupportPhase)
+    {
+        if(!m_doubleSupportSolver->setDesiredCoMTrajectory(comPosition, comVelocity,comAcceleration))
+        {
+            yError() << "[setDesiredCoMTrajectory] Unable to set the desired com trajectory (DS)";
+            return false;
+        }
+    }
+    else
+    {
+        if(!m_singleSupportSolver->setDesiredCoMTrajectory(comPosition, comVelocity,comAcceleration))
+        {
+            yError() << "[setDesiredCoMTrajectory] Unable to set the desired com trajectory (SS)";
+            return false;
+        }
+    }
+    return true;
+}
+
 
 bool ContactWrenchMapper::setFeetWeightPercentage(const double &weightInLeft,
                                                   const double &weightInRight)

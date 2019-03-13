@@ -430,20 +430,43 @@ void LinearMomentumConstraint::evaluateBounds(Eigen::VectorXd &upperBounds,
     // TODO remove magic number
     double omegaSquare = 9.81 / 0.53;
 
+    // upperBounds.block(m_jacobianStartingRow, 0, 3, 1) = -iDynTree::toEigen(weightForce) +
+    //     m_robotMass * omegaSquare * (iDynTree::toEigen(m_comPosition) -
+    //                                  iDynTree::toEigen(m_desiredVRPPosition));
+
+    yInfo() << "com des " << m_desiredComPosition.toString() << m_desiredComVelocity.toString() << m_desiredComAcceleration.toString();
+
     upperBounds.block(m_jacobianStartingRow, 0, 3, 1) = -iDynTree::toEigen(weightForce) +
-        m_robotMass * omegaSquare * (iDynTree::toEigen(m_comPosition) -
-                                     iDynTree::toEigen(m_desiredVRPPosition));
+        m_robotMass * (iDynTree::toEigen(m_desiredComAcceleration)
+                       + iDynTree::toEigen(m_kd).asDiagonal() * (iDynTree::toEigen(m_desiredComVelocity)
+                                                                 - iDynTree::toEigen(m_comVelocity))
+                       + iDynTree::toEigen(m_kp).asDiagonal() * (iDynTree::toEigen(m_desiredComPosition)
+                                                                 - iDynTree::toEigen(m_comPosition)));
+
+    std::cerr << "desired force " << upperBounds.block(m_jacobianStartingRow, 0, 3, 1) << std::endl;
 
     lowerBounds.block(m_jacobianStartingRow, 0, 3, 1)
         = upperBounds.block(m_jacobianStartingRow, 0, 3, 1);
 }
 
+void AngularMomentumElement::evaluateIntegral()
+{
+    yarp::sig::Vector angularMomentumYarp(3);
+    yarp::sig::Vector angularMomentumIntegralYarp(3);
+    for(int i =0; i< 3; i ++)
+        angularMomentumYarp(i) = m_angularMomentum(i);
 
+    angularMomentumIntegralYarp = m_angularMomentumIntegrator->integrate(angularMomentumYarp);
+
+    for(int i =0; i< 3; i ++)
+        m_angularMomentumIntegral(i) = angularMomentumIntegralYarp(i);
+}
 
 iDynTree::Vector3 AngularMomentumElement::desiredAngularMomentumRateOfChange()
 {
     iDynTree::Vector3 angularMomentumRateOfChange;
-    iDynTree::toEigen(angularMomentumRateOfChange) = - m_kp * iDynTree::toEigen(m_angularMomentum);
+    iDynTree::toEigen(angularMomentumRateOfChange) = - m_kp * iDynTree::toEigen(m_angularMomentum)
+        - m_ki * iDynTree::toEigen(m_angularMomentumIntegral);
     return  angularMomentumRateOfChange;
 }
 
@@ -486,6 +509,9 @@ void AngularMomentumConstraintDoubleSupport::evaluateJacobian(Eigen::SparseMatri
 void AngularMomentumConstraintDoubleSupport::evaluateBounds(Eigen::VectorXd &upperBounds,
                                                             Eigen::VectorXd &lowerBounds)
 {
+
+    evaluateIntegral();
+
     upperBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(desiredAngularMomentumRateOfChange());
     lowerBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(desiredAngularMomentumRateOfChange());
 }
@@ -517,6 +543,9 @@ void AngularMomentumConstraintSingleSupport::evaluateJacobian(Eigen::SparseMatri
 void AngularMomentumConstraintSingleSupport::evaluateBounds(Eigen::VectorXd &upperBounds,
                                                             Eigen::VectorXd &lowerBounds)
 {
+
+    evaluateIntegral();
+
     upperBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(desiredAngularMomentumRateOfChange());
     lowerBounds.block(m_jacobianStartingRow, 0, 3, 1) = iDynTree::toEigen(desiredAngularMomentumRateOfChange());
 }
@@ -727,6 +756,8 @@ void AngularMomentumCostFunctionDoubleSupport::evaluateHessian(Eigen::SparseMatr
 
 void AngularMomentumCostFunctionDoubleSupport::evaluateGradient(Eigen::VectorXd &gradient)
 {
+    evaluateIntegral();
+
     Eigen::Vector3d leftFootToCoMPosition, rightFootToCoMPosition;
     leftFootToCoMPosition = iDynTree::toEigen(m_leftFootToWorldTransform->getPosition())
         - iDynTree::toEigen(m_comPosition);
@@ -775,6 +806,9 @@ void AngularMomentumCostFunctionSingleSupport::evaluateHessian(Eigen::SparseMatr
 
 void AngularMomentumCostFunctionSingleSupport::evaluateGradient(Eigen::VectorXd &gradient)
 {
+
+    evaluateIntegral();
+
     Eigen::Vector3d stanceFootToCoMPosition;
     stanceFootToCoMPosition = iDynTree::toEigen(m_stanceFootToWorldTransform->getPosition())
         - iDynTree::toEigen(m_comPosition);

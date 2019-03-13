@@ -27,6 +27,7 @@ class FeedbackLinearizationTorqueController
     iDynTree::MatrixDynSize m_selectionMatrix;
 
     iDynTree::MatrixDynSize m_feetJacobian;
+    iDynTree::MatrixDynSize m_contactJacobian;
     iDynTree::VectorDynSize m_feetBiasAcceleration;
     iDynTree::VectorDynSize m_forceGains;
 
@@ -52,12 +53,21 @@ class FeedbackLinearizationTorqueController
     iDynTree::VectorDynSize m_jointRegularizationKp;
     iDynTree::VectorDynSize m_jointRegularizationKd;
 
+    bool m_doubleSupport;
+    bool m_leftInContact;
+    bool m_rightInContact;
+
+    LinearPID m_linearPID;
+    RotationalPID m_rotationalPID;
+
 public:
     bool initialize(const yarp::os::Searchable& config, const int& actuatedDOFs);
 
     void setMassMatrix(const iDynTree::MatrixDynSize& massMatrix);
 
     void setGeneralizedBiasForces(const iDynTree::VectorDynSize& generalizedBiasForces);
+
+    void setFeetState(bool leftInContact, bool rightInContact);
 
     void setFeetJacobian(const iDynTree::MatrixDynSize& leftFootJacobian,
                          const iDynTree::MatrixDynSize& rightFootJacobian);
@@ -70,7 +80,18 @@ public:
     void setDesiredWrench(const iDynTree::Wrench& desiredLeftWrench,
                           const iDynTree::Wrench& desiredRightWrench);
 
-    void setFeetVelocities(const iDynTree::Twist& left, const iDynTree::Twist& right);
+    void setFeetState(const iDynTree::Transform& leftFootToWorldTransform,
+                      const iDynTree::Twist& leftFootTwist,
+                      const iDynTree::Transform& rightFootToWorldTransform,
+                      const iDynTree::Twist& rightFootTwist);
+
+    void setDesiredFeetTrajectory(const iDynTree::Transform& leftFootToWorldTransform,
+                                  const iDynTree::Twist& leftFootTwist,
+                                  const iDynTree::Vector6& leftFootAcceleration,
+                                  const iDynTree::Transform& rightFootToWorldTransform,
+                                  const iDynTree::Twist& rightFootTwist,
+                                  const iDynTree::Vector6& rightFootAcceleration);
+
 
     void setDesiredJointTrajectory(const iDynTree::VectorDynSize& desiredJointPosition,
                                    const iDynTree::VectorDynSize& desiredJointVelocity,
@@ -82,6 +103,8 @@ public:
     void evaluatedDesiredTorque();
 
     const iDynTree::VectorDynSize& desiredTorque() const;
+
+
 };
 
 #endif

@@ -18,6 +18,10 @@
 #include <iDynTree/Core/MatrixDynSize.h>
 #include <iDynTree/Core/Transform.h>
 
+// iCub-ctrl
+#include <iCub/ctrl/pids.h>
+
+
 #include <Utils.hpp>
 #include <CartesianPID.hpp>
 
@@ -348,7 +352,15 @@ protected:
     Type m_elementType;
     double m_robotMass;
     iDynTree::Position m_comPosition;
+    iDynTree::Vector3 m_comVelocity;
     iDynTree::Vector3 m_desiredVRPPosition;
+
+    iDynTree::Position m_desiredComPosition;
+    iDynTree::Vector3 m_desiredComVelocity;
+    iDynTree::Vector3 m_desiredComAcceleration;
+
+    iDynTree::VectorDynSize m_kp;
+    iDynTree::VectorDynSize m_kd;
 
 public:
     LinearMomentumElement(const Type& elementType) : m_elementType(elementType){};
@@ -356,6 +368,19 @@ public:
     void setRobotMass(const double& robotMass){m_robotMass = robotMass;};
 
     void setCoMPosition(const iDynTree::Position& comPosition){m_comPosition = comPosition;};
+
+    void setCoMVelocity(const iDynTree::Vector3& comVelocity){m_comVelocity = comVelocity;};
+
+    void setDesiredCoMPosition(const iDynTree::Position& comPosition){m_desiredComPosition = comPosition;};
+
+    void setDesiredCoMVelocity(const iDynTree::Vector3& comVelocity){m_desiredComVelocity = comVelocity;};
+
+    void setDesiredCoMAcceleration(const iDynTree::Vector3& comAcceleration){m_desiredComAcceleration = comAcceleration;};
+
+    void setKp(const iDynTree::VectorDynSize& kp){m_kp = kp;};
+
+    void setKd(const iDynTree::VectorDynSize& kd){m_kd = kd;};
+
 
     void setDesiredVRP(const iDynTree::Vector3& desiredVRPPosition){m_desiredVRPPosition = desiredVRPPosition;};
 };
@@ -382,12 +407,27 @@ class AngularMomentumElement
 protected:
     iDynTree::Position m_comPosition;
     double m_kp;
+    double m_ki;
     iDynTree::Vector3 m_angularMomentum;
+    iDynTree::Vector3 m_angularMomentumIntegral;
+
+    std::unique_ptr<iCub::ctrl::Integrator> m_angularMomentumIntegrator;
 
     iDynTree::Vector3 desiredAngularMomentumRateOfChange();
 
+    void evaluateIntegral();
+
 public:
+    AngularMomentumElement()
+    {
+        yarp::sig::Vector buffer(3);
+        buffer.zero();
+        m_angularMomentumIntegrator = std::make_unique<iCub::ctrl::Integrator>(0.01, buffer);
+    }
+
     void setKp(const double& kp){m_kp = kp;};
+
+    void setKi(const double& ki){m_ki = ki;};
 
     void setCoMPosition(const iDynTree::Position& comPosition){m_comPosition = comPosition;};
 

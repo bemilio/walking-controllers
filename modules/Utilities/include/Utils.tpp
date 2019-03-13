@@ -13,6 +13,20 @@
 #include <yarp/os/LogStream.h>
 
 template <unsigned int n>
+bool YarpHelper::getVectorFixSizeFromSearchable(const yarp::os::Searchable& config, const std::string& key,
+                                                iDynTree::VectorFixSize<n>& output)
+{
+    yarp::os::Value* value;
+    if(!config.check(key, value))
+    {
+        yError() << "[getNumberFromSearchable] Missing field "<< key;
+        return false;
+    }
+
+    return yarpListToiDynTreeVectorFixSize(*value, output);
+}
+
+template <unsigned int n>
 bool YarpHelper::yarpListToiDynTreeVectorFixSize(const yarp::os::Value& input, iDynTree::VectorFixSize<n>& output)
 {
     if (input.isNull())

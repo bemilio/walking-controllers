@@ -29,6 +29,8 @@ public:
 
     bool initialize(const yarp::os::Searchable& config, const int& actuatedDOFs);
 
+    void setMass(const double& mass);
+
     void setFeetState(const bool &leftInContact, const bool &rightInContact);
 
     bool setCentroidalTotalMomentum(const iDynTree::SpatialMomentum& centroidalTotalMomentum);
@@ -41,6 +43,11 @@ public:
 
     bool setCoMState(const iDynTree::Position& comPosition,
                      const iDynTree::Vector3& comVelocity);
+
+    bool setDesiredCoMTrajectory(const iDynTree::Position& comPosition,
+                                 const iDynTree::Vector3& comVelocity,
+                                 const iDynTree::Vector3& comAcceleration);
+
 
     bool setFeetWeightPercentage(const double &weightInLeft, const double &weightInRight);
 

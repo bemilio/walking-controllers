@@ -24,6 +24,7 @@ bool FeedbackLinearizationTorqueController::initialize(const yarp::os::Searchabl
     // resize matrices (generic)
     m_massMatrix.resize(m_actuatedDOFs + 6, m_actuatedDOFs + 6);
     m_generalizedBiasForces.resize(m_actuatedDOFs + 6);
+    m_contactJacobian.resize(6 + 6, m_actuatedDOFs + 6);
     m_feetJacobian.resize(6 + 6, m_actuatedDOFs + 6);
     m_feetBiasAcceleration.resize(6 + 6);
 
@@ -38,7 +39,7 @@ bool FeedbackLinearizationTorqueController::initialize(const yarp::os::Searchabl
     m_forceGains.resize(6);
 
     m_selectionMatrix.resize(m_actuatedDOFs + 6, m_actuatedDOFs);
-
+    m_selectionMatrix.zero();
     for(int i = 0; i < m_actuatedDOFs; i++)
         m_selectionMatrix(i + 6, i) = 1;
 
@@ -62,6 +63,29 @@ bool FeedbackLinearizationTorqueController::initialize(const yarp::os::Searchabl
 
     if(!YarpHelper::getVectorDynSizeFromSearchable(config, "force_gains", m_forceGains))
         return false;
+
+    iDynTree::Vector3 linearKp, linearKd;
+    double angularKp, angularKd, c0;
+
+    if(!YarpHelper::getVectorFixSizeFromSearchable(config, "linear_kp", linearKp))
+        return false;
+
+    if(!YarpHelper::getVectorFixSizeFromSearchable(config, "linear_kd", linearKd))
+        return false;
+
+
+    if(!YarpHelper::getNumberFromSearchable(config, "angular_kp", angularKp))
+        return false;
+
+    if(!YarpHelper::getNumberFromSearchable(config, "angular_kd", angularKd))
+        return false;
+
+    if(!YarpHelper::getNumberFromSearchable(config, "c0", c0))
+        return false;
+
+
+    m_linearPID.setGains(linearKp, linearKd);
+    m_rotationalPID.setGains(c0, angularKd, angularKp);
 
     return true;
 }
@@ -98,15 +122,29 @@ void FeedbackLinearizationTorqueController::setFeetJacobian(const iDynTree::Matr
                                                             const iDynTree::MatrixDynSize &rightFootJacobian)
 {
     iDynTree::toEigen(m_feetJacobian).block(0, 0, 6, m_actuatedDOFs + 6) = iDynTree::toEigen(leftFootJacobian);
-
     iDynTree::toEigen(m_feetJacobian).block(6, 0, 6, m_actuatedDOFs + 6) = iDynTree::toEigen(rightFootJacobian);
+
+    if(m_doubleSupport)
+        m_contactJacobian = m_feetJacobian;
+    else
+    {
+        if(m_leftInContact)
+        {
+            iDynTree::toEigen(m_contactJacobian).block(0, 0, 6, m_actuatedDOFs + 6) = iDynTree::toEigen(leftFootJacobian);
+            iDynTree::toEigen(m_contactJacobian).block(6, 0, 6, m_actuatedDOFs + 6).setZero();
+        }
+        else
+        {
+            iDynTree::toEigen(m_contactJacobian).block(0, 0, 6, m_actuatedDOFs + 6).setZero();
+            iDynTree::toEigen(m_contactJacobian).block(6, 0, 6, m_actuatedDOFs + 6) = iDynTree::toEigen(rightFootJacobian);
+        }
+    }
 }
 
 
 void FeedbackLinearizationTorqueController::setFeetBiasAcceleration(const iDynTree::Vector6 &leftFootBiasAcceleration, const iDynTree::Vector6 &rightFootBiasAcceleration)
 {
     iDynTree::toEigen(m_feetBiasAcceleration).block(0, 0, 6, 1) = iDynTree::toEigen(leftFootBiasAcceleration);
-
     iDynTree::toEigen(m_feetBiasAcceleration).block(6, 0, 6, 1) = iDynTree::toEigen(rightFootBiasAcceleration);
 }
 
@@ -116,10 +154,72 @@ void FeedbackLinearizationTorqueController::setMeasuredWrench(const iDynTree::Wr
     m_rightWrench = rightWrench;
 }
 
-void FeedbackLinearizationTorqueController::setFeetVelocities(const iDynTree::Twist& left, const iDynTree::Twist& right)
+void FeedbackLinearizationTorqueController::setFeetState(const iDynTree::Transform& leftFootToWorldTransform,
+                                                      const iDynTree::Twist& leftFootTwist,
+                                                      const iDynTree::Transform& rightFootToWorldTransform,
+                                                      const iDynTree::Twist& rightFootTwist)
+
 {
-    m_leftTwist = left;
-    m_rightTwist = right;
+    m_leftTwist = leftFootTwist;
+    m_rightTwist = rightFootTwist;
+
+    if(m_doubleSupport)
+        return;
+
+    const iDynTree::Twist &swingFootVelocity = rightFootTwist;
+    const iDynTree::Transform &swingFootTranformation = rightFootToWorldTransform;
+
+    if(!m_leftInContact)
+    {
+        const iDynTree::Twist &swingFootVelocity = leftFootTwist;
+        const iDynTree::Transform &swingFootTranformation = leftFootToWorldTransform;
+    }
+
+    m_linearPID.setFeedback(swingFootVelocity.getLinearVec3(),
+                            swingFootTranformation.getPosition());
+
+    m_rotationalPID.setFeedback(swingFootVelocity.getAngularVec3(),
+                                swingFootTranformation.getRotation());
+}
+
+void FeedbackLinearizationTorqueController::setDesiredFeetTrajectory(const iDynTree::Transform& leftFootToWorldTransform,
+                                                                     const iDynTree::Twist& leftFootTwist,
+                                                                     const iDynTree::Vector6& leftFootAcceleration,
+                                                                     const iDynTree::Transform& rightFootToWorldTransform,
+                                                                     const iDynTree::Twist& rightFootTwist,
+                                                                     const iDynTree::Vector6& rightFootAcceleration)
+{
+    if(m_doubleSupport)
+        return;
+
+    const iDynTree::Vector6 &swingFootAcceleration = rightFootAcceleration;
+    const iDynTree::Twist &swingFootVelocity = rightFootTwist;
+    const iDynTree::Transform &swingFootTranformation = rightFootToWorldTransform;
+
+    if(!m_leftInContact)
+    {
+        const iDynTree::Vector6 &swingFootAcceleration = leftFootAcceleration;
+        const iDynTree::Twist &swingFootVelocity = leftFootTwist;
+        const iDynTree::Transform &swingFootTranformation = leftFootToWorldTransform;
+    }
+
+    iDynTree::Vector3 swingFootLinearAcceleration, swingFootAngularAcceleration;
+    swingFootLinearAcceleration(0) = swingFootAcceleration(0);
+    swingFootLinearAcceleration(1) = swingFootAcceleration(1);
+    swingFootLinearAcceleration(2) = swingFootAcceleration(2);
+
+    swingFootAngularAcceleration(0) = swingFootAcceleration(3);
+    swingFootAngularAcceleration(1) = swingFootAcceleration(4);
+    swingFootAngularAcceleration(2) = swingFootAcceleration(5);
+
+
+    m_linearPID.setDesiredTrajectory(swingFootLinearAcceleration,
+                                     swingFootVelocity.getLinearVec3(),
+                                     swingFootTranformation.getPosition());
+
+    m_rotationalPID.setDesiredTrajectory(swingFootAngularAcceleration,
+                                      swingFootVelocity.getAngularVec3(),
+                                      swingFootTranformation.getRotation());
 }
 
 void FeedbackLinearizationTorqueController::setDesiredWrench(const iDynTree::Wrench &desiredLeftWrench, const iDynTree::Wrench &desiredRightWrench)
@@ -128,66 +228,107 @@ void FeedbackLinearizationTorqueController::setDesiredWrench(const iDynTree::Wre
     m_desiredRightWrench = desiredRightWrench;
 }
 
+void FeedbackLinearizationTorqueController::setFeetState(bool leftInContact, bool rightInContact)
+{
+    if(leftInContact && rightInContact)
+        m_doubleSupport = true;
+    else
+        m_doubleSupport = false;
+
+    m_leftInContact = leftInContact;
+    m_rightInContact = rightInContact;
+}
+
 void FeedbackLinearizationTorqueController::evaluatedDesiredTorque()
 {
     auto selectionMatrix(iDynTree::toEigen(m_selectionMatrix));
     auto massMatrix(iDynTree::toEigen(m_massMatrix));
     auto generalizedBiasForce(iDynTree::toEigen(m_generalizedBiasForces));
     auto feetJacobian(iDynTree::toEigen(m_feetJacobian));
+    auto contactJacobian(iDynTree::toEigen(m_contactJacobian));
     auto feetBiasAcceleration(iDynTree::toEigen(m_feetBiasAcceleration));
+
+    auto M_b = massMatrix.block(0,0,6,6);
+    auto M_b_inverse = M_b.inverse();
+    auto M_s = massMatrix.block(6,6,m_actuatedDOFs,m_actuatedDOFs);
+    auto M_bs = massMatrix.block(0,6,6,m_actuatedDOFs);
+    auto M_inverse = massMatrix.inverse();
+
+    auto h_b = generalizedBiasForce.block(0,0,6,1);
+    auto h_s = generalizedBiasForce.block(6,0,m_actuatedDOFs,1);
+
+    auto J_c_b_transpose = contactJacobian.transpose().block(0, 0, 6, 12);
+    auto J_c_s_transpose = contactJacobian.transpose().block(6, 0, m_actuatedDOFs, 12);
+
+    Eigen::VectorXd contactWrenches(12);
+    contactWrenches.block(0, 0, 6, 1) = iDynTree::toEigen(m_desiredLeftWrench);
+    contactWrenches.block(6, 0, 6, 1) = iDynTree::toEigen(m_desiredRightWrench);
 
     auto desiredTorque(iDynTree::toEigen(m_desiredTorque));
 
-    auto massMatrixInverse = massMatrix.inverse();
+    MatrixXd identity12(12, 12);
+    identity12.setIdentity();
 
-    auto generalizedJacobianInverse = feetJacobian * massMatrixInverse * selectionMatrix;
-    auto generalizedJacobianInversePseudoInverse = generalizedJacobianInverse.transpose()
-        * (generalizedJacobianInverse * generalizedJacobianInverse.transpose()).inverse();
+    yInfo() << "sdafgidiugdiugvuias" << m_doubleSupport;
+
+    auto lambda = feetJacobian * M_inverse * selectionMatrix;
+    auto lambdaPseudoInverse = lambda.transpose() * (lambda * lambda.transpose() + identity12).inverse();
 
     MatrixXd identity(m_actuatedDOFs, m_actuatedDOFs);
     identity.setIdentity();
-    auto nullProjection = (identity - generalizedJacobianInversePseudoInverse
-                           * generalizedJacobianInverse);
+    auto nullProjection = (identity - lambdaPseudoInverse * lambda);
 
-    iDynTree::VectorDynSize a(12);
+    Eigen::VectorXd a(12);
+    if(m_doubleSupport)
+    {
+        a.block(0, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
+            * (iDynTree::toEigen(m_desiredLeftWrench - m_leftWrench))
+            - 0.0 * iDynTree::toEigen(m_leftTwist);
 
-    yInfo() << "desired " <<m_desiredLeftWrench.toString() << " " << m_desiredRightWrench.toString();
-    yInfo() << "measured " << m_leftWrench.toString() << " " << m_rightWrench.toString();
+        a.block(6, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
+            * (iDynTree::toEigen(m_desiredRightWrench - m_rightWrench))
+            - 0.0 * iDynTree::toEigen(m_rightTwist);
+    }
+    else
+    {
+        if(m_leftInContact)
+        {
+            a.block(0, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
+                * (iDynTree::toEigen(m_desiredLeftWrench - m_leftWrench))
+                - 0.0 * iDynTree::toEigen(m_leftTwist);
 
-    auto c = m_desiredLeftWrench - m_leftWrench;
-    auto d = m_desiredRightWrench - m_rightWrench;
-    std::cerr << "error left wrench " << c.toString()<< std::endl;
+            m_linearPID.evaluateControl();
+            a.block(6, 0, 3, 1) = iDynTree::toEigen(m_linearPID.getControllerOutput());
 
-    auto e = m_leftWrench - m_desiredLeftWrench;
-    std::cerr << "error right wrench" << d.toString() << std::endl;
+            m_rotationalPID.evaluateControl();
+            a.block(9, 0, 3, 1) = iDynTree::toEigen(m_rotationalPID.getControllerOutput());
+        }
+        else
+        {
+            m_linearPID.evaluateControl();
+            a.block(0, 0, 3, 1) = iDynTree::toEigen(m_linearPID.getControllerOutput());
 
-    iDynTree::toEigen(a).block(0, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
-        * (iDynTree::toEigen(m_desiredLeftWrench - m_leftWrench))
-        - iDynTree::toEigen(m_leftTwist);
+            m_rotationalPID.evaluateControl();
+            a.block(3, 0, 3, 1) = iDynTree::toEigen(m_rotationalPID.getControllerOutput());
 
-    iDynTree::toEigen(a).block(6, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
-        * (iDynTree::toEigen(m_desiredRightWrench - m_rightWrench))
-        - iDynTree::toEigen(m_rightTwist);
+            a.block(6, 0, 6, 1) = iDynTree::toEigen(m_forceGains).asDiagonal()
+                * (iDynTree::toEigen(m_desiredRightWrench - m_rightWrench))
+                - 0.0 * iDynTree::toEigen(m_rightTwist);
+        }
+    }
+    std::cerr << "contact wrenches "<< a.transpose() << std::endl;
 
-    yInfo() << "a " << a.toString();
-
-    iDynTree::VectorDynSize regularizationError(m_actuatedDOFs);
-    iDynTree::toEigen(regularizationError) = iDynTree::toEigen(m_desiredJointAcceleration)
+    Eigen::VectorXd regularizationError(m_actuatedDOFs);
+    regularizationError = iDynTree::toEigen(m_desiredJointAcceleration)
         + iDynTree::toEigen(m_jointRegularizationKd).asDiagonal() * (iDynTree::toEigen(m_desiredJointVelocity)
                                                                      -iDynTree::toEigen(m_jointVelocity))
         + iDynTree::toEigen(m_jointRegularizationKp).asDiagonal() * (iDynTree::toEigen(m_desiredJointPosition)
                                                                      -iDynTree::toEigen(m_jointPosition));
 
-
-    iDynTree::VectorDynSize contactWrenches(12);
-    iDynTree::toEigen(contactWrenches).block(0, 0, 6, 1) = iDynTree::toEigen(m_leftWrench);
-    iDynTree::toEigen(contactWrenches).block(6, 0, 6, 1) = iDynTree::toEigen(m_rightWrench);
-
-    desiredTorque = generalizedJacobianInversePseudoInverse * (feetBiasAcceleration
-                                                               - feetJacobian * massMatrixInverse *
-                                                               (generalizedBiasForce - feetJacobian.transpose() * iDynTree::toEigen(contactWrenches))
-                                                               + iDynTree::toEigen(a))
-        + nullProjection * iDynTree::toEigen(regularizationError);
+    desiredTorque = lambdaPseudoInverse * (-feetBiasAcceleration + feetJacobian * M_inverse *
+                                           (generalizedBiasForce - contactJacobian.transpose() * contactWrenches) + a)
+        + nullProjection * (h_s - M_bs.transpose() * M_b_inverse * h_b - (J_c_s_transpose - M_bs.transpose() * M_b_inverse * J_c_b_transpose)
+                            * contactWrenches + (M_s - M_bs.transpose() * M_b_inverse * M_bs) * regularizationError);
 }
 
 const iDynTree::VectorDynSize& FeedbackLinearizationTorqueController::desiredTorque() const

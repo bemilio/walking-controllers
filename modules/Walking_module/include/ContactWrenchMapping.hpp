@@ -24,6 +24,10 @@ protected:
     bool m_useLinearMomentumConstraint;
     bool m_useLinearMomentumCostFunction;
 
+    bool m_useAngularMomentumConstraint;
+    bool m_useAngularMomentumCostFunction;
+
+
     //todo
     std::unique_ptr<TimeProfiler> m_profiler; /**< Time profiler. */
 
@@ -46,6 +50,11 @@ protected:
     virtual bool instantiateContactForcesConstraint(const yarp::os::Searchable& config) = 0;
 
     virtual bool instantiateForceRegularizationConstraint(const yarp::os::Searchable& config) = 0;
+
+    virtual bool instantiateAngularMomentumConstraint(const yarp::os::Searchable& config) = 0;
+
+    virtual bool instantiateAngularMomentumCostFunction(const yarp::os::Searchable& config) = 0;
+
 
     bool setHessianMatrix();
 
@@ -74,6 +83,7 @@ protected:
 public:
     bool initialize(const yarp::os::Searchable& config);
 
+    void setRobotMass(double mass);
 
     bool setCentroidalTotalMomentum(const iDynTree::SpatialMomentum& linearAngularMomentum);
 
@@ -82,6 +92,10 @@ public:
 
     bool setCoMState(const iDynTree::Position& comPosition,
                      const iDynTree::Vector3& comVelocity);
+
+    bool setDesiredCoMTrajectory(const iDynTree::Position& comPosition,
+                                 const iDynTree::Vector3& comVelocity,
+                                 const iDynTree::Vector3& comAcceleration);
 
     bool setDesiredVRP(const iDynTree::Vector3& vrp);
 
@@ -116,6 +130,10 @@ private:
 
     bool instantiateForceRegularizationConstraint(const yarp::os::Searchable& config) override;
 
+    bool instantiateAngularMomentumConstraint(const yarp::os::Searchable& config) override;
+
+    bool instantiateAngularMomentumCostFunction(const yarp::os::Searchable& config) override;
+
     void setNumberOfVariables() override;
 
     /**
@@ -148,6 +166,11 @@ class ContactWrenchMappingSingleSupport : public ContactWrenchMapping
     bool instantiateLinearMomentumCostFunction(const yarp::os::Searchable& config) override;
 
     bool instantiateForceRegularizationConstraint(const yarp::os::Searchable& config) override;
+
+    bool instantiateAngularMomentumConstraint(const yarp::os::Searchable& config) override;
+
+    bool instantiateAngularMomentumCostFunction(const yarp::os::Searchable& config) override;
+
 
     void setNumberOfVariables() override;
 
