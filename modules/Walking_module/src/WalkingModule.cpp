@@ -36,12 +36,12 @@ bool WalkingModule::advanceReferenceSignals()
 {
     // check if vector is not initialized
     if(m_leftTrajectory.empty()
-       || m_rightTrajectory.empty()
-       || m_leftInContact.empty()
-       || m_rightInContact.empty()
-       || m_DCMPositionDesired.empty()
-       || m_DCMVelocityDesired.empty()
-       || m_comHeightTrajectory.empty())
+            || m_rightTrajectory.empty()
+            || m_leftInContact.empty()
+            || m_rightInContact.empty()
+            || m_DCMPositionDesired.empty()
+            || m_DCMVelocityDesired.empty()
+            || m_comHeightTrajectory.empty())
     {
         yError() << "[advanceReferenceSignals] Cannot advance empty reference signals.";
         return false;
@@ -507,8 +507,8 @@ bool WalkingModule::updateModule()
                 initTimeTrajectory = m_time + m_newTrajectoryMergeCounter * m_dT;
 
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
-                    m_rightTrajectory[m_newTrajectoryMergeCounter] :
-                    m_leftTrajectory[m_newTrajectoryMergeCounter];
+                            m_rightTrajectory[m_newTrajectoryMergeCounter] :
+                            m_leftTrajectory[m_newTrajectoryMergeCounter];
 
                 // ask for a new trajectory
                 if(!askNewTrajectories(initTimeTrajectory, !m_isLeftFixedFrame.front(),
@@ -544,7 +544,7 @@ bool WalkingModule::updateModule()
         }
 
         // get feedbacks and evaluate useful quantities
-        if(!m_robotControlHelper->getFeedbacks(10))
+        if(!m_robotControlHelper->getFeedbacks(100))
         {
             yError() << "[updateModule] Unable to get the feedback.";
             return false;
@@ -823,6 +823,8 @@ bool WalkingModule::updateModule()
 }
 
 
+
+
 bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
 {
     if(m_FKSolver == nullptr)
@@ -835,25 +837,48 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     double zmpLeftDefined = 0.0, zmpRightDefined = 0.0;
 
     const iDynTree::Wrench& rightWrench = m_robotControlHelper->getRightWrench();
+    const iDynTree::Wrench& leftWrench = m_robotControlHelper->getLeftWrench();
+    //following three variables defined for avoid jumping in computed zmp
+    const double threshholdFz=1;
+    const double epsilonZMP=1000;
+    double saturatedRFz=rightWrench.getLinearVec3()(2);
+    double saturatedLFz=leftWrench.getLinearVec3()(2);
+
     if(rightWrench.getLinearVec3()(2) < 0.001)
         zmpRightDefined = 0.0;
     else
     {
-        zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
-        zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
-        zmpRight(2) = 0.0;
-        zmpRightDefined = 1.0;
+        if (saturateFz(saturatedRFz,threshholdFz)) {
+                        zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+                        zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+//            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
+//            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
+            zmpRight(2) = 0.0;
+            zmpRightDefined = 1.0;
+        }
+        else {
+            yError() << "[evaluateZMP] The saturation function can not saturate Fz in right foot!!!!";
+        }
+
     }
 
-    const iDynTree::Wrench& leftWrench = m_robotControlHelper->getLeftWrench();
+
     if(leftWrench.getLinearVec3()(2) < 0.001)
         zmpLeftDefined = 0.0;
     else
     {
-        zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
-        zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
-        zmpLeft(2) = 0.0;
-        zmpLeftDefined = 1.0;
+        if (saturateFz(saturatedLFz,threshholdFz)) {
+                        zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+                        zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+//            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
+//            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
+
+            zmpLeft(2) = 0.0;
+            zmpLeftDefined = 1.0;
+        }
+        else {
+            yError() << "[evaluateZMP] The saturation function can not saturate Fz in left foot!!!!";
+        }
     }
 
     double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
@@ -868,14 +893,31 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
 
     // the global zmp is given by a weighted average
     iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
-        * iDynTree::toEigen(zmpLeft) +
-        ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+            * iDynTree::toEigen(zmpLeft) +
+            ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
 
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
     return true;
 }
+
+bool WalkingModule::saturateFz(double& Fz,const double threshholdFz)
+{
+    if (threshholdFz<0){
+        yError() << "[saturateFz] The threshhold for the saturation of Fz must be greater than zero";
+        return false;
+    }
+
+    if (Fz>=threshholdFz) {
+        return true;
+    }
+    else if (Fz<threshholdFz) {
+        Fz=0;
+    }
+    return true;
+}
+
 
 bool WalkingModule::prepareRobot(bool onTheFly)
 {
@@ -1229,25 +1271,25 @@ bool WalkingModule::startWalking()
     if(m_dumpData)
     {
         m_walkingLogger->startRecord({"record","dcm_x", "dcm_y",
-                    "dcm_des_x", "dcm_des_y",
-                    "dcm_des_dx", "dcm_des_dy",
-                    "zmp_x", "zmp_y",
-                    "zmp_des_x", "zmp_des_y",
-                    "com_x", "com_y", "com_z",
-                    "com_des_x", "com_des_y",
-                    "com_des_dx", "com_des_dy",
-                    "lf_x", "lf_y", "lf_z",
-                    "lf_roll", "lf_pitch", "lf_yaw",
-                    "rf_x", "rf_y", "rf_z",
-                    "rf_roll", "rf_pitch", "rf_yaw",
-                    "lf_des_x", "lf_des_y", "lf_des_z",
-                    "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
-                    "rf_des_x", "rf_des_y", "rf_des_z",
-                    "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
-                    "lf_err_x", "lf_err_y", "lf_err_z",
-                    "lf_err_roll", "lf_err_pitch", "lf_err_yaw",
-                    "rf_err_x", "rf_err_y", "rf_err_z",
-                    "rf_err_roll", "rf_err_pitch", "rf_err_yaw"});
+                                      "dcm_des_x", "dcm_des_y",
+                                      "dcm_des_dx", "dcm_des_dy",
+                                      "zmp_x", "zmp_y",
+                                      "zmp_des_x", "zmp_des_y",
+                                      "com_x", "com_y", "com_z",
+                                      "com_des_x", "com_des_y",
+                                      "com_des_dx", "com_des_dy",
+                                      "lf_x", "lf_y", "lf_z",
+                                      "lf_roll", "lf_pitch", "lf_yaw",
+                                      "rf_x", "rf_y", "rf_z",
+                                      "rf_roll", "rf_pitch", "rf_yaw",
+                                      "lf_des_x", "lf_des_y", "lf_des_z",
+                                      "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
+                                      "rf_des_x", "rf_des_y", "rf_des_z",
+                                      "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
+                                      "lf_err_x", "lf_err_y", "lf_err_z",
+                                      "lf_err_roll", "lf_err_pitch", "lf_err_yaw",
+                                      "rf_err_x", "rf_err_y", "rf_err_z",
+                                      "rf_err_roll", "rf_err_pitch", "rf_err_yaw"});
     }
 
     // if the robot was only prepared the filters has to be reseted

@@ -182,6 +182,13 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     bool evaluateZMP(iDynTree::Vector2& zmp);
 
     /**
+     * Saturate the vertical component of contact Forces to avoiding undesirable jumps in the evaulated ZMP  .
+     * @param zmp zero momentum point.
+     * @return true in case of success and false otherwise.
+     */
+    bool saturateFz(double & Fz, const double threshholdFz);
+
+    /**
      * Generate the first trajectory.
      * This method has to be called before updateTrajectories() method.
      * @return true in case of success and false otherwise.
