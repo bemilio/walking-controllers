@@ -839,12 +839,12 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     const iDynTree::Wrench& rightWrench = m_robotControlHelper->getRightWrench();
     const iDynTree::Wrench& leftWrench = m_robotControlHelper->getLeftWrench();
     //following three variables defined for avoid jumping in computed zmp
-    const double threshholdFz=1;
+    const double threshholdFz=10;
     const double epsilonZMP=1000;
     double saturatedRFz=rightWrench.getLinearVec3()(2);
     double saturatedLFz=leftWrench.getLinearVec3()(2);
 
-    if(rightWrench.getLinearVec3()(2) < 0.001)
+    if(rightWrench.getLinearVec3()(2) < threshholdFz)
         zmpRightDefined = 0.0;
     else
     {
@@ -863,7 +863,7 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     }
 
 
-    if(leftWrench.getLinearVec3()(2) < 0.001)
+    if(leftWrench.getLinearVec3()(2) < threshholdFz)
         zmpLeftDefined = 0.0;
     else
     {
@@ -881,7 +881,7 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
         }
     }
 
-    double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
+    double totalZ = saturatedLFz + saturatedRFz;
     if(totalZ < 0.1)
     {
         yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
@@ -892,9 +892,9 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
 
     // the global zmp is given by a weighted average
-    iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
+    iDynTree::toEigen(zmpWorld) = ((saturatedLFz * zmpLeftDefined) / totalZ)
             * iDynTree::toEigen(zmpLeft) +
-            ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+            ((saturatedRFz * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
 
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
