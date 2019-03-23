@@ -56,6 +56,11 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     double m_time; /**< Current time. */
     std::string m_robot; /**< Robot name. */
 
+    //following three lines  added for filtering the global zmp to decrease the vibration during walking
+    yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
+    std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
+    bool m_useZMPFilter; /**< True if the zmp filter is used. */
+
     bool m_firstStep; /**< True if this is the first step. */
     bool m_useMPC; /**< True if the MPC controller is used. */
     bool m_useQPIK; /**< True if the QP-IK is used. */
@@ -238,6 +243,11 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
      * Reset the entire controller architecture
      */
     void reset();
+
+    /**
+     * Reset the zmp and CoM velocity filter
+     */
+    bool resetZMP_COMFilters();
 
 public:
 

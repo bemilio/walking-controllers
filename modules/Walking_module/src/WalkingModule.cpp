@@ -120,6 +120,9 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
+
+
+
     // module name (used as prefix for opened ports)
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
     m_useQPIK = rf.check("use_QP-IK", yarp::os::Value(false)).asBool();
@@ -174,6 +177,35 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         yError() << "[configure] Could not open" << desiredUnyciclePositionPortName << " port.";
         return false;
     }
+
+
+    //    //following three lines  added for filtering the global zmp to decrease the vibration during walking
+    //    yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
+    //    std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
+    //    bool m_useZMPFilter; /**< True if the zmp filter is used. */
+
+    //low pass filter on zmp
+    m_useZMPFilter = rf.check("use_zmp_filter", yarp::os::Value("False")).asBool();
+    yarp::sig::Vector tempInitZMPFilter;
+    tempInitZMPFilter.zero();
+    if(m_useZMPFilter)
+    {
+        double cutFrequency;
+        if(!YarpHelper::getNumberFromSearchable(rf, "zmp_cut_frequency", cutFrequency))
+        {
+            yError() << "[configure] Unable get double from searchable.";
+            return false;
+        }
+
+        m_ZMPFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(cutFrequency,
+                                                                            m_dT);
+        m_ZMPFilter->init(tempInitZMPFilter);
+    }
+
+
+
+
+
 
     // initialize the trajectory planner
     m_trajectoryGenerator = std::make_unique<TrajectoryGenerator>();
@@ -320,6 +352,9 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 
     return true;
 }
+
+
+
 
 void WalkingModule::reset()
 {
@@ -822,7 +857,13 @@ bool WalkingModule::updateModule()
     return true;
 }
 
-
+//for zmp and CoM Velocity filter resetting
+bool WalkingModule::resetZMP_COMFilters(zmp )
+{
+    if(m_useZMPFilter)
+        m_ZMPFilter->init();
+    return true;
+}
 
 
 bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
@@ -849,10 +890,10 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     else
     {
         if (saturateFz(saturatedRFz,threshholdFz)) {
-                        zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-                        zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-//            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
-//            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
+            zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+            zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+            //            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
+            //            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
             zmpRight(2) = 0.0;
             zmpRightDefined = 1.0;
         }
@@ -868,10 +909,10 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     else
     {
         if (saturateFz(saturatedLFz,threshholdFz)) {
-                        zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-                        zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-//            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
-//            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
+            zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+            zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+            //            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
+            //            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
 
             zmpLeft(2) = 0.0;
             zmpLeftDefined = 1.0;
@@ -899,6 +940,11 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
+    if(m_useZMPFilter)
+    {
+        // filter the joint position and the velocity
+        zmp = m_ZMPFilter->filt(zmp);
+    }
     return true;
 }
 
@@ -1294,7 +1340,9 @@ bool WalkingModule::startWalking()
 
     // if the robot was only prepared the filters has to be reseted
     if(m_robotState == WalkingFSM::Prepared)
+
         m_robotControlHelper->resetFilters();
+        resetZMP_COMFilters();
 
     m_robotState = WalkingFSM::Walking;
     m_firstStep = true;
