@@ -120,9 +120,6 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
-
-
-
     // module name (used as prefix for opened ports)
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
     m_useQPIK = rf.check("use_QP-IK", yarp::os::Value(false)).asBool();
@@ -179,15 +176,11 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     }
 
 
-    //    //following three lines  added for filtering the global zmp to decrease the vibration during walking
-    //    yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
-    //    std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
-    //    bool m_useZMPFilter; /**< True if the zmp filter is used. */
 
-    //low pass filter on zmp
+
+
+    //low pass filter on zmp -- preparing filter
     m_useZMPFilter = rf.check("use_zmp_filter", yarp::os::Value("False")).asBool();
-    yarp::sig::Vector tempInitZMPFilter;
-    tempInitZMPFilter.zero();
     if(m_useZMPFilter)
     {
         double cutFrequency;
@@ -197,14 +190,8 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
             return false;
         }
 
-        m_ZMPFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(cutFrequency,
-                                                                            m_dT);
-        m_ZMPFilter->init(tempInitZMPFilter);
+        m_ZMPFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(cutFrequency,m_dT);
     }
-
-
-
-
 
 
     // initialize the trajectory planner
@@ -597,6 +584,7 @@ bool WalkingModule::updateModule()
             return false;
         }
 
+
         if(!evaluateDCM(measuredDCM))
         {
             yError() << "[updateModule] Unable to evaluate the DCM.";
@@ -608,6 +596,20 @@ bool WalkingModule::updateModule()
             yError() << "[updateModule] Unable to evaluate the ZMP.";
             return false;
         }
+
+
+        if(m_useZMPFilter)
+        {
+            // filter the zmp
+            yarp::sig::Vector temp2ZMPFilter;
+            iDynTree::Vector2 temp2MeasuredZMP;
+            iDynTree::toYarp(measuredZMP,temp2ZMPFilter);
+           temp2ZMPFilter = m_ZMPFilter->filt(temp2ZMPFilter);
+            iDynTree::toiDynTree(temp2ZMPFilter,measuredZMP);
+        }
+
+
+
 
         // evaluate 3D-LIPM reference signal
         m_stableDCMModel->setInput(m_DCMPositionDesired.front());
@@ -858,10 +860,35 @@ bool WalkingModule::updateModule()
 }
 
 //for zmp and CoM Velocity filter resetting
-bool WalkingModule::resetZMP_COMFilters(zmp )
+bool WalkingModule::resetZMPFilters()
 {
+    if(!m_robotControlHelper->getFeedbacksRaw(10))
+    {
+        yError() << "[resetZMPFilters] Unable to get the feedback from the robot";
+        return false;
+    }
+
+    if(!updateFKSolver())
+    {
+        yError() << "[resetZMPFilters] Unable to update the FK solver.";
+        return false;
+    }
+
+
+    yarp::sig::Vector temp1ZMPFilter;
+    iDynTree::Vector2 temp1MeasuredZMP;
+
+    if(!evaluateZMP(temp1MeasuredZMP))
+    {
+        yError() << "[resetZMPFilters] Unable to evaluate the ZMP.";
+        return false;
+    }
     if(m_useZMPFilter)
-        m_ZMPFilter->init();
+    {
+        iDynTree::toYarp(temp1MeasuredZMP,temp1ZMPFilter);
+        m_ZMPFilter->init(temp1ZMPFilter);
+    }
+
     return true;
 }
 
@@ -940,11 +967,6 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
-    if(m_useZMPFilter)
-    {
-        // filter the joint position and the velocity
-        zmp = m_ZMPFilter->filt(zmp);
-    }
     return true;
 }
 
@@ -1339,10 +1361,12 @@ bool WalkingModule::startWalking()
     }
 
     // if the robot was only prepared the filters has to be reseted
-    if(m_robotState == WalkingFSM::Prepared)
-
+    if(m_robotState == WalkingFSM::Prepared){
         m_robotControlHelper->resetFilters();
-        resetZMP_COMFilters();
+        resetZMPFilters();
+    }
+
+
 
     m_robotState = WalkingFSM::Walking;
     m_firstStep = true;

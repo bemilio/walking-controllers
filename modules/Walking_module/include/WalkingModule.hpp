@@ -247,7 +247,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     /**
      * Reset the zmp and CoM velocity filter
      */
-    bool resetZMP_COMFilters();
+    bool resetZMPFilters();
 
 public:
 
