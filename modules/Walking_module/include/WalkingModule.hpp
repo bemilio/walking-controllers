@@ -61,6 +61,11 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
     bool m_useZMPFilter; /**< True if the zmp filter is used. */
 
+    //reading dada from configure file for zmp saturation function
+    double thresholdFz;
+    double epsilonZMP;
+    bool m_useZMPSaturation;
+
     bool m_firstStep; /**< True if this is the first step. */
     bool m_useMPC; /**< True if the MPC controller is used. */
     bool m_useQPIK; /**< True if the QP-IK is used. */
@@ -191,7 +196,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
      * @param zmp zero momentum point.
      * @return true in case of success and false otherwise.
      */
-    bool saturateFz(double & Fz, const double threshholdFz);
+    bool saturateFz(double & Fz, const double thresholdFz);
 
     /**
      * Generate the first trajectory.

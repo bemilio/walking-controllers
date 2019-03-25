@@ -176,6 +176,20 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     }
 
 
+    //reading some data for zmp saturation function from configuration file
+    m_useZMPSaturation = rf.check("use_zmp_saturation", yarp::os::Value("False")).asBool();
+
+    if(!YarpHelper::getNumberFromSearchable(rf, "epsilon", epsilonZMP))
+    {
+        yError() << "[configure] Unable get epsilon(double) from searchable.";
+        return false;
+    }
+
+    if(!YarpHelper::getNumberFromSearchable(rf, "zmp_saturation_threshold", thresholdFz))
+    {
+        yError() << "[configure] Unable get thresholdFz(double) from searchable.";
+        return false;
+    }
 
 
 
@@ -601,11 +615,11 @@ bool WalkingModule::updateModule()
         if(m_useZMPFilter)
         {
             // filter the zmp
-            yarp::sig::Vector temp2ZMPFilter;
-            iDynTree::Vector2 temp2MeasuredZMP;
-            iDynTree::toYarp(measuredZMP,temp2ZMPFilter);
-           temp2ZMPFilter = m_ZMPFilter->filt(temp2ZMPFilter);
-            iDynTree::toiDynTree(temp2ZMPFilter,measuredZMP);
+            yarp::sig::Vector tempZMPFilter;
+            iDynTree::Vector2 tempMeasuredZMP;
+            iDynTree::toYarp(measuredZMP,tempZMPFilter);
+            tempZMPFilter = m_ZMPFilter->filt(tempZMPFilter);
+            iDynTree::toiDynTree(tempZMPFilter,measuredZMP);
         }
 
 
@@ -906,81 +920,116 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
 
     const iDynTree::Wrench& rightWrench = m_robotControlHelper->getRightWrench();
     const iDynTree::Wrench& leftWrench = m_robotControlHelper->getLeftWrench();
-    //following three variables defined for avoid jumping in computed zmp
-    const double threshholdFz=10;
-    const double epsilonZMP=1000;
-    double saturatedRFz=rightWrench.getLinearVec3()(2);
-    double saturatedLFz=leftWrench.getLinearVec3()(2);
 
-    if(rightWrench.getLinearVec3()(2) < threshholdFz)
-        zmpRightDefined = 0.0;
-    else
-    {
-        if (saturateFz(saturatedRFz,threshholdFz)) {
-            zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-            zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-            //            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
-            //            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
+    if(m_useZMPSaturation==1){
+        double saturatedRFz=rightWrench.getLinearVec3()(2);
+        double saturatedLFz=leftWrench.getLinearVec3()(2);
+
+        if(rightWrench.getLinearVec3()(2) < thresholdFz)
+            zmpRightDefined = 0.0;
+        else
+        {
+            if (saturateFz(saturatedRFz,thresholdFz)) {
+                zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+                zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
+                //            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
+                //            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
+                zmpRight(2) = 0.0;
+                zmpRightDefined = 1.0;
+            }
+            else {
+                yError() << "[evaluateZMP] The saturation function can not saturate Fz in right foot!!!!";
+            }
+        }
+
+
+        if(leftWrench.getLinearVec3()(2) < thresholdFz)
+            zmpLeftDefined = 0.0;
+        else
+        {
+            if (saturateFz(saturatedLFz,thresholdFz)) {
+                zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+                zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
+                //            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
+                //            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
+
+                zmpLeft(2) = 0.0;
+                zmpLeftDefined = 1.0;
+            }
+            else {
+                yError() << "[evaluateZMP] The saturation function can not saturate Fz in left foot!!!!";
+            }
+        }
+
+        double totalZ = saturatedLFz + saturatedRFz;
+        if(totalZ < 0.1)
+        {
+            yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
+            return false;
+        }
+
+        zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
+        zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
+
+        // the global zmp is given by a weighted average
+        iDynTree::toEigen(zmpWorld) = ((saturatedLFz * zmpLeftDefined) / totalZ)
+                * iDynTree::toEigen(zmpLeft) +
+                ((saturatedRFz * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+    }
+    else{//when the saturation is not active
+
+        if(rightWrench.getLinearVec3()(2) < 0.001)
+            zmpRightDefined = 0.0;
+        else
+        {
+            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
+            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
             zmpRight(2) = 0.0;
             zmpRightDefined = 1.0;
         }
-        else {
-            yError() << "[evaluateZMP] The saturation function can not saturate Fz in right foot!!!!";
-        }
 
-    }
-
-
-    if(leftWrench.getLinearVec3()(2) < threshholdFz)
-        zmpLeftDefined = 0.0;
-    else
-    {
-        if (saturateFz(saturatedLFz,threshholdFz)) {
-            zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-            zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-            //            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
-            //            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
-
+        if(leftWrench.getLinearVec3()(2) < 0.001)
+            zmpLeftDefined = 0.0;
+        else
+        {
+            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
+            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
             zmpLeft(2) = 0.0;
             zmpLeftDefined = 1.0;
         }
-        else {
-            yError() << "[evaluateZMP] The saturation function can not saturate Fz in left foot!!!!";
+
+        double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
+        if(totalZ < 0.1)
+        {
+            yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
+            return false;
         }
+
+        zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
+        zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
+
+        // the global zmp is given by a weighted average
+        iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
+                * iDynTree::toEigen(zmpLeft) +
+                ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
     }
-
-    double totalZ = saturatedLFz + saturatedRFz;
-    if(totalZ < 0.1)
-    {
-        yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
-        return false;
-    }
-
-    zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
-    zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
-
-    // the global zmp is given by a weighted average
-    iDynTree::toEigen(zmpWorld) = ((saturatedLFz * zmpLeftDefined) / totalZ)
-            * iDynTree::toEigen(zmpLeft) +
-            ((saturatedRFz * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
-
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
     return true;
 }
 
-bool WalkingModule::saturateFz(double& Fz,const double threshholdFz)
+bool WalkingModule::saturateFz(double& Fz,const double thresholdFz)
 {
-    if (threshholdFz<0){
-        yError() << "[saturateFz] The threshhold for the saturation of Fz must be greater than zero";
+    if (thresholdFz<0){
+        yError() << "[saturateFz] The threshold for the saturation of Fz must be greater than zero";
         return false;
     }
 
-    if (Fz>=threshholdFz) {
+    if (Fz>=thresholdFz) {
         return true;
     }
-    else if (Fz<threshholdFz) {
+    else if (Fz<thresholdFz) {
         Fz=0;
     }
     return true;
