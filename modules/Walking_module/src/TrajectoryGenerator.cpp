@@ -620,3 +620,8 @@ void TrajectoryGenerator::reset()
     // change the state of the generator
     m_generatorState = GeneratorState::FirstStep;
 }
+
+
+bool TrajectoryGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases){
+m_trajectoryGenerator.getStepPhases(leftPhases,rightPhases);
+}

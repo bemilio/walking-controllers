@@ -210,11 +210,18 @@ public:
      * @return true/false in case of success/failure.
      */
     bool getMergePoints(std::vector<size_t>& mergePoints);
-
     /**
      * Reset the planner
      */
     void reset();
+    bool getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases);
+//    void UnicycleGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases) const
+//    {
+//        std::lock_guard<std::mutex> guard(m_pimpl->mutex);
+
+//        leftPhases = *(m_pimpl->lFootPhases);
+//        rightPhases = *(m_pimpl->rFootPhases);
+//    }
 };
 
 #endif

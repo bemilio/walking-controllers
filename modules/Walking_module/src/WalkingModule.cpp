@@ -507,12 +507,22 @@ bool WalkingModule::updateModule()
             m_stableDCMModel->reset(m_DCMPositionDesired.front());
 
             m_robotState = WalkingFSM::Prepared;
-
+indexmilad=0;
             yInfo() << "[updateModule] The robot is prepared.";
         }
     }
     else if(m_robotState == WalkingFSM::Walking)
     {
+        std::vector<StepPhase> jleftFootPhases;
+        std::vector<StepPhase> jRightFootPhases;
+        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
+
+
+        yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
+
+    indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
+
+        //yInfo() << "milad milad miladdddddddddddddddddddddddddddddddddddddddddddddddddddddd: " <<  jleftFootPhases[1]::"Stance";
         iDynTree::Vector2 measuredDCM, measuredZMP;
         iDynTree::Position measuredCoM;
         iDynTree::Vector3 measuredCoMVelocity;

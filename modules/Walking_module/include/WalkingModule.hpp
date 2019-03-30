@@ -56,6 +56,8 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     double m_time; /**< Current time. */
     std::string m_robot; /**< Robot name. */
 
+  int indexmilad;
+
     //following three lines  added for filtering the global zmp to decrease the vibration during walking
     yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
     std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
