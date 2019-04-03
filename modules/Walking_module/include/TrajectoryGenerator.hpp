@@ -215,6 +215,30 @@ public:
      * Reset the planner
      */
     void reset();
+
+    /**
+     * Get the phases of each foot during walking from unicycle
+     * @param leftPhases vector containing all the phases that left foot experience.
+     * @param rightPhases vector containing all the phases that right foot experience.
+     * @return true/false in case of success/failure.
+     */
+    bool getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases);
+
+    /**
+     * Get the phases of each foot during walking from unicycle
+     * @param leftFootPrint vector containing .........
+     * @param rightFootPrint vector containing  .........
+     * @return true/false in case of success/failure.
+     */
+     std::shared_ptr<FootPrint> getLeftFootprint();
+
+     /**
+      * Get the phases of each foot during walking from unicycle
+      * @param leftFootPrint vector containing .........
+      * @param rightFootPrint vector containing  .........
+      * @return true/false in case of success/failure.
+      */
+      std::shared_ptr<FootPrint> getRightFootprint();
 };
 
 #endif
