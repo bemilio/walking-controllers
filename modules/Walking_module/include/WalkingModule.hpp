@@ -194,10 +194,19 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     bool evaluateZMP(iDynTree::Vector2& zmp);
 
     /**
+     * Evaluate the desired position and timing of walking steps that comes from planner.
+     * @param Desired Step Duration
+     * @param Desired Step length
+     * @return true in case of success and false otherwise.
+     */
+
+    bool evaluateDesiredStepData();
+    /**
      * Saturate the vertical component of contact Forces to avoiding undesirable jumps in the evaulated ZMP  .
      * @param zmp zero momentum point.
      * @return true in case of success and false otherwise.
      */
+
     bool saturateFz(double & Fz, const double thresholdFz);
 
     /**
@@ -314,6 +323,8 @@ public:
      * @return true in case of success and false otherwise.
      */
     virtual bool stopWalking() override;
+
+
 
 };
 #endif

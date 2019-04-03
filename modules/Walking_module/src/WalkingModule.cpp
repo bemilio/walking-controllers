@@ -507,7 +507,7 @@ bool WalkingModule::updateModule()
             m_stableDCMModel->reset(m_DCMPositionDesired.front());
 
             m_robotState = WalkingFSM::Prepared;
-indexmilad=0;
+            indexmilad=0;
             yInfo() << "[updateModule] The robot is prepared.";
         }
     }
@@ -516,13 +516,71 @@ indexmilad=0;
         std::vector<StepPhase> jleftFootPhases;
         std::vector<StepPhase> jRightFootPhases;
         m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
+        // yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
+
+        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
+        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
+        StepList jLeftstepList=jleftFootprints->getSteps();
+        StepList jRightstepList=jrightFootprints->getSteps();
+        Step jmil;
+        Step jmil10;
+        if ((jleftFootprints->numberOfSteps())==1) {
+            jmil=jLeftstepList.at(0);
+            yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        }else {
+            jmil=jLeftstepList.at(0);
+            Step jmil1=jLeftstepList.at(1);
+            Step jmil2=jLeftstepList.at(2);
+            Step jmil3=jLeftstepList.at(3);
+            Step jmil4=jLeftstepList.at(4);
+            Step jmil5=jLeftstepList.at(5);
 
 
-        yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
+            jmil10=jRightstepList.at(0);
+            Step jmil11=jRightstepList.at(1);
+            Step jmil22=jRightstepList.at(2);
+            Step jmil33=jRightstepList.at(3);
+            Step jmil44=jRightstepList.at(4);
+            Step jmil55=jRightstepList.at(5);
 
-    indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
 
+            yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
+            yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
+            yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
+            yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
+            yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
+            yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
+
+
+            yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
+            yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
+            yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
+            yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
+            yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
+            yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
+
+        }
+        //Step jmil1=jLeftstepList.at(0);
+        int numberOfStep =jleftFootprints->numberOfSteps();
+
+        indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
+        //yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        //yInfo()<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime;
+        yInfo()<<numberOfStep<<numberOfStep;
         //yInfo() << "milad milad miladdddddddddddddddddddddddddddddddddddddddddddddddddddddd: " <<  jleftFootPhases[1]::"Stance";
+
+
+
+
+
+
+
+
+
+
+
+
+
         iDynTree::Vector2 measuredDCM, measuredZMP;
         iDynTree::Position measuredCoM;
         iDynTree::Vector3 measuredCoMVelocity;
@@ -1333,6 +1391,10 @@ bool WalkingModule::updateFKSolver()
     return true;
 }
 
+bool WalkingModule::evaluateDesiredStepData(){
+
+
+}
 bool WalkingModule::evaluateCoM(iDynTree::Position& comPosition, iDynTree::Vector3& comVelocity)
 {
     if(m_FKSolver == nullptr)
