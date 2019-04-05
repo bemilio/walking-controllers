@@ -524,49 +524,49 @@ bool WalkingModule::updateModule()
         StepList jRightstepList=jrightFootprints->getSteps();
         Step jmil;
         Step jmil10;
-        if ((jleftFootprints->numberOfSteps())==1) {
-            jmil=jLeftstepList.at(0);
-            yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
-        }else {
-            jmil=jLeftstepList.at(0);
-            Step jmil1=jLeftstepList.at(1);
-            Step jmil2=jLeftstepList.at(2);
-            Step jmil3=jLeftstepList.at(3);
-            Step jmil4=jLeftstepList.at(4);
-            Step jmil5=jLeftstepList.at(5);
+        //        if ((jleftFootprints->numberOfSteps())==1) {
+        //            jmil=jLeftstepList.at(0);
+        //            yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        //        }else {
+        //            jmil=jLeftstepList.at(0);
+        //            Step jmil1=jLeftstepList.at(1);
+        //            Step jmil2=jLeftstepList.at(2);
+        //            Step jmil3=jLeftstepList.at(3);
+        //            Step jmil4=jLeftstepList.at(4);
+        //            Step jmil5=jLeftstepList.at(5);
 
 
-            jmil10=jRightstepList.at(0);
-            Step jmil11=jRightstepList.at(1);
-            Step jmil22=jRightstepList.at(2);
-            Step jmil33=jRightstepList.at(3);
-            Step jmil44=jRightstepList.at(4);
-            Step jmil55=jRightstepList.at(5);
+        //            jmil10=jRightstepList.at(0);
+        //            Step jmil11=jRightstepList.at(1);
+        //            Step jmil22=jRightstepList.at(2);
+        //            Step jmil33=jRightstepList.at(3);
+        //            Step jmil44=jRightstepList.at(4);
+        //            Step jmil55=jRightstepList.at(5);
 
 
-            yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
-            yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
-            yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
-            yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
-            yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
-            yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
+        //            yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
+        //            yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
+        //            yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
+        //            yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
+        //            yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
+        //            yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
 
 
-            yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
-            yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
-            yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
-            yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
-            yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
-            yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
+        //            yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
+        //            yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
+        //            yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
+        //            yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
+        //            yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
+        //            yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
 
-        }
-        //Step jmil1=jLeftstepList.at(0);
-        int numberOfStep =jleftFootprints->numberOfSteps();
+        //        }
+        //        //Step jmil1=jLeftstepList.at(0);
+        //        int numberOfStep =jleftFootprints->numberOfSteps();
 
         indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
         //yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
         //yInfo()<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime;
-        yInfo()<<numberOfStep<<numberOfStep;
+        //        yInfo()<<numberOfStep<<numberOfStep;
         //yInfo() << "milad milad miladdddddddddddddddddddddddddddddddddddddddddddddddddddddd: " <<  jleftFootPhases[1]::"Stance";
 
 
@@ -598,6 +598,21 @@ bool WalkingModule::updateModule()
                 yError() << "[updateModule] Unable to set the planner input";
                 return false;
             }
+
+
+        if (m_mergePoints.front() == 21 && desiredUnicyclePosition == nullptr) {
+
+            if(!setPlannerInput(m_desiredPosition(0) ,m_desiredPosition(1)))
+            {
+                yError() << "[updateModule] Unable to recall the setplannerInput (when terminal (SetGoal) instead of JoyStick is used)";
+                return false;
+            }
+        }
+
+
+
+
+
 
         // if a new trajectory is required check if its the time to evaluate the new trajectory or
         // the time to attach new one
@@ -689,8 +704,6 @@ bool WalkingModule::updateModule()
             tempZMPFilter = m_ZMPFilter->filt(tempZMPFilter);
             iDynTree::toiDynTree(tempZMPFilter,measuredZMP);
         }
-
-
 
 
         // evaluate 3D-LIPM reference signal
@@ -1505,7 +1518,6 @@ bool WalkingModule::setPlannerInput(double x, double y)
             yError() << "[setGoal] The trajectory has already finished but the system is not in double support.";
             return false;
         }
-
         if(m_newTrajectoryRequired)
             return true;
 
@@ -1516,10 +1528,12 @@ bool WalkingModule::setPlannerInput(double x, double y)
     // the trajectory was not finished the new trajectory will be attached at the next merge point
     else
     {
-        if(m_mergePoints.front() > 20)
+        if(m_mergePoints.front() > 20){
             m_newTrajectoryMergeCounter = m_mergePoints.front();
+        }
         else if(m_mergePoints.size() > 1)
         {
+
             if(m_newTrajectoryRequired)
                 return true;
 
@@ -1527,10 +1541,12 @@ bool WalkingModule::setPlannerInput(double x, double y)
         }
         else
         {
+
             if(m_newTrajectoryRequired)
                 return true;
 
             m_newTrajectoryMergeCounter = 20;
+
         }
     }
 
