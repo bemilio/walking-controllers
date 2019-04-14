@@ -26,6 +26,7 @@
 #include <RobotHelper.hpp>
 #include <TrajectoryGenerator.hpp>
 #include <WalkingDCMModelPredictiveController.hpp>
+#include<StepAdaptator.hpp>
 #include <WalkingDCMReactiveController.hpp>
 #include <WalkingZMPController.hpp>
 #include <WalkingInverseKinematics.hpp>
@@ -58,6 +59,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::string m_robot; /**< Robot name. */
 
     bool m_useMPC; /**< True if the MPC controller is used. */
+    bool m_useStepAdaptation; /**< True if the step adaptation is used. */
     bool m_useQPIK; /**< True if the QP-IK is used. */
     bool m_useOSQP; /**< True if osqp is used to QP-IK problem. */
     bool m_dumpData; /**< True if data are saved. */
@@ -65,6 +67,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::unique_ptr<RobotHelper> m_robotControlHelper; /**< Robot control helper. */
     std::unique_ptr<TrajectoryGenerator> m_trajectoryGenerator; /**< Pointer to the trajectory generator object. */
     std::unique_ptr<WalkingController> m_walkingController; /**< Pointer to the walking DCM MPC object. */
+    std::unique_ptr<StepAdaptator> m_stepAdaptator; /**< Pointer to the step adaptation object. */
     std::unique_ptr<WalkingDCMReactiveController> m_walkingDCMReactiveController; /**< Pointer to the walking DCM reactive controller object. */
     std::unique_ptr<WalkingZMPController> m_walkingZMPController; /**< Pointer to the walking ZMP controller object. */
     std::unique_ptr<WalkingIK> m_IKSolver; /**< Pointer to the inverse kinematics solver. */
