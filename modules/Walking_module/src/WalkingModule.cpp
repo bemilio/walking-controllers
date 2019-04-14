@@ -121,6 +121,7 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
     // module name (used as prefix for opened ports)
+    m_useStepAdaptation = rf.check("use_step_adaptation", yarp::os::Value(false)).asBool();
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
     m_useQPIK = rf.check("use_QP-IK", yarp::os::Value(false)).asBool();
     m_useOSQP = rf.check("use_osqp", yarp::os::Value(false)).asBool();
@@ -217,6 +218,20 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         yError() << "[configure] Unable to initialize the planner.";
         return false;
     }
+
+    if(m_useStepAdaptation)
+    {
+        // initialize the step adaptation
+        m_stepAdaptator = std::make_unique<StepAdaptator>();
+        yarp::os::Bottle& stepAdaptatorOptions = rf.findGroup("STEP_ADAPTATOR");
+        stepAdaptatorOptions.append(generalOptions);
+        if(!m_stepAdaptator->initialize(stepAdaptatorOptions))
+        {
+            yError() << "[configure] Unable to initialize the step adaptator!";
+            return false;
+        }
+    }
+
 
     if(m_useMPC)
     {
@@ -361,6 +376,9 @@ void WalkingModule::reset()
 {
     if(m_useMPC)
         m_walkingController->reset();
+
+    if(m_useStepAdaptation)
+        m_stepAdaptator->reset();
 
     m_trajectoryGenerator->reset();
 
@@ -610,10 +628,6 @@ bool WalkingModule::updateModule()
         }
 
 
-
-
-
-
         // if a new trajectory is required check if its the time to evaluate the new trajectory or
         // the time to attach new one
         if(m_newTrajectoryRequired)
@@ -727,6 +741,38 @@ bool WalkingModule::updateModule()
             yError() << "[updateModule] Unable to get the desired CoM velocity.";
             return false;
         }
+
+
+        // Step Adaptator
+        iDynTree::Vector6 adaptedStepParameters;
+        if(m_useStepAdaptation)
+        {
+
+//            m_profiler->setInitTime("MPC");
+
+            if(!m_stepAdaptator->solve())
+            {
+                yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                return false;
+            }
+
+
+            if(!m_stepAdaptator->solve())
+            {
+                yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                return false;
+            }
+
+            if(!m_stepAdaptator->getControllerOutput(adaptedStepParameters))
+            {
+                yError() << "[updateModule] Unable to get the step adaptation output.";
+                return false;
+            }
+
+ //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+        }
+
+
 
         // DCM controller
         iDynTree::Vector2 desiredZMP;
