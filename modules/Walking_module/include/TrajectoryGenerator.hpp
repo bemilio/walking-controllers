@@ -37,6 +37,8 @@ class TrajectoryGenerator
     std::shared_ptr<CoMHeightTrajectoryGenerator> m_heightGenerator;
     std::shared_ptr<FeetGenerator> m_feetGenerator;
     bool m_useMinimumJerk;
+    double m_nominalCoMHeight;
+    double m_switchOverSwingRatio;
 
     bool m_swingLeft; /**< True if the first swing foot is the left. */
 
@@ -70,6 +72,7 @@ class TrajectoryGenerator
     void computeThread();
 
 public:
+
 
     /**
      * Deconstructor.
@@ -239,6 +242,20 @@ public:
       */
       std::shared_ptr<FootPrint> getRightFootprint();
 
+
+      /**
+       * Get the Nominal CoM height trajectory for omega calculation
+       * @param nominalCoMHeight returning nominal CoM height .........
+       * @return true/false in case of success/failure.
+       */
+      bool getNominalCoMHeight(double & nominalCoMHeight);
+
+      /**
+       * Get the ratio of double support to single support
+       * @param switchOverSwingRatio returning ratio of double support to single support .........
+       * @return true/false in case of success/failure.
+       */
+      bool getSwitchOverSwingRatio(double &switchOverSwingRatio);
 };
 
 #endif
