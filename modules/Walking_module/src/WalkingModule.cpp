@@ -516,59 +516,59 @@ bool WalkingModule::updateModule()
     }
     else if(m_robotState == WalkingFSM::Walking)
     {
-        std::vector<StepPhase> jleftFootPhases;
-        std::vector<StepPhase> jRightFootPhases;
-        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
+        //        std::vector<StepPhase> jleftFootPhases;
+        //        std::vector<StepPhase> jRightFootPhases;
+        //        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
         // yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
 
-        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
-        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
-        StepList jLeftstepList=jleftFootprints->getSteps();
-        StepList jRightstepList=jrightFootprints->getSteps();
-        Step jmil;
-        Step jmil10;
-        //        if ((jleftFootprints->numberOfSteps())==1) {
-        //            jmil=jLeftstepList.at(0);
-        //            yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
-        //        }else {
-        //            jmil=jLeftstepList.at(0);
-        //            Step jmil1=jLeftstepList.at(1);
-        //            Step jmil2=jLeftstepList.at(2);
-        //            Step jmil3=jLeftstepList.at(3);
-        //            Step jmil4=jLeftstepList.at(4);
-        //            Step jmil5=jLeftstepList.at(5);
+        //        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
+        //        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
+        //        StepList jLeftstepList=jleftFootprints->getSteps();
+        //        StepList jRightstepList=jrightFootprints->getSteps();
+        //        Step jmil;
+        //        Step jmil10;
+        //                if ((jleftFootprints->numberOfSteps())==1) {
+        //                    jmil=jLeftstepList.at(0);
+        //                   // yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        //                }else {
+        //                    jmil=jLeftstepList.at(0);
+        //                    Step jmil1=jLeftstepList.at(1);
+        //                    Step jmil2=jLeftstepList.at(2);
+        //                    Step jmil3=jLeftstepList.at(3);
+        //                    Step jmil4=jLeftstepList.at(4);
+        //                    Step jmil5=jLeftstepList.at(5);
 
 
-        //            jmil10=jRightstepList.at(0);
-        //            Step jmil11=jRightstepList.at(1);
-        //            Step jmil22=jRightstepList.at(2);
-        //            Step jmil33=jRightstepList.at(3);
-        //            Step jmil44=jRightstepList.at(4);
-        //            Step jmil55=jRightstepList.at(5);
+        //                    jmil10=jRightstepList.at(0);
+        //                    Step jmil11=jRightstepList.at(1);
+        //                    Step jmil22=jRightstepList.at(2);
+        //                    Step jmil33=jRightstepList.at(3);
+        //                    Step jmil44=jRightstepList.at(4);
+        //                    Step jmil55=jRightstepList.at(5);
 
 
-        //            yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
-        //            yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
-        //            yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
-        //            yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
-        //            yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
-        //            yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
+        ////                    yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
+        ////                    yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
+        ////                    yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
+        ////                    yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
+        ////                    yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
+        ////                    yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
 
 
-        //            yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
-        //            yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
-        //            yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
-        //            yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
-        //            yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
-        //            yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
+        ////                    yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
+        ////                    yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
+        ////                    yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
+        ////                    yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
+        ////                    yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
+        ////                    yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
 
-        //        }
-        //        //Step jmil1=jLeftstepList.at(0);
+        //                }
+        //             Step jmil1=jLeftstepList.at(0);
         //        int numberOfStep =jleftFootprints->numberOfSteps();
 
-        indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
-        //yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
-        //yInfo()<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime;
+             indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
+        //   yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        //    yInfo()<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime;
         //        yInfo()<<numberOfStep<<numberOfStep;
         //yInfo() << "milad milad miladdddddddddddddddddddddddddddddddddddddddddddddddddddddd: " <<  jleftFootPhases[1]::"Stance";
 
@@ -691,34 +691,150 @@ bool WalkingModule::updateModule()
         }
 
 
-        // Step Adaptator
-        iDynTree::Vector6 adaptedStepParameters;
-        if(m_useStepAdaptation)
-        {
 
-//            m_profiler->setInitTime("MPC");
-
-            if(!m_stepAdaptator->solve())
-            {
-                yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                return false;
-            }
-
-
-            if(!m_stepAdaptator->solve())
-            {
-                yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                return false;
-            }
-
-            if(!m_stepAdaptator->getControllerOutput(adaptedStepParameters))
-            {
-                yError() << "[updateModule] Unable to get the step adaptation output.";
-                return false;
-            }
-
- //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+            double switchOverSwingRatio;
+            double comHeight;
+            double stepTiming;
+            double sigma;
+            double nextStepPosition;
+            double stepLength;
+            double nominalDCMOffset;
+            iDynTree::Vector4 nominalValues;
+            iDynTree::Vector3 currentValues;
+        if(!m_trajectoryGenerator->getNominalCoMHeight(comHeight)){
+            yError() << "[updateModule] Unable to get the nominal CoM height!";
+            return false;
         }
+
+        if(!m_trajectoryGenerator->getSwitchOverSwingRatio(switchOverSwingRatio)){
+            yError() << "[updateModule] Unable to get the ratio of double support to single support!";
+            return false;
+        }
+
+        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
+        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
+        StepList jLeftstepList=jleftFootprints->getSteps();
+        StepList jRightstepList=jrightFootprints->getSteps();
+        Step jmil;
+        Step jmil10;
+        //                if ((jleftFootprints->numberOfSteps())==1) {
+        //                    jmil=jLeftstepList.at(0);
+        //                   // yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
+        //                }else {
+        //                    jmil=jLeftstepList.at(0);
+        //                    Step jmil1=jLeftstepList.at(1);
+
+        std::vector<StepPhase> jleftFootPhases;
+        std::vector<StepPhase> jRightFootPhases;
+        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
+        //yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
+
+       //yInfo()<<m_mergePoints.size()<<jLeftstepList.size()<<jRightstepList.size();
+        if (2==static_cast<int>(jRightFootPhases[indexmilad]) && jrightFootprints->numberOfSteps()>1) {
+//jRightstepList.at(1).impactTime;
+//            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
+//yInfo()<<"milllllllllllllllllllllaaaaaa"<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime;
+//            yInfo()<<"akbarrrrrrrrrrrrrrrrrrrr";
+
+//            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
+//yInfo()<<"milllllllllllllllllllllaaaaaa"<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime;
+//            yInfo()<<"akbarrrrrrrrrrrrrrrrrrrr";
+stepTiming=(jRightstepList.at(1).impactTime-jLeftstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+             sigma=exp((9.81/comHeight)*stepTiming);
+             nextStepPosition=jRightstepList.at(1).position(0);
+             stepLength=(jRightstepList.at(1).position(0)-jLeftstepList.at(0).position(0));
+             nominalDCMOffset=stepLength/(exp((9.81/comHeight)*stepTiming)-1);
+            // Step Adaptator
+            iDynTree::Vector6 adaptedStepParameters;
+            currentValues(0)=measuredZMP(0);
+            currentValues(1)=measuredDCM(0);
+            currentValues(2)=0;
+
+            nominalValues(0)=nextStepPosition;
+            nominalValues(1)=sigma;
+            nominalValues(2)=nominalDCMOffset;
+            nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
+            if(m_useStepAdaptation)
+            {
+
+                //            m_profiler->setInitTime("MPC");
+
+                if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
+                {
+                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                    return false;
+                }
+
+
+                if(!m_stepAdaptator->solve())
+                {
+                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                    return false;
+                }
+
+                if(!m_stepAdaptator->getControllerOutput(adaptedStepParameters))
+                {
+                    yError() << "[updateModule] Unable to get the step adaptation output.";
+                    return false;
+                }
+
+                //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+            }
+        }
+        else{
+       //     yInfo()<<"this is not right SS";
+        }
+
+        if ((2==static_cast<int>(jleftFootPhases[indexmilad])) && jleftFootprints->numberOfSteps()>1) {
+
+            stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+            sigma=exp((9.81/comHeight)*stepTiming);
+            nextStepPosition=jLeftstepList.at(1).position(0);
+            stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+           nominalDCMOffset=stepLength/(exp((9.81/comHeight)*stepTiming)-1);
+//            // Step Adaptator
+            iDynTree::Vector6 adaptedStepParameters;
+            currentValues(0)=measuredZMP(0);
+            currentValues(1)=measuredDCM(0);
+            currentValues(2)=0;
+
+            nominalValues(0)=nextStepPosition;
+            nominalValues(1)=sigma;
+            nominalValues(2)=nominalDCMOffset;
+            nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
+
+            if(m_useStepAdaptation)
+            {
+
+                //            m_profiler->setInitTime("MPC");
+
+                if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
+                {
+                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                    return false;
+                }
+
+
+                if(!m_stepAdaptator->solve())
+                {
+                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                    return false;
+                }
+
+                if(!m_stepAdaptator->getControllerOutput(adaptedStepParameters))
+                {
+                    yError() << "[updateModule] Unable to get the step adaptation output.";
+                    return false;
+                }
+
+                //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+            }
+        }
+        else{
+        //    yInfo()<<"this is not left SS";
+        }
+
+
 
 
 
@@ -1242,7 +1358,7 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
 
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();
-
+    m_mergePoints.size();
     return true;
 }
 
