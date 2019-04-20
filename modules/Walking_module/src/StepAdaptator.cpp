@@ -41,14 +41,14 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config){
 
 
     yarp::os::Value constraintTolerance = config.find("tolerence_of_bounds");
-    if(!(gains.isNull()))
+    if(!(constraintTolerance.isNull()))
     {
-        if (!gains.isList() || !gains.asList())
+        if (!constraintTolerance.isList() || !constraintTolerance.asList())
         {
             yError()<<"[StepAdaptator::initialize] Unable to read the m_constraintTolerance list.";
             return false;
         }
-        yarp::os::Bottle *constraintToleranceVector = gains.asList();
+        yarp::os::Bottle *constraintToleranceVector = constraintTolerance.asList();
 
         for(int i = 0; i < constraintToleranceVector->size(); ++i)
         {
@@ -82,7 +82,7 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config){
 }
 
 
-bool StepAdaptator::RunStepAdaptator(const iDynTree::Vector4& nominalValues,const iDynTree::Vector3& currentValues)
+bool StepAdaptator::RunStepAdaptator(const iDynTree::VectorFixSize<5>& nominalValues,const iDynTree::Vector3& currentValues)
 {
     if (!m_currentQPSolver->setGradientVector(m_gainVector,nominalValues)) {
         yError() << "[StepAdaptator::RunStepAdaptator] Unable to set the Gradient Vector";

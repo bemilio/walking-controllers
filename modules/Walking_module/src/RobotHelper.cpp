@@ -14,11 +14,11 @@ bool RobotHelper::getWorstError(const iDynTree::VectorDynSize& desiredJointPosit
         return false;
     }
 
-    if(!m_encodersInterface->getEncoders(m_positionFeedbackDeg.data()))
-    {
-        yError() << "[RobotHelper::getWorstError] Error reading encoders.";
-        return false;
-    }
+//    if(!m_encodersInterface->getEncoders(m_positionFeedbackDeg.data()))
+//    {
+//        yError() << "[RobotHelper::getWorstError] Error reading encoders.";
+//        return false;
+//    }
 
     // clear the std::pair
     worstError.first = "";
