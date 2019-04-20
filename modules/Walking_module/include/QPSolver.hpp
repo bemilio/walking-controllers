@@ -24,7 +24,9 @@ class QPSolver
      * Pointer to the optimization solver
      */
     std::unique_ptr<OsqpEigen::Solver> m_QPSolver;
-
+     Eigen::SparseMatrix<double> m_constraintsMAtrix;
+    Eigen::VectorXd m_gradient;
+    Eigen::Matrix3d  m_hessian;
     Eigen::VectorXd m_lowerBound; /**< Lower bound vector. */
     Eigen::VectorXd m_upperBound; /**< Upper bound vector. */
 
@@ -74,7 +76,7 @@ public:
      * @param nominalValuesVector Vector that includes the Desired Value of DCM at the landing moment of foot, StepTiming and next StepPosition and next DCM Offset;
      * @return true/false in case of success/failure.
      */
-    bool setGradientVector(const iDynTree::Vector4 &alphaVector,const iDynTree::Vector4& nominalValuesVector );
+    bool setGradientVector(const iDynTree::Vector4 &alphaVector,const iDynTree::VectorFixSize<5>& nominalValuesVector );
 
     /**
      * Get the primal variable.
@@ -121,7 +123,7 @@ public:
      * @param tolerenceOfBounds This vector includes the tolerence between nominal value and the maximum and minimum value constraint    ;
      * @return true/false in case of success/failure.
      */
-    bool setBoundsVectorOfConstraints(const iDynTree::Vector4& nominalValuesVector, const iDynTree::Vector3 &currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds);
+    bool setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5>& nominalValuesVector, const iDynTree::Vector3 &currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds);
 };
 
 #endif

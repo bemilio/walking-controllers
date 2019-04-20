@@ -104,7 +104,7 @@ public:
      * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
      * @return true/false in case of success/failure.
      */
-    bool RunStepAdaptator(const iDynTree::Vector4 &nominalValues, const iDynTree::Vector3 &currentValues);
+    bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues);
 };
 
 #endif

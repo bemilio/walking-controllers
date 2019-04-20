@@ -15,7 +15,7 @@ QPSolver::QPSolver(const int& inputSize,
     m_QPSolver = std::make_unique<OsqpEigen::Solver>();
 
 
-//set the number of deceision variables of QP problem
+    //set the number of deceision variables of QP problem
     m_QPSolver->data()->setNumberOfVariables(inputSize);
 
     // set the number of all constraints includes inequality and equality constraints
@@ -37,9 +37,11 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
     Hessian.insert(1,1)=alphaVector(2);
     Hessian.insert(2,0)=alphaVector(0);
     Hessian.insert(2,2)=alphaVector(0)+alphaVector(1);
+ //   m_hessian.resize(3,3);
+    m_hessian=Hessian;
     if (m_QPSolver->isInitialized()) {
         yWarning()<<"[QPslover::setHessianMatrix] The Hessian Matrix should be set just one time! In step adaptation the hessian matrix is constant and just depend on the gains of cost funtion.";
-//        return  false;
+        //        return  false;
     }
     else{
         if (!(m_QPSolver->data()->setHessianMatrix(Hessian))){
@@ -50,8 +52,8 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
     return true;
 }
 
-bool QPSolver::setGradientVector(const iDynTree::Vector4& alphaVector,const iDynTree::Vector4& nominalValuesVector){
-    Eigen::VectorXd m_gradient;
+bool QPSolver::setGradientVector(const iDynTree::Vector4& alphaVector,const iDynTree::VectorFixSize<5>& nominalValuesVector){
+
     m_gradient.resize(3,1);
     m_gradient<<(-alphaVector(0)* nominalValuesVector(3)-nominalValuesVector(0)*alphaVector(3)),
             (-alphaVector(2)*nominalValuesVector(1)),
@@ -78,8 +80,8 @@ Eigen::SparseMatrix<double> QPSolver::evaluateConstraintsMatrix(const iDynTree::
     constraintMatrix.reserve(7);
 
     constraintMatrix.insert(0,0)=1;
-    constraintMatrix.insert(0,1)=(currentValuesVector(0)+currentValuesVector(2))-currentValuesVector(1)-((currentValuesVector(0))/2);
-    constraintMatrix.insert(0,3)=1;
+    constraintMatrix.insert(0,1)=(currentValuesVector(0)+currentValuesVector(2))-currentValuesVector(1)-((currentValuesVector(2))/2);
+    constraintMatrix.insert(0,2)=1;
     constraintMatrix.insert(1,0)=1;
     constraintMatrix.insert(2,0)=-1;
     constraintMatrix.insert(3,1)=1;
@@ -90,15 +92,19 @@ Eigen::SparseMatrix<double> QPSolver::evaluateConstraintsMatrix(const iDynTree::
 
 
 bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector){
-    Eigen::SparseMatrix<double> constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
+    m_constraintsMAtrix.resize(5,3);
+    m_constraintsMAtrix.reserve(7);
+     m_constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
+     Eigen::Matrix<double,5,3> miladtemp=m_constraintsMAtrix;
+
     if(m_QPSolver->isInitialized()){
-        if(!m_QPSolver->updateLinearConstraintsMatrix(constraintsMAtrix)){
+        if(!m_QPSolver->updateLinearConstraintsMatrix(m_constraintsMAtrix)){
             yError()<<"[setConstraintsMatrix] unable to update the linear constraints matrix of QPSolver corresponding to step adaptator!";
             return false;
         }
     }
     else{
-        if (!m_QPSolver->data()->setLinearConstraintsMatrix(constraintsMAtrix)) {
+        if (!m_QPSolver->data()->setLinearConstraintsMatrix(m_constraintsMAtrix)) {
             yError()<<"[setConstraintsMatrix] unable to set the the linear constraints matrix of QPSolver corresponding to step adaptator for the first time ";
             return false;
         }
@@ -106,38 +112,45 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector
     return true;
 }
 
-bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector4 &nominalValuesVector,const iDynTree::Vector3& currentValuesVector,const iDynTree::Vector4& tolerenceOfBounds){
+bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &nominalValuesVector,const iDynTree::Vector3& currentValuesVector,const iDynTree::Vector4& tolerenceOfBounds){
 
-    Eigen::Vector4d lowerBounds;
-    Eigen::Vector4d upperBounds;
+    //    Eigen::Vector5d lowerBounds;
+    //  Eigen::VectorFix upperBounds;
+    Eigen::Matrix<double,5,1>  upperBounds;
+    Eigen::Matrix<double,5,1>  lowerBounds;
+    m_lowerBound.resize(5,1);
+    m_upperBound.resize(5,1);
+    double StepDuration=((log(nominalValuesVector(1)))/nominalValuesVector(4));
 
-    upperBounds<<currentValuesVector(2)/2+nominalValuesVector(0),
+    m_upperBound<<currentValuesVector(2)/2+currentValuesVector(0),
             nominalValuesVector(0)+tolerenceOfBounds(0),
             nominalValuesVector(0)-tolerenceOfBounds(1),
-            nominalValuesVector(1)+tolerenceOfBounds(2),
-            nominalValuesVector(1)-tolerenceOfBounds(3);
+            exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4)),
+            exp((StepDuration-tolerenceOfBounds(2))*nominalValuesVector(4));
 
-    lowerBounds<<currentValuesVector(2)/2+nominalValuesVector(0),
+    m_lowerBound<<currentValuesVector(2)/2+currentValuesVector(0),
             - OsqpEigen::INFTY,
             - OsqpEigen::INFTY,
             - OsqpEigen::INFTY,
             - OsqpEigen::INFTY;
 
     if (m_QPSolver->isInitialized()) {
-        if (!m_QPSolver->updateBounds(lowerBounds,upperBounds)) {
-           yError()<<"[setBoundsVectorOfConstraints]Unable to update the bounds of constraints in QP problem in step adaptation";
+        if (!m_QPSolver->updateBounds(m_lowerBound,m_upperBound)) {
+            yError()<<"[setBoundsVectorOfConstraints]Unable to update the bounds of constraints in QP problem in step adaptation";
             return false;
         }
     }
     else {
 
-        if (!m_QPSolver->data()->setLowerBound(lowerBounds)) {
+        if (!m_QPSolver->data()->setLowerBound(m_lowerBound)) {
             yError()<<"[setBoundsVectorOfConstraints] Unable to set the lower bounds of constraints in QP problem in step adaptation ";
             return false;
         }
-        if (!m_QPSolver->data()->setUpperBound(upperBounds)){
-            yError()<<"[setBoundsVectorOfConstraints]Unable to set the  upper bounds of constraints in QP problem in step adaptation";        }
+        if (!m_QPSolver->data()->setUpperBound(m_upperBound)){
+            yError()<<"[setBoundsVectorOfConstraints] Unable to set the  upper bounds of constraints in QP problem in step adaptation";
         return false;
+    }
+
     }
 
 
