@@ -1120,7 +1120,7 @@ yInfo()<<"miladddddddddddddddddddddddddd";
         {
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
-            m_walkingLogger->sendData(rightAdaptedStepParameters,measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
+            m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
                                       measuredZMP, desiredZMP, measuredCoM,
                                       desiredCoMPositionXY, desiredCoMVelocityXY,
                                       leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
@@ -1660,7 +1660,7 @@ bool WalkingModule::startWalking()
 
     if(m_dumpData)
     {
-        m_walkingLogger->startRecord({"r_step_parameters","record","dcm_x", "dcm_y",
+        m_walkingLogger->startRecord({"record","dcm_x", "dcm_y",
                                       "dcm_des_x", "dcm_des_y",
                                       "dcm_des_dx", "dcm_des_dy",
                                       "zmp_x", "zmp_y",
