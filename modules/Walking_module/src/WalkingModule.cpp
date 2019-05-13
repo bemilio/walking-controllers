@@ -206,6 +206,13 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         return false;
     }
 
+    std::string desiredJointPositionPortName = "/" + getName() + "/jointPosition:i";
+    if(!m_desiredJointPositionPort.open(desiredJointPositionPortName))
+    {
+        yError() << "[configure] Could not open" << desiredJointPositionPortName << " port.";
+        return false;
+    }
+
     // debug port
     std::string floatingBasePortName = "/" + getName() + "/floating_base:o";
     if(!m_floatingBasePort.open(floatingBasePortName))
@@ -392,6 +399,7 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     m_dqDesired.resize(m_robotControlHelper->getActuatedDoFs());
     m_ddqDesired.resize(m_robotControlHelper->getActuatedDoFs());
     m_torqueDesired.resize(m_robotControlHelper->getActuatedDoFs());
+    m_desiredJointPositionFromExternalSource.resize(m_robotControlHelper->getActuatedDoFs());
     m_qDesired.zero();
     m_dqDesired.zero();
     m_ddqDesired.zero();
@@ -448,6 +456,7 @@ bool WalkingModule::close()
     // close the ports
     m_rpcPort.close();
     m_desiredUnyciclePositionPort.close();
+    m_desiredJointPositionPort.close();
 
     // close the connection with robot
     if(!m_robotControlHelper->close())
@@ -809,6 +818,8 @@ bool WalkingModule::updateModule()
             m_walkingZMPController->reset(m_DCMPositionDesired.front());
             m_stableDCMModel->reset(m_DCMPositionDesired.front());
 
+            m_desiredJointPositionFromExternalSource = m_qDesired;
+
             // TODO
             if(m_useTorque)
             {
@@ -895,6 +906,20 @@ bool WalkingModule::updateModule()
         {
             yError() << "[updateModule] Unable to get the feedback.";
             return false;
+        }
+
+        yarp::sig::Vector* desiredJointPosition = nullptr;
+        desiredJointPosition = m_desiredJointPositionPort.read(false);
+        if(desiredJointPosition != nullptr)
+        {
+
+            for(int i = 0; i < desiredJointPosition->size(); i++)
+                m_desiredJointPositionFromExternalSource(i) = (*desiredJointPosition)(i);
+
+            iDynTree::VectorDynSize dummy(m_desiredJointPositionFromExternalSource.size());
+            dummy.zero();
+
+            m_taskBasedTorqueSolver->setDesiredJointTrajectory(m_desiredJointPositionFromExternalSource, dummy, dummy);
         }
 
         if(!updateFKSolver())
