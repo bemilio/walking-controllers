@@ -120,6 +120,7 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
+    m_stepTimingIndexL=0;
     // module name (used as prefix for opened ports)
     m_useStepAdaptation = rf.check("use_step_adaptation", yarp::os::Value(false)).asBool();
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
@@ -177,36 +178,6 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     }
 
 
-    //reading some data for zmp saturation function from configuration file
-    m_useZMPSaturation = rf.check("use_zmp_saturation", yarp::os::Value("False")).asBool();
-
-    if(!YarpHelper::getNumberFromSearchable(rf, "epsilon", epsilonZMP))
-    {
-        yError() << "[configure] Unable get epsilon(double) from searchable.";
-        return false;
-    }
-
-    if(!YarpHelper::getNumberFromSearchable(rf, "zmp_saturation_threshold", thresholdFz))
-    {
-        yError() << "[configure] Unable get thresholdFz(double) from searchable.";
-        return false;
-    }
-
-
-
-    //low pass filter on zmp -- preparing filter
-    m_useZMPFilter = rf.check("use_zmp_filter", yarp::os::Value("False")).asBool();
-    if(m_useZMPFilter)
-    {
-        double cutFrequency;
-        if(!YarpHelper::getNumberFromSearchable(rf, "zmp_cut_frequency", cutFrequency))
-        {
-            yError() << "[configure] Unable get double from searchable.";
-            return false;
-        }
-
-        m_ZMPFilter = std::make_unique<iCub::ctrl::FirstOrderLowPassFilter>(cutFrequency,m_dT);
-    }
 
 
     // initialize the trajectory planner
@@ -382,8 +353,8 @@ void WalkingModule::reset()
 
     m_trajectoryGenerator->reset();
 
-    if(m_dumpData)
-        m_walkingLogger->quit();
+//    if(m_dumpData)
+//        m_walkingLogger->quit();
 }
 
 bool WalkingModule::close()
@@ -485,6 +456,13 @@ bool WalkingModule::updateModule()
 
     if(m_robotState == WalkingFSM::Preparing)
     {
+        if(!m_robotControlHelper->getFeedbacksRaw(10))
+        {
+            yError() << "[updateModule] Unable to get the feedback.";
+            return false;
+        }
+
+
         bool motionDone = false;
         if(!m_robotControlHelper->checkMotionDone(motionDone))
         {
@@ -679,7 +657,7 @@ bool WalkingModule::updateModule()
         }
 
         // get feedbacks and evaluate useful quantities
-        if(!m_robotControlHelper->getFeedbacks(100))
+        if(!m_robotControlHelper->getFeedbacks(10))
         {
             yError() << "[updateModule] Unable to get the feedback.";
             return false;
@@ -718,15 +696,7 @@ bool WalkingModule::updateModule()
         //                    yInfo()<<"xxxxxxxDDDDDCCCCMMMMM-------"<<measuredDCM(0);
         //                    yInfo()<<"yyyyyyyDDDDDCCCCMMMMM-------"<<measuredDCM(1);
 
-        if(m_useZMPFilter)
-        {
-            // filter the zmp
-            yarp::sig::Vector tempZMPFilter;
-            iDynTree::Vector2 tempMeasuredZMP;
-            iDynTree::toYarp(measuredZMP,tempZMPFilter);
-            tempZMPFilter = m_ZMPFilter->filt(tempZMPFilter);
-            iDynTree::toiDynTree(tempZMPFilter,measuredZMP);
-        }
+
 
 
         // evaluate 3D-LIPM reference signal
@@ -756,6 +726,7 @@ bool WalkingModule::updateModule()
             double switchOverSwingRatio;
             double comHeight;
             double stepTiming;
+            double nomStepTiming;
             double sigma;
             double nextStepPosition;
             double stepLength;
@@ -787,16 +758,19 @@ omega=sqrt(9.81/comHeight);
         //                    jmil=jLeftstepList.at(0);
         //                    Step jmil1=jLeftstepList.at(1);
 
-        std::vector<StepPhase> jleftFootPhases;
+        std::vector<StepPhase> jLeftFootPhases;
         std::vector<StepPhase> jRightFootPhases;
-        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
-                    iDynTree::Vector6 leftAdaptedStepParameters;
+        m_trajectoryGenerator->getStepPhases(jLeftFootPhases,jRightFootPhases);
+
+//        leftAdaptedStepParameters(0)=0;
+//        leftAdaptedStepParameters(1)=0;
+//        leftAdaptedStepParameters(2)=0;
 //        yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr"<<"aaaaaaaaaaaaa"<<jRightFootPhases.size();
 //        yInfo()<<"gggggggggggggggggggggggg"<<"gggggggggggg"<<indexmilad;
  //       yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
 
        //yInfo()<<m_mergePoints.size()<<jLeftstepList.size()<<jRightstepList.size();
-        if (2==static_cast<int>(jRightFootPhases[indexmilad]) && jRightstepList.size()>1) {
+        if (3==static_cast<int>(jLeftFootPhases[indexmilad]) && jRightstepList.size()>1) {
 //jRightstepList.at(1).impactTime;
 //            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
 //yInfo()<<"milllllllllllllllllllllaaaaaa"<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime;
@@ -805,26 +779,34 @@ omega=sqrt(9.81/comHeight);
 //            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
 //yInfo()<<"milllllllllllllllllllllaaaaaa"<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime;
  //          yInfo()<<"akbarrrrrrrrrrrrrrrrrrrr";
-stepTiming=(jRightstepList.at(1).impactTime-jLeftstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
 //switchOverSwingRatio
             sigma=exp(omega*stepTiming);
              nextStepPosition=jRightstepList.at(1).position(0);
-             stepLength=(jRightstepList.at(1).position(0)-jLeftstepList.at(0).position(0));
-             nominalDCMOffset=stepLength/(exp(omega*stepTiming)-1);
+             stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+
+             nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+                          nominalDCMOffset=stepLength/(exp(omega*nomStepTiming)-1);
             // Step Adaptator
    //         iDynTree::Vector6 adaptedStepParameters;
-            currentValues(0)=measuredZMP(0);
-            currentValues(1)=measuredDCM(0);
+                          if (m_stepTimingIndexL==1) {
+                              m_tempCoP=measuredZMP(0);
+                              m_tempDCM=measuredDCM(0);
+                              //m_tempCoP=desit
+                              m_tempDCM=m_DCMPositionDesired.front()(0);
+                          }
+            currentValues(0)=m_tempCoP;
+            currentValues(1)=m_tempDCM;
             currentValues(2)=0;
 
             nominalValues(0)=nextStepPosition;
             nominalValues(1)=sigma;
             nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
             nominalValues(2)=nominalDCMOffset;
-
+m_stepTimingIndexL++;
             if(m_useStepAdaptation)
             {
-
+yInfo()<<"step adaptation is active";
 
                 //            m_profiler->setInitTime("MPC");
 
@@ -857,9 +839,14 @@ stepTiming=(jRightstepList.at(1).impactTime-jLeftstepList.at(0).impactTime)/(1+s
 //        yInfo()<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<"millasjjdhsjjs";
        //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
             }
+            else{
+                                  yInfo()<<"step adaptation is not active";
+
+            }
         }
         else{
        //     yInfo()<<"this is not right SS";
+             m_stepTimingIndexL=0;
         }
             iDynTree::Vector6 rightAdaptedStepParameters;
 
@@ -884,6 +871,7 @@ yInfo()<<"miladddddddddddddddddddddddddd";
             if(m_useStepAdaptation)
             {
 
+
                 //            m_profiler->setInitTime("MPC");
 
                 if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
@@ -906,6 +894,9 @@ yInfo()<<"miladddddddddddddddddddddddddd";
                 }
 
                 //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+            }
+            else {
+
             }
         }
         else{
@@ -1120,7 +1111,7 @@ yInfo()<<"miladddddddddddddddddddddddddd";
         {
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
-            m_walkingLogger->sendData(measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
+            m_walkingLogger->sendData(leftAdaptedStepParameters,iDynTree::toEigen(nominalValues).segment(0,4),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
                                       measuredZMP, desiredZMP, measuredCoM,
                                       desiredCoMPositionXY, desiredCoMVelocityXY,
                                       leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
@@ -1142,38 +1133,7 @@ yInfo()<<"miladddddddddddddddddddddddddd";
     return true;
 }
 
-//for zmp and CoM Velocity filter resetting
-bool WalkingModule::resetZMPFilters()
-{
-    if(!m_robotControlHelper->getFeedbacksRaw(10))
-    {
-        yError() << "[resetZMPFilters] Unable to get the feedback from the robot";
-        return false;
-    }
 
-    if(!updateFKSolver())
-    {
-        yError() << "[resetZMPFilters] Unable to update the FK solver.";
-        return false;
-    }
-
-
-    yarp::sig::Vector temp1ZMPFilter;
-    iDynTree::Vector2 temp1MeasuredZMP;
-
-    if(!evaluateZMP(temp1MeasuredZMP))
-    {
-        yError() << "[resetZMPFilters] Unable to evaluate the ZMP.";
-        return false;
-    }
-    if(m_useZMPFilter)
-    {
-        iDynTree::toYarp(temp1MeasuredZMP,temp1ZMPFilter);
-        m_ZMPFilter->init(temp1ZMPFilter);
-    }
-
-    return true;
-}
 
 
 bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
@@ -1188,100 +1148,42 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
     double zmpLeftDefined = 0.0, zmpRightDefined = 0.0;
 
     const iDynTree::Wrench& rightWrench = m_robotControlHelper->getRightWrench();
+    if(rightWrench.getLinearVec3()(2) < 0.001)
+        zmpRightDefined = 0.0;
+    else
+    {
+        zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
+        zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
+        zmpRight(2) = 0.0;
+        zmpRightDefined = 1.0;
+    }
+
     const iDynTree::Wrench& leftWrench = m_robotControlHelper->getLeftWrench();
-
-    if(m_useZMPSaturation==1){
-        double saturatedRFz=rightWrench.getLinearVec3()(2);
-        double saturatedLFz=leftWrench.getLinearVec3()(2);
-
-        if(rightWrench.getLinearVec3()(2) < thresholdFz)
-            zmpRightDefined = 0.0;
-        else
-        {
-            if (saturateFz(saturatedRFz,thresholdFz)) {
-                zmpRight(0) = (-rightWrench.getAngularVec3()(1)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-                zmpRight(1) = (rightWrench.getAngularVec3()(0)*saturatedRFz) / ((saturatedRFz*saturatedRFz)+epsilonZMP);
-                //            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
-                //            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
-                zmpRight(2) = 0.0;
-                zmpRightDefined = 1.0;
-            }
-            else {
-                yError() << "[evaluateZMP] The saturation function can not saturate Fz in right foot!!!!";
-            }
-        }
-
-
-        if(leftWrench.getLinearVec3()(2) < thresholdFz)
-            zmpLeftDefined = 0.0;
-        else
-        {
-            if (saturateFz(saturatedLFz,thresholdFz)) {
-                zmpLeft(0) = (-leftWrench.getAngularVec3()(1)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-                zmpLeft(1) = (leftWrench.getAngularVec3()(0)*saturatedLFz) / ((saturatedLFz*saturatedLFz)+epsilonZMP);
-                //            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
-                //            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
-
-                zmpLeft(2) = 0.0;
-                zmpLeftDefined = 1.0;
-            }
-            else {
-                yError() << "[evaluateZMP] The saturation function can not saturate Fz in left foot!!!!";
-            }
-        }
-
-        double totalZ = saturatedLFz + saturatedRFz;
-        if(totalZ < 0.1)
-        {
-            yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
-            return false;
-        }
-
-        zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
-        zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
-
-        // the global zmp is given by a weighted average
-        iDynTree::toEigen(zmpWorld) = ((saturatedLFz * zmpLeftDefined) / totalZ)
-                * iDynTree::toEigen(zmpLeft) +
-                ((saturatedRFz * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+    if(leftWrench.getLinearVec3()(2) < 0.001)
+        zmpLeftDefined = 0.0;
+    else
+    {
+        zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
+        zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
+        zmpLeft(2) = 0.0;
+        zmpLeftDefined = 1.0;
     }
-    else{//when the saturation is not active
 
-        if(rightWrench.getLinearVec3()(2) < 0.001)
-            zmpRightDefined = 0.0;
-        else
-        {
-            zmpRight(0) = -rightWrench.getAngularVec3()(1) / rightWrench.getLinearVec3()(2);
-            zmpRight(1) = rightWrench.getAngularVec3()(0) / rightWrench.getLinearVec3()(2);
-            zmpRight(2) = 0.0;
-            zmpRightDefined = 1.0;
-        }
-
-        if(leftWrench.getLinearVec3()(2) < 0.001)
-            zmpLeftDefined = 0.0;
-        else
-        {
-            zmpLeft(0) = -leftWrench.getAngularVec3()(1) / leftWrench.getLinearVec3()(2);
-            zmpLeft(1) = leftWrench.getAngularVec3()(0) / leftWrench.getLinearVec3()(2);
-            zmpLeft(2) = 0.0;
-            zmpLeftDefined = 1.0;
-        }
-
-        double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
-        if(totalZ < 0.1)
-        {
-            yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
-            return false;
-        }
-
-        zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
-        zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
-
-        // the global zmp is given by a weighted average
-        iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
-                * iDynTree::toEigen(zmpLeft) +
-                ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+    double totalZ = rightWrench.getLinearVec3()(2) + leftWrench.getLinearVec3()(2);
+    if(totalZ < 0.1)
+    {
+        yError() << "[evaluateZMP] The total z-component of contact wrenches is too low.";
+        return false;
     }
+
+    zmpLeft = m_FKSolver->getLeftFootToWorldTransform() * zmpLeft;
+    zmpRight = m_FKSolver->getRightFootToWorldTransform() * zmpRight;
+
+    // the global zmp is given by a weighted average
+    iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
+        * iDynTree::toEigen(zmpLeft) +
+        ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
 
@@ -1660,32 +1562,35 @@ bool WalkingModule::startWalking()
 
     if(m_dumpData)
     {
-        m_walkingLogger->startRecord({"record","dcm_x", "dcm_y",
-                                      "dcm_des_x", "dcm_des_y",
-                                      "dcm_des_dx", "dcm_des_dy",
-                                      "zmp_x", "zmp_y",
-                                      "zmp_des_x", "zmp_des_y",
-                                      "com_x", "com_y", "com_z",
-                                      "com_des_x", "com_des_y",
-                                      "com_des_dx", "com_des_dy",
-                                      "lf_x", "lf_y", "lf_z",
-                                      "lf_roll", "lf_pitch", "lf_yaw",
-                                      "rf_x", "rf_y", "rf_z",
-                                      "rf_roll", "rf_pitch", "rf_yaw",
-                                      "lf_des_x", "lf_des_y", "lf_des_z",
-                                      "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
-                                      "rf_des_x", "rf_des_y", "rf_des_z",
-                                      "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
-                                      "lf_err_x", "lf_err_y", "lf_err_z",
-                                      "lf_err_roll", "lf_err_pitch", "lf_err_yaw",
-                                      "rf_err_x", "rf_err_y", "rf_err_z",
-                                      "rf_err_roll", "rf_err_pitch", "rf_err_yaw"});
-    }
+
+       // yInfo() << "record!!!!!!";
+
+         m_walkingLogger->startRecord({"record","foot_pos_x", "step_timing_x","dcm_offset_x", "foot_pos_y","step_timing_y","nom_foot_pos_x","nom_step_timing","nom_dcm_offset_x","nom_dcm", "dcm_offset_y","dcm_x", "dcm_y",
+                     "dcm_des_x", "dcm_des_y",
+                     "dcm_des_dx", "dcm_des_dy",
+                     "zmp_x", "zmp_y",
+                     "zmp_des_x", "zmp_des_y",
+                     "com_x", "com_y", "com_z",
+                     "com_des_x", "com_des_y",
+                     "com_des_dx", "com_des_dy",
+                     "lf_x", "lf_y", "lf_z",
+                     "lf_roll", "lf_pitch", "lf_yaw",
+                     "rf_x", "rf_y", "rf_z",
+                     "rf_roll", "rf_pitch", "rf_yaw",
+                     "lf_des_x", "lf_des_y", "lf_des_z",
+                     "lf_des_roll", "lf_des_pitch", "lf_des_yaw",
+                     "rf_des_x", "rf_des_y", "rf_des_z",
+                     "rf_des_roll", "rf_des_pitch", "rf_des_yaw",
+                     "lf_err_x", "lf_err_y", "lf_err_z",
+                     "lf_err_roll", "lf_err_pitch", "lf_err_yaw",
+                     "rf_err_x", "rf_err_y", "rf_err_z",
+                     "rf_err_roll", "rf_err_pitch", "rf_err_yaw"});
+ }
 
     // if the robot was only prepared the filters has to be reseted
     if(m_robotState == WalkingFSM::Prepared){
         m_robotControlHelper->resetFilters();
-        resetZMPFilters();
+
     }
 
 

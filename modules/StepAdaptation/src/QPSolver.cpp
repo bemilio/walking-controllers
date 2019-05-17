@@ -31,12 +31,10 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
 
     Eigen::SparseMatrix<double> Hessian;
     Hessian.resize(3,3);
-    Hessian.reserve(5);
-    Hessian.insert(0,0)=alphaVector(0)+alphaVector(3);
-    Hessian.insert(0,2)=alphaVector(0);
+    Hessian.reserve(3);
+    Hessian.insert(0,0)=alphaVector(3);
     Hessian.insert(1,1)=alphaVector(2);
-    Hessian.insert(2,0)=alphaVector(0);
-    Hessian.insert(2,2)=alphaVector(0)+alphaVector(1);
+    Hessian.insert(2,2)=alphaVector(1);
  //   m_hessian.resize(3,3);
     m_hessian=Hessian;
     if (m_QPSolver->isInitialized()) {
@@ -55,9 +53,9 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
 bool QPSolver::setGradientVector(const iDynTree::Vector4& alphaVector,const iDynTree::VectorFixSize<5>& nominalValuesVector){
 
     m_gradient.resize(3,1);
-    m_gradient<<(-alphaVector(0)* nominalValuesVector(3)-nominalValuesVector(0)*alphaVector(3)),
+    m_gradient<<(-nominalValuesVector(0)*alphaVector(3)),
             (-alphaVector(2)*nominalValuesVector(1)),
-            (-nominalValuesVector(2)*alphaVector(1)-nominalValuesVector(3)*alphaVector(0));
+            (-nominalValuesVector(2)*alphaVector(1));
 
     if(m_QPSolver->isInitialized()){
         if(!m_QPSolver->updateGradient<Eigen::Dynamic>(m_gradient)){
@@ -76,26 +74,24 @@ bool QPSolver::setGradientVector(const iDynTree::Vector4& alphaVector,const iDyn
 
 Eigen::SparseMatrix<double> QPSolver::evaluateConstraintsMatrix(const iDynTree::Vector3& currentValuesVector){
     Eigen::SparseMatrix<double> constraintMatrix;//the constraint Matrix includes both equality and inequality constraints!
-    constraintMatrix.resize(5,3);
-    constraintMatrix.reserve(7);
+    constraintMatrix.resize(3,3);
+    constraintMatrix.reserve(5);
 
     constraintMatrix.insert(0,0)=1;
     constraintMatrix.insert(0,1)=(currentValuesVector(0)+currentValuesVector(2))-currentValuesVector(1)-((currentValuesVector(2))/2);
     constraintMatrix.insert(0,2)=1;
     constraintMatrix.insert(1,0)=1;
-    constraintMatrix.insert(2,0)=-1;
-    constraintMatrix.insert(3,1)=1;
-    constraintMatrix.insert(4,1)=-1;
+    constraintMatrix.insert(2,1)=1;
 
     return constraintMatrix;
 }
 
 
 bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector){
-    m_constraintsMAtrix.resize(5,3);
-    m_constraintsMAtrix.reserve(7);
+    m_constraintsMAtrix.resize(3,3);
+    m_constraintsMAtrix.reserve(5);
      m_constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
-     Eigen::Matrix<double,5,3> miladtemp=m_constraintsMAtrix;
+     Eigen::Matrix<double,3,3> miladtemp=m_constraintsMAtrix;
 
     if(m_QPSolver->isInitialized()){
         if(!m_QPSolver->updateLinearConstraintsMatrix(m_constraintsMAtrix)){
@@ -114,27 +110,25 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector
 
 bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &nominalValuesVector,const iDynTree::Vector3& currentValuesVector,const iDynTree::Vector4& tolerenceOfBounds){
 
-    //  Eigen::Vector5d lowerBounds;
+    //    Eigen::Vector5d lowerBounds;
     //  Eigen::VectorFix upperBounds;
-    Eigen::Matrix<double,5,1>  upperBounds;
-    Eigen::Matrix<double,5,1>  lowerBounds;
-    m_lowerBound.resize(5,1);
-    m_upperBound.resize(5,1);
+    Eigen::Matrix<double,3,1>  upperBounds;
+    Eigen::Matrix<double,3,1>  lowerBounds;
+    m_lowerBound.resize(3,1);
+    m_upperBound.resize(3,1);
     double StepDuration=((log(nominalValuesVector(1)))/nominalValuesVector(4));
-yInfo()<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1);
-yInfo()<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4);
-yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
+//yInfo()<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0);
+//yInfo()<<tolerenceOfBounds(0)<<tolerenceOfBounds(0)<<tolerenceOfBounds(1)<<tolerenceOfBounds(1);
+//yInfo()<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1);
+//yInfo()<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4);
+//yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
 m_upperBound<<currentValuesVector(2)/2+currentValuesVector(0),
-            nominalValuesVector(0)+tolerenceOfBounds(0),
-            -(nominalValuesVector(0)-tolerenceOfBounds(1)),
-            exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4)),
-            -exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+            (nominalValuesVector(0)+tolerenceOfBounds(0)),
+            exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4));
 
     m_lowerBound<<currentValuesVector(2)/2+currentValuesVector(0),
-            - OsqpEigen::INFTY,
-            - OsqpEigen::INFTY,
-            - OsqpEigen::INFTY,
-            - OsqpEigen::INFTY;
+            (nominalValuesVector(0)-tolerenceOfBounds(1)),
+            exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
 
     if (m_QPSolver->isInitialized()) {
         if (!m_QPSolver->updateBounds(m_lowerBound,m_upperBound)) {

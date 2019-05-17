@@ -26,7 +26,7 @@
 #include <RobotHelper.hpp>
 #include <TrajectoryGenerator.hpp>
 #include <WalkingDCMModelPredictiveController.hpp>
-#include<StepAdaptator.hpp>
+#include <StepAdaptator.hpp>
 #include <WalkingDCMReactiveController.hpp>
 #include <WalkingZMPController.hpp>
 #include <WalkingInverseKinematics.hpp>
@@ -58,6 +58,10 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::string m_robot; /**< Robot name. */
 
   int indexmilad;
+ int m_stepTimingIndexL;
+ double m_tempCoP;
+  double m_tempDCM;
+   iDynTree::Vector6 leftAdaptedStepParameters;
 
     //following three lines  added for filtering the global zmp to decrease the vibration during walking
     yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */

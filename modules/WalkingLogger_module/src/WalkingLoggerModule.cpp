@@ -41,7 +41,7 @@ bool WalkingLoggerModule::respond(const yarp::os::Bottle& command, yarp::os::Bot
     {
         if(!m_stream.is_open())
         {
-            yError() << "[RPC Server] The stream is not open.";
+            yError() << "[RPC Server] The stream is not opened.";
             reply.addInt(0);
             return true;
         }
@@ -151,7 +151,7 @@ bool WalkingLoggerModule::updateModule()
         if(!m_stream.is_open())
         {
             yError() << "[updateModule] No stream is open. I cannot store your data.";
-            return false;
+            return true;
         }
 
         if(data->size() != m_numberOfValues)
