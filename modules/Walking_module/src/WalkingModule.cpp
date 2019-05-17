@@ -120,6 +120,7 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
+    m_stepTimingIndexL=0;
     // module name (used as prefix for opened ports)
     m_useStepAdaptation = rf.check("use_step_adaptation", yarp::os::Value(false)).asBool();
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
@@ -348,8 +349,8 @@ void WalkingModule::reset()
 
     m_trajectoryGenerator->reset();
 
-    if(m_dumpData)
-        m_walkingLogger->quit();
+//    if(m_dumpData)
+//        m_walkingLogger->quit();
 }
 
 bool WalkingModule::close()
@@ -466,6 +467,13 @@ bool WalkingModule::updateModule()
 
     if(m_robotState == WalkingFSM::Preparing)
     {
+        if(!m_robotControlHelper->getFeedbacksRaw(10))
+        {
+            yError() << "[updateModule] Unable to get the feedback.";
+            return false;
+        }
+
+
         bool motionDone = false;
         if(!m_robotControlHelper->checkMotionDone(motionDone))
         {
@@ -683,6 +691,14 @@ bool WalkingModule::updateModule()
             yError() << "[WalkingModule::updateModule] Unable to evaluate the ZMP.";
             return false;
         }
+        //                    yInfo()<<"xxxxxxxzzzzmmmppppp-------"<<measuredZMP(0);
+        //                    yInfo()<<"yyyyyyyzzzzmmmppppp-------"<<measuredZMP(1);
+        //yInfo()<<
+        iDynTree::Vector2 mildds= m_DCMPositionDesired.at((m_mergePoints.front()));
+     //   yInfo()<<"xxxxxxxDDDDDCCCCMMMMM-------"<<mildds(0);
+        //m_mergePoints
+        //                    yInfo()<<"xxxxxxxDDDDDCCCCMMMMM-------"<<measuredDCM(0);
+        //                    yInfo()<<"yyyyyyyDDDDDCCCCMMMMM-------"<<measuredDCM(1);
 
         // evaluate 3D-LIPM reference signal
         m_stableDCMModel->setInput(m_DCMPositionDesired.front());
@@ -697,6 +713,7 @@ bool WalkingModule::updateModule()
             double switchOverSwingRatio;
             double comHeight;
             double stepTiming;
+            double nomStepTiming;
             double sigma;
             double nextStepPosition;
             double stepLength;
@@ -728,16 +745,19 @@ omega=sqrt(9.81/comHeight);
         //                    jmil=jLeftstepList.at(0);
         //                    Step jmil1=jLeftstepList.at(1);
 
-        std::vector<StepPhase> jleftFootPhases;
+        std::vector<StepPhase> jLeftFootPhases;
         std::vector<StepPhase> jRightFootPhases;
-        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
-                    iDynTree::Vector6 leftAdaptedStepParameters;
+        m_trajectoryGenerator->getStepPhases(jLeftFootPhases,jRightFootPhases);
+
+//        leftAdaptedStepParameters(0)=0;
+//        leftAdaptedStepParameters(1)=0;
+//        leftAdaptedStepParameters(2)=0;
 //        yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr"<<"aaaaaaaaaaaaa"<<jRightFootPhases.size();
 //        yInfo()<<"gggggggggggggggggggggggg"<<"gggggggggggg"<<indexmilad;
  //       yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
 
        //yInfo()<<m_mergePoints.size()<<jLeftstepList.size()<<jRightstepList.size();
-        if (2==static_cast<int>(jRightFootPhases[indexmilad]) && jRightstepList.size()>1) {
+        if (3==static_cast<int>(jLeftFootPhases[indexmilad]) && jRightstepList.size()>1) {
 //jRightstepList.at(1).impactTime;
 //            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
 //yInfo()<<"milllllllllllllllllllllaaaaaa"<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime<<jLeftstepList.at(0).impactTime;
@@ -746,26 +766,34 @@ omega=sqrt(9.81/comHeight);
 //            yInfo()<<"asgharrrrrrrrrrrrrrrrrrrr";
 //yInfo()<<"milllllllllllllllllllllaaaaaa"<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime<<jRightstepList.at(1).impactTime;
  //          yInfo()<<"akbarrrrrrrrrrrrrrrrrrrr";
-stepTiming=(jRightstepList.at(1).impactTime-jLeftstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
 //switchOverSwingRatio
             sigma=exp(omega*stepTiming);
              nextStepPosition=jRightstepList.at(1).position(0);
-             stepLength=(jRightstepList.at(1).position(0)-jLeftstepList.at(0).position(0));
-             nominalDCMOffset=stepLength/(exp(omega*stepTiming)-1);
+             stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+
+             nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
+                          nominalDCMOffset=stepLength/(exp(omega*nomStepTiming)-1);
             // Step Adaptator
    //         iDynTree::Vector6 adaptedStepParameters;
-            currentValues(0)=measuredZMP(0);
-            currentValues(1)=measuredDCM(0);
+                          if (m_stepTimingIndexL==1) {
+                              m_tempCoP=measuredZMP(0);
+                              m_tempDCM=measuredDCM(0);
+                              //m_tempCoP=desit
+                              m_tempDCM=m_DCMPositionDesired.front()(0);
+                          }
+            currentValues(0)=m_tempCoP;
+            currentValues(1)=m_tempDCM;
             currentValues(2)=0;
 
             nominalValues(0)=nextStepPosition;
             nominalValues(1)=sigma;
             nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
             nominalValues(2)=nominalDCMOffset;
-
+m_stepTimingIndexL++;
             if(m_useStepAdaptation)
             {
-
+yInfo()<<"step adaptation is active";
 
                 //            m_profiler->setInitTime("MPC");
 
@@ -798,9 +826,14 @@ stepTiming=(jRightstepList.at(1).impactTime-jLeftstepList.at(0).impactTime)/(1+s
 //        yInfo()<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<leftAdaptedStepParameters(0)<<"millasjjdhsjjs";
        //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
             }
+            else{
+                                  yInfo()<<"step adaptation is not active";
+
+            }
         }
         else{
        //     yInfo()<<"this is not right SS";
+             m_stepTimingIndexL=0;
         }
             iDynTree::Vector6 rightAdaptedStepParameters;
 
@@ -825,6 +858,7 @@ yInfo()<<"miladddddddddddddddddddddddddd";
             if(m_useStepAdaptation)
             {
 
+
                 //            m_profiler->setInitTime("MPC");
 
                 if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
@@ -847,6 +881,9 @@ yInfo()<<"miladddddddddddddddddddddddddd";
                 }
 
                 //           m_profiler->setEndTime("MPC");///////////////////////////////////////////////////////////////////
+            }
+            else {
+
             }
         }
         else{

@@ -26,7 +26,7 @@
 #include <RobotHelper.hpp>
 #include <TrajectoryGenerator.hpp>
 #include <WalkingDCMModelPredictiveController.hpp>
-#include<StepAdaptator.hpp>
+#include <StepAdaptator.hpp>
 #include <WalkingDCMReactiveController.hpp>
 #include <WalkingZMPController.hpp>
 #include <WalkingInverseKinematics.hpp>
@@ -58,6 +58,23 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     double m_time; /**< Current time. */
     std::string m_robot; /**< Robot name. */
 
+  int indexmilad;
+ int m_stepTimingIndexL;
+ double m_tempCoP;
+  double m_tempDCM;
+   iDynTree::Vector6 leftAdaptedStepParameters;
+
+    //following three lines  added for filtering the global zmp to decrease the vibration during walking
+    yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
+    std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
+    bool m_useZMPFilter; /**< True if the zmp filter is used. */
+
+    //reading dada from configure file for zmp saturation function
+    double thresholdFz;
+    double epsilonZMP;
+    bool m_useZMPSaturation;
+
+    bool m_firstStep; /**< True if this is the first step. */
     bool m_useMPC; /**< True if the MPC controller is used. */
     bool m_useStepAdaptation; /**< True if the step adaptation is used. */
     bool m_useQPIK; /**< True if the QP-IK is used. */
