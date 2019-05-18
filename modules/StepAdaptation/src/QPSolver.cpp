@@ -32,9 +32,9 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
     Eigen::SparseMatrix<double> Hessian;
     Hessian.resize(3,3);
     Hessian.reserve(3);
-    Hessian.insert(0,0)=alphaVector(3);
-    Hessian.insert(1,1)=alphaVector(2);
-    Hessian.insert(2,2)=alphaVector(1);
+    Hessian.insert(0,0)=alphaVector(0);
+    Hessian.insert(1,1)=alphaVector(1);
+    Hessian.insert(2,2)=alphaVector(2);
  //   m_hessian.resize(3,3);
     m_hessian=Hessian;
     if (m_QPSolver->isInitialized()) {
@@ -53,9 +53,9 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
 bool QPSolver::setGradientVector(const iDynTree::Vector4& alphaVector,const iDynTree::VectorFixSize<5>& nominalValuesVector){
 
     m_gradient.resize(3,1);
-    m_gradient<<(-nominalValuesVector(0)*alphaVector(3)),
-            (-alphaVector(2)*nominalValuesVector(1)),
-            (-nominalValuesVector(2)*alphaVector(1));
+    m_gradient<<(-1*alphaVector(0)*nominalValuesVector(0)),
+            (-1*alphaVector(1)*nominalValuesVector(1)),
+            (-1*alphaVector(2)*nominalValuesVector(2));
 
     if(m_QPSolver->isInitialized()){
         if(!m_QPSolver->updateGradient<Eigen::Dynamic>(m_gradient)){
@@ -78,10 +78,11 @@ Eigen::SparseMatrix<double> QPSolver::evaluateConstraintsMatrix(const iDynTree::
     constraintMatrix.reserve(5);
 
     constraintMatrix.insert(0,0)=1;
-    constraintMatrix.insert(0,1)=(currentValuesVector(0)+currentValuesVector(2))-currentValuesVector(1)-((currentValuesVector(2))/2);
+    constraintMatrix.insert(0,1)=1*(currentValuesVector(0)-currentValuesVector(1));
     constraintMatrix.insert(0,2)=1;
     constraintMatrix.insert(1,0)=1;
     constraintMatrix.insert(2,1)=1;
+
 
     return constraintMatrix;
 }
@@ -91,7 +92,7 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector
     m_constraintsMAtrix.resize(3,3);
     m_constraintsMAtrix.reserve(5);
      m_constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
-     Eigen::Matrix<double,3,3> miladtemp=m_constraintsMAtrix;
+    // Eigen::Matrix<double,3,3> miladtemp=m_constraintsMAtrix;
 
     if(m_QPSolver->isInitialized()){
         if(!m_QPSolver->updateLinearConstraintsMatrix(m_constraintsMAtrix)){
@@ -122,11 +123,11 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &no
 //yInfo()<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1);
 //yInfo()<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4);
 //yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
-m_upperBound<<currentValuesVector(2)/2+currentValuesVector(0),
+m_upperBound<<1*currentValuesVector(0),
             (nominalValuesVector(0)+tolerenceOfBounds(0)),
             exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4));
 
-    m_lowerBound<<currentValuesVector(2)/2+currentValuesVector(0),
+    m_lowerBound<<1*currentValuesVector(0),
             (nominalValuesVector(0)-tolerenceOfBounds(1)),
             exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
 
