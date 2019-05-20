@@ -61,15 +61,16 @@ int main(int argc, char **argv) {
         return false;
     }
 
-    m_walkingLogger->startRecord({"record","foot_pos_x","stepTiming","DCM_offset_x","timed1","timed2","nomNextStep","nomStepTiming","nomDCMOffset","nomLastDCM","omega","var1","var2","var3","var4"});
+ //   m_walkingLogger->startRecord({"record","foot_pos_x","stepTiming","DCM_offset_x","timed1","timed2","nomNextStep","nomStepTiming","nomDCMOffset","nomLastDCM","omega","var1","var2","var3","var4"});
+
+  m_walkingLogger->startRecord({"record","dist","steplength","steptime","dcmoffset"});
     // initialize the step adaptation
     m_stepAdaptator = std::make_unique<StepAdaptator>();
     yarp::os::Bottle& stepAdaptatorOptions = rf.findGroup("STEP_ADAPTATOR");
     stepAdaptatorOptions.append(generalOptions);
     iDynTree::VectorFixSize<5> nominalValues;
     iDynTree::Vector3 currentValues;
-    double a=0;
-    double b=0.1;
+
     double c;
     double omega=sqrt(9.81/0.6);
     int i=0;
@@ -79,9 +80,23 @@ int main(int argc, char **argv) {
     double nominalDCMOffset;
     iDynTree::Vector2 timed;
     timed(0)=0;
+    //iDynTree::Vector3 leftAdaptedStepParameters;
+double alpha=0;
+double initDCM=0;
+double initTimining=0;
+double initiDCMOffset=0;
+double initStepPosition1=0;
+double a;
+double b;
+        iDynTree::Vector4 tempp;
+
+for (int k=1;k<12;k++){
+    alpha=alpha+0.011;
+    a=0;
+    b=0.1;
+    i=0;
+    nextStepPosition=0.5;
     iDynTree::Vector3 leftAdaptedStepParameters;
-
-
     for(int var=1;var<=1000;var++){
         i++;
 
@@ -101,12 +116,11 @@ int main(int argc, char **argv) {
         currentValues(1)=b;
         currentValues(2)=0;
 
-        if(i==122){
-            b=b+0.12;
-        }
 
-        if(i==165){
-            b=b-0.12;
+
+
+        if(i==365){
+            b=b+alpha;
         }
 
         if (((i+1)%100)==0) {
@@ -117,9 +131,8 @@ int main(int argc, char **argv) {
         }
 
 
-        //b=b+0.005;
         timed(0)=timed(0)+0.01;
-        // stepTiming=stepTiming-0.01;
+
 
 
 
@@ -151,18 +164,37 @@ int main(int argc, char **argv) {
             yError() << "[updateModule] Unable to get the step adaptation output.";
             return false;
         }
-        double mil=leftAdaptedStepParameters(0)+leftAdaptedStepParameters(2)+(currentValues(0)-currentValues(1))*(leftAdaptedStepParameters(1))-currentValues(0);
-        iDynTree::Vector4 tempp;
-        tempp(0)=mil;
-        tempp(1)=(currentValues(0)-currentValues(1));
-        tempp(2)=leftAdaptedStepParameters(1);
-        tempp(3)=currentValues(0);
+       // double mil=leftAdaptedStepParameters(0)+leftAdaptedStepParameters(2)+(currentValues(0)-currentValues(1))*(leftAdaptedStepParameters(1))-currentValues(0);
 
-        m_walkingLogger->sendData(leftAdaptedStepParameters,timed,nominalValues,tempp);
+//        tempp(0)=mil;
+//        tempp(1)=(currentValues(0)-currentValues(1));
+//        tempp(2)=leftAdaptedStepParameters(1);
+//        tempp(3)=currentValues(0);
+        if(i==360){
+            initDCM=b;
+            initStepPosition1=leftAdaptedStepParameters(0);
+            initTimining=leftAdaptedStepParameters(1);
+            initiDCMOffset=leftAdaptedStepParameters(2);
+        }
+
+        if(i==366){
+        tempp(0)=b-initDCM;
+        tempp(1)=leftAdaptedStepParameters(0)-initStepPosition1;
+        tempp(2)=leftAdaptedStepParameters(1)-initTimining;
+        tempp(3)=leftAdaptedStepParameters(2)-initiDCMOffset;
+        yInfo()<<leftAdaptedStepParameters(0)<<initStepPosition1;
+
+        }
+
+      // m_walkingLogger->sendData(leftAdaptedStepParameters,timed,nominalValues,tempp);
+
+
 
 
         yarp::os::Time::delay(0.01);
     }
+       m_walkingLogger->sendData(tempp);
+}
 
     m_walkingLogger->quit();
     return EXIT_SUCCESS;
