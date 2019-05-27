@@ -69,7 +69,7 @@ class StepAdaptator
     /**
      * Vector containing the output of the setp adaptator.
  */
-    iDynTree::Vector6 m_outputStepAdaptator;
+    iDynTree::Vector3 m_outputStepAdaptator;
 
 public:
 
@@ -92,7 +92,7 @@ public:
      * @param controllerOutput is the vector containing the output the controller.
      * @return true/false in case of success/failure.
      */
-    bool getControllerOutput(iDynTree::Vector6& controllerOutput);
+    bool getControllerOutput(iDynTree::Vector3& controllerOutput);
 
     /**
      * Reset the controller

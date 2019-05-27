@@ -35,7 +35,7 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector4& alphaVector ){
     Hessian.insert(0,0)=alphaVector(0);
     Hessian.insert(1,1)=alphaVector(1);
     Hessian.insert(2,2)=alphaVector(2);
- //   m_hessian.resize(3,3);
+    //   m_hessian.resize(3,3);
     m_hessian=Hessian;
     if (m_QPSolver->isInitialized()) {
         yWarning()<<"[QPslover::setHessianMatrix] The Hessian Matrix should be set just one time! In step adaptation the hessian matrix is constant and just depend on the gains of cost funtion.";
@@ -91,7 +91,7 @@ Eigen::SparseMatrix<double> QPSolver::evaluateConstraintsMatrix(const iDynTree::
 bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector){
     m_constraintsMAtrix.resize(3,3);
     m_constraintsMAtrix.reserve(5);
-     m_constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
+    m_constraintsMAtrix=evaluateConstraintsMatrix(currentValuesVector);
     // Eigen::Matrix<double,3,3> miladtemp=m_constraintsMAtrix;
 
     if(m_QPSolver->isInitialized()){
@@ -118,18 +118,47 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &no
     m_lowerBound.resize(3,1);
     m_upperBound.resize(3,1);
     double StepDuration=((log(nominalValuesVector(1)))/nominalValuesVector(4));
-//yInfo()<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0);
-//yInfo()<<tolerenceOfBounds(0)<<tolerenceOfBounds(0)<<tolerenceOfBounds(1)<<tolerenceOfBounds(1);
-//yInfo()<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1);
-//yInfo()<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4);
-//yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
-m_upperBound<<1*currentValuesVector(0),
+    //yInfo()<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0)<<nominalValuesVector(0);
+    //yInfo()<<tolerenceOfBounds(0)<<tolerenceOfBounds(0)<<tolerenceOfBounds(1)<<tolerenceOfBounds(1);
+    //yInfo()<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1)<<nominalValuesVector(1);
+    //yInfo()<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4)<<nominalValuesVector(4);
+    //yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
+
+
+    m_upperBound<<1*currentValuesVector(0),
             (nominalValuesVector(0)+tolerenceOfBounds(0)),
             exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4));
+//    if((StepDuration-tolerenceOfBounds(3))>0){
 
-    m_lowerBound<<1*currentValuesVector(0),
-            (nominalValuesVector(0)-tolerenceOfBounds(1)),
-            exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+
+//        if((StepDuration-tolerenceOfBounds(3))<-0.0001){
+//            m_lowerBound<<1*currentValuesVector(0),
+//                    (nominalValuesVector(0)-tolerenceOfBounds(1)),
+//                    exp((0.00)*nominalValuesVector(4));
+//           // yInfo()<<StepDuration<<"ajaaaaaaaaaaaaaaaaaaaaaaab";
+//        }
+//        else {
+//            m_lowerBound<<1*currentValuesVector(0),
+//                    (nominalValuesVector(0)-tolerenceOfBounds(1)),
+//                    exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+//        }
+
+
+            if((StepDuration-tolerenceOfBounds(3))<-0.0001){
+
+  //            yInfo()<<StepDuration<<"ajaaaaaaaaaaaaaaaaaaaaaaab";
+            }
+
+        m_lowerBound<<1*currentValuesVector(0),
+                (nominalValuesVector(0)-tolerenceOfBounds(1)),
+                exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+//    }
+//    else
+//    {
+//        m_lowerBound<<1*currentValuesVector(0),
+//                (nominalValuesVector(0)-tolerenceOfBounds(1)),
+//                exp((0.00)*nominalValuesVector(4));
+//    }
 
     if (m_QPSolver->isInitialized()) {
         if (!m_QPSolver->updateBounds(m_lowerBound,m_upperBound)) {
@@ -145,8 +174,8 @@ m_upperBound<<1*currentValuesVector(0),
         }
         if (!m_QPSolver->data()->setUpperBound(m_upperBound)){
             yError()<<"[setBoundsVectorOfConstraints] Unable to set the  upper bounds of constraints in QP problem in step adaptation";
-        return false;
-    }
+            return false;
+        }
 
     }
 

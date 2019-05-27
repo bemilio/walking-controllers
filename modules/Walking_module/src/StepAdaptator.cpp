@@ -1,6 +1,6 @@
 
 
-// std 
+// std
 #define NOMINMAX
 #include <algorithm>
 
@@ -72,7 +72,7 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config){
     // reset the solver
     reset();
     m_inputSize=3;
-    m_numberOfConstraint=5;
+    m_numberOfConstraint=3;
 
     m_currentQPSolver = std::make_shared<QPSolver>(m_inputSize,m_numberOfConstraint);
     m_currentQPSolver->setHessianMatrix(m_gainVector);// we only set Hessian one time because it deponds only on the const function gains that are constant!
@@ -130,7 +130,7 @@ bool StepAdaptator::solve()
     return true;
 }
 
-bool StepAdaptator::getControllerOutput(iDynTree::Vector6& controllerOutput)
+bool StepAdaptator::getControllerOutput(iDynTree::Vector3& controllerOutput)
 {
     if(!m_isSolutionEvaluated)
     {
