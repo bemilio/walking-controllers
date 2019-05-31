@@ -56,12 +56,13 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     double m_dT; /**< RFModule period. */
     double m_time; /**< Current time. */
     std::string m_robot; /**< Robot name. */
-
+    double m_startOfWalkingTime;
+    int m_numberStep;
   int indexmilad;
  int m_stepTimingIndexL;
  double m_tempCoP;
   double m_tempDCM;
-   iDynTree::Vector6 leftAdaptedStepParameters;
+   iDynTree::Vector3 leftAdaptedStepParameters;
 
     //following three lines  added for filtering the global zmp to decrease the vibration during walking
     yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
@@ -106,6 +107,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::deque<iDynTree::Twist> m_rightTwistTrajectory; /**< Deque containing the twist trajectory of the right foot. */
 
     std::deque<iDynTree::Vector2> m_DCMPositionDesired; /**< Deque containing the desired DCM position. */
+    std::deque<iDynTree::Vector2> m_ZMPPositionDesired; /**< Deque containing the desired DCM position. */
     std::deque<iDynTree::Vector2> m_DCMVelocityDesired; /**< Deque containing the desired DCM velocity. */
     std::deque<bool> m_leftInContact; /**< Deque containing the left foot state. */
     std::deque<bool> m_rightInContact; /**< Deque containing the right foot state. */

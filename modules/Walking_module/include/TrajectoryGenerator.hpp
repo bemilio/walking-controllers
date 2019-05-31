@@ -152,6 +152,13 @@ public:
     bool getDCMPositionTrajectory(std::vector<iDynTree::Vector2>& DCMPositionTrajectory);
 
     /**
+     * Get the desired 2D-ZMP position trajectory
+     * @param ZMPPositionTrajectory desired trajectory of the DCM.
+     * @return true/false in case of success/failure.
+     */
+    bool getZMPPositionTrajectory(std::vector<iDynTree::Vector2>& ZMPPositionTrajectory);
+
+    /**
      * Get the desired 2D-DCM velocity trajectory
      * @param DCMVelocityTrajectory desired trajectory of the DCM.
      * @return true/false in case of success/failure.

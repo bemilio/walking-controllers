@@ -511,6 +511,18 @@ bool TrajectoryGenerator::getDCMPositionTrajectory(std::vector<iDynTree::Vector2
     return true;
 }
 
+bool TrajectoryGenerator::getZMPPositionTrajectory(std::vector<iDynTree::Vector2>& ZMPPositionTrajectory)
+{
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[getZMPPositionTrajectory] No trajectories are available";
+        return false;
+    }
+
+   ZMPPositionTrajectory = m_dcmGenerator->getZMPPosition();
+    return true;
+}
+
 bool TrajectoryGenerator::getDCMVelocityTrajectory(std::vector<iDynTree::Vector2>& DCMVelocityTrajectory)
 {
     if(!isTrajectoryComputed())
