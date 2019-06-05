@@ -239,7 +239,7 @@ public:
      * @param rightFootPrint vector containing  .........
      * @return true/false in case of success/failure.
      */
-     std::shared_ptr<FootPrint> getLeftFootprint();
+     bool getLeftFootprint(std::shared_ptr<FootPrint>& leftFootPrint);
 
      /**
       * Get the phases of each foot during walking from unicycle
@@ -247,7 +247,8 @@ public:
       * @param rightFootPrint vector containing  .........
       * @return true/false in case of success/failure.
       */
-      std::shared_ptr<FootPrint> getRightFootprint();
+
+     bool getRightFootprint(std::shared_ptr<FootPrint>& rightFootPrint);
 
 
       /**
