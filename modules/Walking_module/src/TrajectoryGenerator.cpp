@@ -631,15 +631,38 @@ void TrajectoryGenerator::reset()
 }
 
 bool TrajectoryGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases){
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[getStepPhases] No trajectories are available";
+        return false;
+    }
+
     m_trajectoryGenerator.getStepPhases(leftPhases,rightPhases);
 }
 
-std::shared_ptr<FootPrint> TrajectoryGenerator::getLeftFootprint(){
-return m_trajectoryGenerator.getLeftFootPrint();
+
+
+ bool TrajectoryGenerator::getLeftFootprint(std::shared_ptr<FootPrint>& leftFootPrint){
+     if(!isTrajectoryComputed())
+     {
+         yError() << "[getLeftFootprint] No trajectories are available";
+         return false;
+     }
+ leftFootPrint=m_trajectoryGenerator.getLeftFootPrint();
+
+ return true;
 }
 
-std::shared_ptr<FootPrint> TrajectoryGenerator::getRightFootprint(){
-return m_trajectoryGenerator.getRightFootPrint();
+
+ bool TrajectoryGenerator::getRightFootprint(std::shared_ptr<FootPrint>& rightFootPrint){
+     if(!isTrajectoryComputed())
+     {
+         yError() << "[getRightFootprint] No trajectories are available";
+         return false;
+     }
+rightFootPrint=m_trajectoryGenerator.getRightFootPrint();
+
+ return true;
 }
 
 bool TrajectoryGenerator::getNominalCoMHeight(double& nominalCoMHeight){

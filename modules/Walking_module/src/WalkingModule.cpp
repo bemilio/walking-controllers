@@ -131,9 +131,9 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
     m_useQPIK = rf.check("use_QP-IK", yarp::os::Value(false)).asBool();
     m_useOSQP = rf.check("use_osqp", yarp::os::Value(false)).asBool();
     m_dumpData = rf.check("dump_data", yarp::os::Value(false)).asBool();
-leftAdaptedStepParameters(0)=0.0;
-leftAdaptedStepParameters(1)=0.0;
-leftAdaptedStepParameters(2)=0.0;
+    leftAdaptedStepParameters(0)=0.0;
+    leftAdaptedStepParameters(1)=0.0;
+    leftAdaptedStepParameters(2)=0.0;
     yarp::os::Bottle& generalOptions = rf.findGroup("GENERAL");
     m_dT = generalOptions.check("sampling_time", yarp::os::Value(0.016)).asDouble();
     std::string name;
@@ -355,8 +355,8 @@ void WalkingModule::reset()
 
     m_trajectoryGenerator->reset();
 
-//    if(m_dumpData)
-//        m_walkingLogger->quit();
+    //    if(m_dumpData)
+    //        m_walkingLogger->quit();
 }
 
 bool WalkingModule::close()
@@ -531,74 +531,8 @@ bool WalkingModule::updateModule()
     }
     else if(m_robotState == WalkingFSM::Walking)
     {
-        //        std::vector<StepPhase> jleftFootPhases;
-        //        std::vector<StepPhase> jRightFootPhases;
-        //        m_trajectoryGenerator->getStepPhases(jleftFootPhases,jRightFootPhases);
-        // yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
 
-        //        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
-        //        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
-        //        StepList jLeftstepList=jleftFootprints->getSteps();
-        //        StepList jRightstepList=jrightFootprints->getSteps();
-        //        Step jmil;
-        //        Step jmil10;
-        //                if ((jleftFootprints->numberOfSteps())==1) {
-        //                    jmil=jLeftstepList.at(0);
-        //                   // yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
-        //                }else {
-        //                    jmil=jLeftstepList.at(0);
-        //                    Step jmil1=jLeftstepList.at(1);
-        //                    Step jmil2=jLeftstepList.at(2);
-        //                    Step jmil3=jLeftstepList.at(3);
-        //                    Step jmil4=jLeftstepList.at(4);
-        //                    Step jmil5=jLeftstepList.at(5);
-
-
-        //                    jmil10=jRightstepList.at(0);
-        //                    Step jmil11=jRightstepList.at(1);
-        //                    Step jmil22=jRightstepList.at(2);
-        //                    Step jmil33=jRightstepList.at(3);
-        //                    Step jmil44=jRightstepList.at(4);
-        //                    Step jmil55=jRightstepList.at(5);
-
-
-        ////                    yInfo()<<"left"<<jmil.impactTime<<jmil.position(0)<<jmil.position(1);
-        ////                    yInfo()<<"left"<<jmil1.impactTime<<jmil1.position(0)<<jmil1.position(1);
-        ////                    yInfo()<<"left"<<jmil2.impactTime<<jmil2.position(0)<<jmil2.position(1);
-        ////                    yInfo()<<"left"<<jmil3.impactTime<<jmil3.position(0)<<jmil3.position(1);
-        ////                    yInfo()<<"left"<<jmil4.impactTime<<jmil4.position(0)<<jmil4.position(1);
-        ////                    yInfo()<<"left"<<jmil5.impactTime<<jmil5.position(0)<<jmil5.position(1);
-
-
-        ////                    yInfo()<<"right"<<jmil10.impactTime<<jmil10.position(0)<<jmil10.position(1);
-        ////                    yInfo()<<"right"<<jmil11.impactTime<<jmil11.position(0)<<jmil11.position(1);
-        ////                    yInfo()<<"right"<<jmil22.impactTime<<jmil22.position(0)<<jmil22.position(1);
-        ////                    yInfo()<<"right"<<jmil33.impactTime<<jmil33.position(0)<<jmil33.position(1);
-        ////                    yInfo()<<"right"<<jmil44.impactTime<<jmil44.position(0)<<jmil44.position(1);
-        ////                    yInfo()<<"right"<<jmil55.impactTime<<jmil55.position(0)<<jmil55.position(1);
-
-        //                }
-        //             Step jmil1=jLeftstepList.at(0);
-        //        int numberOfStep =jleftFootprints->numberOfSteps();
-
-             indexmilad=indexmilad+1;                   //yInfo()  <<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2])<<static_cast<int>(jleftFootPhases[2]);
-        //   yInfo()<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime<<jmil.impactTime;
-        //    yInfo()<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime<<jmil1.impactTime;
-        //        yInfo()<<numberOfStep<<numberOfStep;
-        //yInfo() << "milad milad miladdddddddddddddddddddddddddddddddddddddddddddddddddddddd: " <<  jleftFootPhases[1]::"Stance";
-
-
-
-
-
-
-
-
-
-
-
-
-
+        //  indexmilad=indexmilad+1;
         iDynTree::Vector2 measuredDCM, measuredZMP;
         iDynTree::Position measuredCoM;
         iDynTree::Vector3 measuredCoMVelocity;
@@ -635,11 +569,11 @@ bool WalkingModule::updateModule()
             // when we are near to the merge point the new trajectory is evaluated
             if(m_newTrajectoryMergeCounter == 20)
             {
-double initTimeTrajectory;
+                double initTimeTrajectory;
 
 
                 initTimeTrajectory = m_time + m_newTrajectoryMergeCounter * m_dT;
-m_startOfWalkingTime=initTimeTrajectory;
+                m_startOfWalkingTime=initTimeTrajectory;
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
                     m_rightTrajectory[m_newTrajectoryMergeCounter] :
                     m_leftTrajectory[m_newTrajectoryMergeCounter];
@@ -661,13 +595,21 @@ m_startOfWalkingTime=initTimeTrajectory;
                     yError() << "[WalkingModule::updateModule] Error while updating trajectories. They were not computed yet.";
                     return false;
                 }
+
+                //indexmilad=0;
                 m_newTrajectoryRequired = false;
                 resetTrajectory = true;
             }
 
+
+
+
             m_newTrajectoryMergeCounter--;
-            indexmilad=0;
+
+
         }
+
+
 
         if (m_robotControlHelper->getPIDHandler().usingGainScheduling())
         {
@@ -711,17 +653,17 @@ m_startOfWalkingTime=initTimeTrajectory;
 
 
 
-            double switchOverSwingRatio;
-            double comHeight;
-            double stepTiming;
-            double nomStepTiming;
-            double sigma;
-            double nextStepPosition;
-            double stepLength;
-            double nominalDCMOffset;
-            double omega;
-            iDynTree::VectorFixSize<5> nominalValues;
-            iDynTree::Vector3 currentValues;
+        double switchOverSwingRatio;
+        double comHeight;
+        double stepTiming;
+        double nomStepTiming;
+        double sigma;
+        double nextStepPosition;
+        double stepLength;
+        double nominalDCMOffset;
+        double omega;
+        iDynTree::VectorFixSize<5> nominalValues;
+        iDynTree::Vector3 currentValues;
         if(!m_trajectoryGenerator->getNominalCoMHeight(comHeight)){
             yError() << "[updateModule] Unable to get the nominal CoM height!";
             return false;
@@ -731,58 +673,67 @@ m_startOfWalkingTime=initTimeTrajectory;
             yError() << "[updateModule] Unable to get the ratio of double support to single support!";
             return false;
         }
-omega=sqrt(9.81/comHeight);
-            nominalValues(4)=omega;
-        std::shared_ptr<FootPrint> jleftFootprints= m_trajectoryGenerator->getLeftFootprint();
-        std::shared_ptr<FootPrint> jrightFootprints= m_trajectoryGenerator->getRightFootprint();
-        StepList jLeftstepList=jleftFootprints->getSteps();
-        StepList jRightstepList=jrightFootprints->getSteps();
-        Step jmil;
-        Step jmil10;
+        omega=sqrt(9.81/comHeight);
+        nominalValues(4)=omega;
+
+        std::shared_ptr<FootPrint> jleftFootprints;
+        std::shared_ptr<FootPrint> jrightFootprints;
+        StepList jLeftstepList;
+        StepList jRightstepList;
+
 
         std::vector<StepPhase> jLeftFootPhases;
         std::vector<StepPhase> jRightFootPhases;
-        m_trajectoryGenerator->getStepPhases(jLeftFootPhases,jRightFootPhases);
 
 
 
- //       yInfo()  <<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad])<<static_cast<int>(jRightFootPhases[indexmilad]);
 
-       //yInfo()<<m_mergePoints.size()<<jLeftstepList.size()<<jRightstepList.size();
-        if (3==static_cast<int>(jLeftFootPhases[indexmilad]) && jRightstepList.size()>1) {
+
+        if (!m_leftInContact.front() /*&& jRightstepList.size()>1*/) {
+
+            for(int var=0;var<m_mergePoints.size(); var++){
+
+                yInfo()<<" milad merge point"<<m_mergePoints[var];
+
+            }
+            if(jRightstepList.size()<=1)
+            {
+                yInfo()<<"hmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm";
+
+
+            }
+
+
+             m_trajectoryGenerator->getLeftFootprint(jleftFootprints);
+             m_trajectoryGenerator->getRightFootprint(jrightFootprints);
+
+            jLeftstepList=jleftFootprints->getSteps();
+            jRightstepList=jrightFootprints->getSteps();
+
+            m_trajectoryGenerator->getStepPhases(jLeftFootPhases,jRightFootPhases);
+
+
             if (m_numberStep==1) {
-                stepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+0*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*1;
-            yInfo()<<stepTiming<<"salam"<<"salam"<<"salam";
-             nomStepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+0*switchOverSwingRatio);
+                stepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+1*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
+                nomStepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+1*switchOverSwingRatio);
 
             }
             else {
-                stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+0*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*1;
-             nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+0*switchOverSwingRatio);
+                stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+1*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
+                nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+1*switchOverSwingRatio);
             }
-//stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
-yInfo()<<jLeftstepList.at(1).impactTime<<"left"<<"left";
-yInfo()<<jRightstepList.at(0).impactTime<<"right"<<"right";
-yInfo()<<stepTiming<<"step timing";
-yInfo()<<m_startOfWalkingTime<<"initTrajectory";
-yInfo()<<m_numberStep<<"numberrrrrr";
 
             sigma=exp(omega*stepTiming);
             yInfo()<<sigma<<"sigma";
-             nextStepPosition=jRightstepList.at(1).position(0);
-             stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+            nextStepPosition=jRightstepList.at(1).position(0);
+            stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
 
-            // nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
-                          nominalDCMOffset=stepLength/(exp(omega*nomStepTiming)-1);
-            // Step Adaptator
-   //         iDynTree::Vector6 adaptedStepParameters;
-                          if (/*m_stepTimingIndexL==1*/true) {
-                              m_tempCoP=measuredZMP(0);
-                              m_tempDCM=measuredDCM(0);//desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;//measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
-                              //m_tempCoP=desit
-                             // m_tempDCM=m_DCMPositionDesired.front()(0);
-                              yInfo()<<(m_tempDCM-m_tempCoP)<<"DCMOffset";
-                          }
+
+            nominalDCMOffset=stepLength/(exp(omega*nomStepTiming)-1);
+            if (m_stepTimingIndexL==1/*true*/) {
+                //   m_tempCoP=measuredZMP(0);
+                m_tempDCM=m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
+            }
             currentValues(0)=m_ZMPPositionDesired.front()(0);//m_tempCoP;
             currentValues(1)=m_tempDCM;
             currentValues(2)=0;
@@ -791,12 +742,9 @@ yInfo()<<m_numberStep<<"numberrrrrr";
             nominalValues(1)=sigma;
             nominalValues(2)=nominalDCMOffset;
             nominalValues(3)=0;
-m_stepTimingIndexL++;
+            m_stepTimingIndexL++;
             if(m_useStepAdaptation)
             {
-
-
-                //            m_profiler->setInitTime("MPC");
 
                 if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
                 {
@@ -816,48 +764,45 @@ m_stepTimingIndexL++;
                     yError() << "[updateModule] Unable to get the step adaptation output.";
                     return false;
                 }
-//        yInfo()<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<"millasjjdhsjjs";
-//        yInfo()<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<"millasjjdhsjjs";
-//        yInfo()<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<leftAdaptedStepParameters(1)<<"millasjjdhsjjs";
 
             }
             else{
-                                  yInfo()<<"step adaptation is not active";
+                yInfo()<<"step adaptation is not active";
             }
         }
         else{
-       //     yInfo()<<"this is not right SS";
-             m_stepTimingIndexL=0;
+            m_stepTimingIndexL=0;
         }
-            iDynTree::Vector3 rightAdaptedStepParameters;
 
-        if (3==static_cast<int>(jRightFootPhases[indexmilad]) && jLeftstepList.size()>1) {
+
+
+
+
+        iDynTree::Vector3 rightAdaptedStepParameters;
+        if (!m_rightInContact.front() && jLeftstepList.size()>1) {/*3==static_cast<int>(jRightFootPhases[indexmilad])*/
 
             m_numberStep=m_numberStep+1;
-//2==static_cast<int>(jRightFootPhases[indexmilad])
             stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
             sigma=exp(omega*stepTiming);
             nextStepPosition=jLeftstepList.at(1).position(0);
             stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
-           nominalDCMOffset=stepLength/(exp(omega*stepTiming)-1);
-//            // Step Adaptator
-yInfo()<<"miladddddddddddddddddddddddddd";
-//            currentValues(0)=measuredZMP(0);
-//            currentValues(1)=measuredDCM(0);
-//            currentValues(2)=0;            nominalValues(0)=nextStepPosition;
+            nominalDCMOffset=stepLength/(exp(omega*stepTiming)-1);
+            //            // Step Adaptator
 
+            //            currentValues(0)=measuredZMP(0);
+            //            currentValues(1)=measuredDCM(0);
+            //            currentValues(2)=0;            nominalValues(0)=nextStepPosition;
 
-
-//            nominalValues(0)=nextStepPosition;
-//            nominalValues(1)=sigma;
-//            nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
-//            nominalValues(2)=nominalDCMOffset;
+            //            nominalValues(0)=nextStepPosition;
+            //            nominalValues(1)=sigma;
+            //            nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
+            //            nominalValues(2)=nominalDCMOffset;
 
 
 
         }
         else{
-        //    yInfo()<<"this is not left SS";
+            //    yInfo()<<"this is not left SS";
         }
 
 
@@ -1124,8 +1069,8 @@ bool WalkingModule::evaluateZMP(iDynTree::Vector2& zmp)
 
     // the global zmp is given by a weighted average
     iDynTree::toEigen(zmpWorld) = ((leftWrench.getLinearVec3()(2) * zmpLeftDefined) / totalZ)
-        * iDynTree::toEigen(zmpLeft) +
-        ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
+            * iDynTree::toEigen(zmpLeft) +
+            ((rightWrench.getLinearVec3()(2) * zmpRightDefined)/totalZ) * iDynTree::toEigen(zmpRight);
 
     zmp(0) = zmpWorld(0);
     zmp(1) = zmpWorld(1);
@@ -1374,7 +1319,7 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     StdHelper::appendVectorToDeque(rightTwistTrajectory, m_rightTwistTrajectory, mergePoint);
     StdHelper::appendVectorToDeque(isLeftFixedFrame, m_isLeftFixedFrame, mergePoint);
 
-        StdHelper::appendVectorToDeque(DCMPositionDesired, m_DCMPositionDesired, mergePoint);
+    StdHelper::appendVectorToDeque(DCMPositionDesired, m_DCMPositionDesired, mergePoint);
     StdHelper::appendVectorToDeque(ZMPPositionDesired, m_ZMPPositionDesired, mergePoint);
     StdHelper::appendVectorToDeque(DCMVelocityDesired, m_DCMVelocityDesired, mergePoint);
 
@@ -1385,6 +1330,11 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     StdHelper::appendVectorToDeque(comHeightVelocity, m_comHeightVelocity, mergePoint);
 
     m_mergePoints.assign(mergePoints.begin(), mergePoints.end());
+    for(int var=0;var<m_mergePoints.size(); var++){
+
+        yInfo()<<"merge point"<<m_mergePoints[var];
+
+    }
 
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();

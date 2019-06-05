@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     //    alpha=alpha+0.011;
     alpha=0;
     a=0;
-    b=0.1;
+    b=0.5/(exp(omega*(stepTiming1-0.01))-1);;
     i=0;
     double kk=0;
     nextStepPosition=0.5;
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
                 kk=kk+1;
                 //a=b-0.1;
                 a=a+0.50;
-                b=a+0.10;
+                b=a+nominalDCMOffset;
                 stepTiming=0.50;
 
                 nextStepPosition=nextStepPosition+0.5;
@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
             double mil=leftAdaptedStepParameters(0)+leftAdaptedStepParameters(2)+(currentValues(0)-currentValues(1))*(leftAdaptedStepParameters(1))-currentValues(0);
             RStepTiming=((log(leftAdaptedStepParameters(1)))/omega);
 
-            tempp(0)=mil;
+            tempp(0)=(b-a);/*mil;*/
             tempp(1)=(currentValues(0)-currentValues(1));
             tempp(2)=leftAdaptedStepParameters(1);
             tempp(3)=currentValues(0);
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
             //        }
             b =(b-a)*exp(omega*0.01)+a;
             if(i==112){
-                b=b+0.18;
+                b=b+1*0.18;
             }
 
             m_walkingLogger->sendData(leftAdaptedStepParameters,timed,nominalValues,tempp);
