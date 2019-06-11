@@ -535,6 +535,13 @@ bool TrajectoryGenerator::getDCMVelocityTrajectory(std::vector<iDynTree::Vector2
     return true;
 }
 
+
+bool TrajectoryGenerator::getDCMSubTrajectory(std::vector<std::shared_ptr<GeneralSupportTrajectory>> & dcmSubTrajectories){
+
+
+  dcmSubTrajectories= m_dcmGenerator->getDCMSubTrajectories();
+}
+
 bool TrajectoryGenerator::getFeetTrajectories(std::vector<iDynTree::Transform>& lFootTrajectory,
                                               std::vector<iDynTree::Transform>& rFootTrajectory)
 {

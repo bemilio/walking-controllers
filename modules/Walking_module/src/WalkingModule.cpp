@@ -673,8 +673,7 @@ bool WalkingModule::updateModule()
         double stepLength;
         double nominalDCMOffset;
         double omega;
-        iDynTree::VectorFixSize<5> nominalValues;
-        iDynTree::Vector3 currentValues;
+
         if(!m_trajectoryGenerator->getNominalCoMHeight(comHeight)){
             yError() << "[updateModule] Unable to get the nominal CoM height!";
             return false;
@@ -685,101 +684,87 @@ bool WalkingModule::updateModule()
             return false;
         }
         omega=sqrt(9.81/comHeight);
-        nominalValues(4)=omega;
-
-        std::shared_ptr<FootPrint> jleftFootprints;
-        std::shared_ptr<FootPrint> jrightFootprints;
-        StepList jLeftstepList;
-        StepList jRightstepList;
-
-
-        std::vector<StepPhase> jLeftFootPhases;
-        std::vector<StepPhase> jRightFootPhases;
+        m_nominalValues(4)=omega;
 
 
 
+        if (!m_leftInContact.front()) {
+
+            //            for(int var=0;var<m_mergePoints.size(); var++){
+
+            //                yInfo()<<" milad merge point"<<m_mergePoints[var];
+
+            //            }
+            std::vector<std::shared_ptr<GeneralSupportTrajectory>> DCMSubTrajectories;
+            m_trajectoryGenerator->getDCMSubTrajectory(DCMSubTrajectories);
+            int tempsize=DCMSubTrajectories.size();
+            const std::pair<double,double> firstSS=DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
+            const std::pair<double,double> secondSS=DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
 
 
-        if (!m_leftInContact.front() /*&& jRightstepList.size()>1*/) {
+//            if (firstSS.second>=m_time && firstSS.first<=m_time) {
 
-            for(int var=0;var<m_mergePoints.size(); var++){
+                stepTiming =firstSS.second-firstSS.first-m_stepTimingIndexL*m_dT*0;
+                nomStepTiming =firstSS.second-firstSS.first;
+                stepTiming =firstSS.second-firstSS.first-m_stepTimingIndexL*m_dT*0;
+                nomStepTiming =firstSS.second-firstSS.first;
 
-                yInfo()<<" milad merge point"<<m_mergePoints[var];
+                iDynTree::Vector2 zmp1;
+                iDynTree::Vector2 zmpT;
+                DCMSubTrajectories[tempsize-2]->getZMPPosition(0,zmp1,false);
+                DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
 
-            }
-            if(jRightstepList.size()<=1)
-            {
-                yInfo()<<"hmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm";
-
-
-            }
-
-
-             m_trajectoryGenerator->getLeftFootprint(jleftFootprints);
-             m_trajectoryGenerator->getRightFootprint(jrightFootprints);
-
-            jLeftstepList=jleftFootprints->getSteps();
-            jRightstepList=jrightFootprints->getSteps();
-
-            m_trajectoryGenerator->getStepPhases(jLeftFootPhases,jRightFootPhases);
+                sigma=exp(omega*stepTiming);
+                nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
+                stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
 
 
-            if (m_numberStep==1) {
-                stepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+1*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
-                nomStepTiming=(jLeftstepList.at(1).impactTime-m_startOfWalkingTime)/(1+1*switchOverSwingRatio);
+                if (m_stepTimingIndexL==0/*true*/) {
+                    m_tempCoP=m_ZMPPositionDesired.front()(0);//measuredZMP(0);
+                    m_tempDCM=m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
+                }
+                nominalDCMOffset=m_tempDCM-m_tempCoP;//stepLength/(exp(omega*nomStepTiming)-1);
+                m_currentValues(0)=m_tempCoP;
+                m_currentValues(1)=m_tempDCM;
+                m_currentValues(2)=0;
 
-            }
-            else {
-                stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+1*switchOverSwingRatio)-m_stepTimingIndexL*m_dT*0;
-                nomStepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+1*switchOverSwingRatio);
-            }
-
-            sigma=exp(omega*stepTiming);
-            yInfo()<<sigma<<"sigma";
-            nextStepPosition=jRightstepList.at(1).position(0);
-            stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
-
-
-            nominalDCMOffset=stepLength/(exp(omega*nomStepTiming)-1);
-            if (m_stepTimingIndexL==1/*true*/) {
-                //   m_tempCoP=measuredZMP(0);
-                m_tempDCM=m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
-            }
-            currentValues(0)=m_ZMPPositionDesired.front()(0);//m_tempCoP;
-            currentValues(1)=m_tempDCM;
-            currentValues(2)=0;
-
-            nominalValues(0)=nextStepPosition;
-            nominalValues(1)=sigma;
-            nominalValues(2)=nominalDCMOffset;
-            nominalValues(3)=0;
-            m_stepTimingIndexL++;
-            if(m_useStepAdaptation)
-            {
-
-                if(!m_stepAdaptator->RunStepAdaptator(nominalValues,currentValues))
+                m_nominalValues(0)=nextStepPosition;
+                m_nominalValues(1)=sigma;
+                m_nominalValues(2)=nominalDCMOffset;
+                m_nominalValues(3)=0;
+                m_stepTimingIndexL++;
+                if(m_useStepAdaptation)
                 {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
+
+                    if(!m_stepAdaptator->RunStepAdaptator(m_nominalValues,m_currentValues))
+                    {
+                        yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                        return false;
+                    }
+
+
+                    if(!m_stepAdaptator->solve())
+                    {
+                        yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+                        return false;
+                    }
+
+                    if(!m_stepAdaptator->getControllerOutput(leftAdaptedStepParameters))
+                    {
+                        yError() << "[updateModule] Unable to get the step adaptation output.";
+                        return false;
+                    }
+
+                }
+                else{
+                    yInfo()<<"step adaptation is not active";
                 }
 
-
-                if(!m_stepAdaptator->solve())
-                {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
-                }
-
-                if(!m_stepAdaptator->getControllerOutput(leftAdaptedStepParameters))
-                {
-                    yError() << "[updateModule] Unable to get the step adaptation output.";
-                    return false;
-                }
-
-            }
-            else{
-                yInfo()<<"step adaptation is not active";
-            }
+                yInfo()<<"step position"<<leftAdaptedStepParameters(0);
+//            }
+//            else {
+//                yWarning()<<"the timing is not in single support phase but the contact left is false!!!!!"<<firstSS.second<<m_time<< firstSS.first;
+//            }
         }
         else{
             m_stepTimingIndexL=0;
@@ -789,32 +774,6 @@ bool WalkingModule::updateModule()
 
 
 
-        iDynTree::Vector3 rightAdaptedStepParameters;
-        if (!m_rightInContact.front() && jLeftstepList.size()>1) {/*3==static_cast<int>(jRightFootPhases[indexmilad])*/
-
-            m_numberStep=m_numberStep+1;
-            stepTiming=(jLeftstepList.at(1).impactTime-jRightstepList.at(0).impactTime)/(1+switchOverSwingRatio);
-            sigma=exp(omega*stepTiming);
-            nextStepPosition=jLeftstepList.at(1).position(0);
-            stepLength=(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
-            nominalDCMOffset=stepLength/(exp(omega*stepTiming)-1);
-            //            // Step Adaptator
-
-            //            currentValues(0)=measuredZMP(0);
-            //            currentValues(1)=measuredDCM(0);
-            //            currentValues(2)=0;            nominalValues(0)=nextStepPosition;
-
-            //            nominalValues(0)=nextStepPosition;
-            //            nominalValues(1)=sigma;
-            //            nominalValues(3)=m_DCMPositionDesired[m_mergePoints.front()](0);
-            //            nominalValues(2)=nominalDCMOffset;
-
-
-
-        }
-        else{
-            //    yInfo()<<"this is not left SS";
-        }
 
 
 
@@ -1024,7 +983,7 @@ bool WalkingModule::updateModule()
         {
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
-            m_walkingLogger->sendData(leftAdaptedStepParameters,nominalValues,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
+            m_walkingLogger->sendData(leftAdaptedStepParameters,m_nominalValues,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
                                       measuredZMP, desiredZMP, measuredCoM,
                                       desiredCoMPositionXY, desiredCoMVelocityXY,
                                       leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
@@ -1347,6 +1306,10 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     std::vector<size_t> mergePoints;
     std::vector<bool> isLeftFixedFrame;
 
+
+
+
+    //m_trajectoryGenerator->
     // get dcm position and velocity
     m_trajectoryGenerator->getDCMPositionTrajectory(DCMPositionDesired);
     m_trajectoryGenerator->getDCMVelocityTrajectory(DCMVelocityDesired);
@@ -1383,11 +1346,11 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     StdHelper::appendVectorToDeque(comHeightVelocity, m_comHeightVelocity, mergePoint);
 
     m_mergePoints.assign(mergePoints.begin(), mergePoints.end());
-    for(int var=0;var<m_mergePoints.size(); var++){
+    //    for(int var=0;var<m_mergePoints.size(); var++){
 
-        yInfo()<<"merge point"<<m_mergePoints[var];
+    //        yInfo()<<"merge point"<<m_mergePoints[var];
 
-    }
+    //    }
 
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();

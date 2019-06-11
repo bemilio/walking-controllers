@@ -62,6 +62,8 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
  int m_stepTimingIndexL;
  double m_tempCoP;
   double m_tempDCM;
+  iDynTree::VectorFixSize<5> m_nominalValues;
+  iDynTree::Vector3 m_currentValues;
    iDynTree::Vector3 leftAdaptedStepParameters;
 
     //following three lines  added for filtering the global zmp to decrease the vibration during walking
