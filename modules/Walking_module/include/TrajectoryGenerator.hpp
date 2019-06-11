@@ -166,6 +166,13 @@ public:
     bool getDCMVelocityTrajectory(std::vector<iDynTree::Vector2>& DCMVelocityTrajectory);
 
     /**
+     * Get the desired trajectories
+     * @param dcmSubTrajectories desired trajectories.
+     * @return true/false in case of success/failure.
+     */
+    bool getDCMSubTrajectory(std::vector<std::shared_ptr<GeneralSupportTrajectory>>& dcmSubTrajectories);
+
+    /**
      * Get the feet trajectory
      * @param lFootTrajectory vector containing the left foot trajectory;
      * @param rFootTrajectory vector containing the right foot trajectory.
