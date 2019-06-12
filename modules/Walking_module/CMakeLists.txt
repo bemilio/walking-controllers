@@ -61,6 +61,7 @@ set(${EXE_TARGET_NAME}_SRC
   src/RetargetingClient.cpp
   src/QPSolver.cpp
   src/StepAdaptator.cpp
+  src/ContactWrenchMapping.cpp
   )
 
 # set hpp files
@@ -81,6 +82,7 @@ set(${EXE_TARGET_NAME}_HDR
   include/RetargetingClient.hpp
   include/QPSolver.hpp
   include/StepAdaptator.hpp
+  include/ContactWrenchMapping.hpp
   )
 
 # add include directories to the build.
@@ -107,6 +109,7 @@ target_link_libraries(${EXE_TARGET_NAME}
   UnicyclePlanner
   UtilityLibrary
   LoggerClient
+  walkingConstraintLibrary
   OsqpEigen::OsqpEigen
   osqp::osqp
   Threads::Threads
