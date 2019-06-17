@@ -14,8 +14,9 @@
 #include <StepAdaptator.hpp>
 #include <Utils.hpp>
 
+
 bool StepAdaptator::initialize(const yarp::os::Searchable &config){
-//This method will be called in configure function of walkingmodule
+    //This method will be called in configure function of walkingmodule
     yarp::os::Value gains = config.find("cost_function_gains");
 
     if(!(gains.isNull()))
@@ -141,6 +142,115 @@ bool StepAdaptator::getControllerOutput(iDynTree::Vector3& controllerOutput)
 
     m_isSolutionEvaluated = false;
     controllerOutput = m_outputStepAdaptator;
+    return true;
+}
+
+
+bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iDynTree::Transform& adaptatedFootTransform,iDynTree::Twist& adaptedFootTwist, const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,const iDynTree::Transform& finalFootTransform,const double& timePassed ){
+//remember you should also add acceleration as output!!!!
+
+    if (timePassed<=((timePassed+m_outputStepAdaptator(0))/2)) {
+        m_zPositionsBuffer(3);
+        m_zTimesBuffer(3);
+
+        m_zTimesBuffer(0)=0.0;
+        m_zTimesBuffer(1)=(timePassed+m_outputStepAdaptator(0))/2;
+        m_zTimesBuffer(2)=m_outputStepAdaptator(1);
+
+        m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
+        m_zPositionsBuffer(1)=maxFootHeight;
+        m_zPositionsBuffer(2)= finalFootTransform.getPosition()(2);
+    }
+    else {
+        m_zPositionsBuffer(2);
+        m_zTimesBuffer(2);
+
+        m_zTimesBuffer(0)=0.0;
+        m_zTimesBuffer(1)=m_outputStepAdaptator(1);
+
+        m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
+        m_zPositionsBuffer(1)= finalFootTransform.getPosition()(2);
+    }
+
+    m_xPositionsBuffer(0)= currentFootTransform.getPosition()(0);
+    m_yPositionsBuffer(0)= currentFootTransform.getPosition()(1);
+
+    m_yawsBuffer(0)=currentFootTransform.getRotation().asRPY()(2);
+
+    m_xPositionsBuffer(1)= m_outputStepAdaptator(0);
+    m_yPositionsBuffer(1)= finalFootTransform.getPosition()(1);
+
+    m_yawsBuffer(1)=finalFootTransform.getRotation().asRPY()(2);
+
+    m_timesBuffer(0) = 0.0;
+    m_timesBuffer(1) = m_outputStepAdaptator(1);
+
+    double yawAngle;
+    iDynTree::CubicSpline xSpline, ySpline, zSpline, yawSpline;
+    iDynTree::AngularMotionVector3 rightTrivializedAngVelocity;
+    iDynTree::Vector3 rpyDerivativeCurrent;
+    iDynTree::Vector3 rpyDerivative;
+    iDynTree::toEigen(rpyDerivativeCurrent)= iDynTree::toEigen(iDynTree::Rotation::RPYRightTrivializedDerivativeInverse(0.0, 0.0, m_yawsBuffer(0))) * iDynTree::toEigen(currentFootTwist.getAngularVec3());
+
+    xSpline.setInitialConditions(currentFootTwist.getLinearVec3()(0), 0.0);
+    ySpline.setInitialConditions(currentFootTwist.getLinearVec3()(1), 0.0);
+    zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
+    yawSpline.setInitialConditions(rpyDerivativeCurrent(2), 0.0);
+
+    xSpline.setFinalConditions(0.0,0.0);
+    ySpline.setFinalConditions(0.0,0.0);
+    zSpline.setFinalConditions(0.0,0.0);
+    yawSpline.setFinalConditions(0.0, 0.0);
+
+
+
+
+    if (!xSpline.setData(m_timesBuffer, m_xPositionsBuffer)){
+        std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the x-dimension spline." << std::endl;
+        return false;
+    }
+    if (!ySpline.setData(m_timesBuffer, m_yPositionsBuffer)){
+        std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the y-dimension spline." << std::endl;
+        return false;
+    }
+    if (!zSpline.setData(m_timesBuffer, m_zPositionsBuffer)){
+        std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
+        return false;
+    }
+    if (!yawSpline.setData(m_timesBuffer, m_yawsBuffer)){
+        std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the yaw-dimension spline." << std::endl;
+        return false;
+    }
+
+
+
+
+
+
+    iDynTree::Transform newTransform;
+    iDynTree::Position newPosition;
+    iDynTree::Vector3 linearVelocity;
+    iDynTree::Vector3 linearAcceleration;
+    iDynTree::Vector3 rpySecondDerivative;
+
+//adaptatedFootTransform
+    newPosition(0) = xSpline.evaluatePoint(dt, linearVelocity(0), linearAcceleration(0));
+    newPosition(1) = ySpline.evaluatePoint(dt, linearVelocity(1), linearAcceleration(1));
+    newPosition(2) = zSpline.evaluatePoint(dt, linearVelocity(2), linearAcceleration(2));
+
+    yawAngle = yawSpline.evaluatePoint(dt, rpyDerivative(2), rpySecondDerivative(2));
+
+    adaptatedFootTransform.setPosition(newPosition);
+    adaptatedFootTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0, yawAngle));
+
+    rpyDerivative(0)=0;
+    rpyDerivative(1)=0;
+
+    iDynTree::toEigen(rightTrivializedAngVelocity) = iDynTree::toEigen(iDynTree::Rotation::RPYRightTrivializedDerivative(0.0, 0.0, yawAngle)) *iDynTree::toEigen(rpyDerivative);
+    adaptedFootTwist.setLinearVec3(linearVelocity);
+    adaptedFootTwist.setAngularVec3(rightTrivializedAngVelocity);
+
+
     return true;
 }
 
