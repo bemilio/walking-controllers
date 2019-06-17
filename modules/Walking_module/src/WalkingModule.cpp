@@ -697,14 +697,14 @@ bool WalkingModule::updateModule()
             //                yInfo()<<" milad merge point"<<m_mergePoints[var];
 
             //            }
-            std::vector<std::shared_ptr<GeneralSupportTrajectory>> DCMSubTrajectories;
-            m_trajectoryGenerator->getDCMSubTrajectory(DCMSubTrajectories);
-            int tempsize=DCMSubTrajectories.size();
-            const std::pair<double,double> firstSS=DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
-            const std::pair<double,double> secondSS=DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
 
-            const std::pair<double,double> secondDS=DCMSubTrajectories[tempsize-3]->getTrajectoryDomain();
-            const std::pair<double,double> firstDS=DCMSubTrajectories[tempsize-1]->getTrajectoryDomain();
+
+            int tempsize=m_DCMSubTrajectories.size();
+            const std::pair<double,double> firstSS=m_DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
+            const std::pair<double,double> secondSS=m_DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
+
+            const std::pair<double,double> secondDS=m_DCMSubTrajectories[tempsize-3]->getTrajectoryDomain();
+            const std::pair<double,double> firstDS=m_DCMSubTrajectories[tempsize-1]->getTrajectoryDomain();
             //const std::pair<double,double> firstDS=;
 
 //            double timeDS;
@@ -715,7 +715,7 @@ bool WalkingModule::updateModule()
             //                nomStepTiming =firstSS.second-firstSS.first;
             //                stepTiming =firstSS.second-firstSS.first-m_stepTimingIndexL*m_dT*0;
             //                nomStepTiming =firstSS.second-firstSS.first;
-            stepTiming =firstSS.second-firstDS.first-m_stepTimingIndexL*m_dT*0;
+            stepTiming =(secondDS.first + secondDS.second) / 2 - (firstDS.first + firstDS.second) / 2;
             double timeAlpha=(secondDS.second+secondDS.first)/2;
 //            yInfo()<<secondDS.first<<"second"<<secondDS.second<<secondSS.first<<secondSS.second<<ttt;
            // yInfo()<<firstDS.first<<"first"<<firstDS.second<<firstSS.first<<firstSS.second<<ttt;
@@ -724,10 +724,10 @@ bool WalkingModule::updateModule()
             iDynTree::Vector2 DCMT;
             iDynTree::Vector2 DCM1;
 
-            DCMSubTrajectories[tempsize-2]->getZMPPosition(0,zmp1,false);
-            DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
-            DCMSubTrajectories[tempsize-2]->getDCMPosition(0,DCM1,false);
-            DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
+          m_DCMSubTrajectories[tempsize-2]->getZMPPosition(0,zmp1,false);
+          m_DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
+          m_DCMSubTrajectories[tempsize-2]->getDCMPosition((firstDS.first + firstDS.second) / 2,DCM1,false);
+          m_DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
 
             sigma=exp(omega*stepTiming);
             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
@@ -1375,6 +1375,8 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     //        yInfo()<<"merge point"<<m_mergePoints[var];
 
     //    }
+m_DCMSubTrajectories.clear();
+m_trajectoryGenerator->getDCMSubTrajectory(m_DCMSubTrajectories);
 
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();
