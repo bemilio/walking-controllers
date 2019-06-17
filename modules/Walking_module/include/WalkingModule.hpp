@@ -55,6 +55,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
 
     double m_dT; /**< RFModule period. */
     double m_time; /**< Current time. */
+     double m_stepHeight;
     std::string m_robot; /**< Robot name. */
     double m_startOfWalkingTime;
     int m_numberStep;

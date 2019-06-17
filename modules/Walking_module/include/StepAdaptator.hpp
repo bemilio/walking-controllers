@@ -29,6 +29,12 @@
 // solver
 #include <QPSolver.hpp>
 
+//interpolation
+#include <iDynTree/Core/CubicSpline.h>
+#include <iDynTree/Core/Twist.h>
+#include <iDynTree/Core/EigenHelpers.h>
+
+
 /**
  * StepAdaptator class contains the controller instances.
  */
@@ -54,6 +60,9 @@ class StepAdaptator
 
     int m_inputSize;  /**< Size of the input vector. It is equal to 3 now!!!!. */
     int m_numberOfConstraint;  /**< Size of the input vector. It is equal to 5 now!!!!. */
+
+    iDynTree::VectorDynSize m_xPositionsBuffer, m_yPositionsBuffer, m_zPositionsBuffer, m_yawsBuffer, m_timesBuffer, m_zTimesBuffer;
+
 
     std::pair<bool, bool> m_feetStatus; /**< Current status of the feet. Left and Right. True is used
                                            if the foot is in contact. */
@@ -105,6 +114,7 @@ public:
      * @return true/false in case of success/failure.
      */
     bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues);
+    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed);
 };
 
 #endif
