@@ -62,6 +62,7 @@ set(${EXE_TARGET_NAME}_SRC
   src/QPSolver.cpp
   src/StepAdaptator.cpp
   src/ContactWrenchMapping.cpp
+  src/WalkingAdmittanceController.cpp
   )
 
 # set hpp files
@@ -83,6 +84,7 @@ set(${EXE_TARGET_NAME}_HDR
   include/QPSolver.hpp
   include/StepAdaptator.hpp
   include/ContactWrenchMapping.hpp
+  include/WalkingAdmittanceController.hpp
   )
 
 # add include directories to the build.
