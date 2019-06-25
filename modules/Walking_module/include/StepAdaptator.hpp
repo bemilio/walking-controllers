@@ -61,7 +61,7 @@ class StepAdaptator
     int m_inputSize;  /**< Size of the input vector. It is equal to 3 now!!!!. */
     int m_numberOfConstraint;  /**< Size of the input vector. It is equal to 5 now!!!!. */
 
-    iDynTree::VectorDynSize m_xPositionsBuffer, m_yPositionsBuffer, m_zPositionsBuffer, m_yawsBuffer, m_timesBuffer, m_zTimesBuffer;
+    iDynTree::VectorDynSize m_xPositionsBuffer, m_yPositionsBuffer, m_zPositionsBuffer,m_zzPositionsBuffer, m_yawsBuffer, m_timesBuffer, m_zTimesBuffer,m_zzTimesBuffer;
 
 
     std::pair<bool, bool> m_feetStatus; /**< Current status of the feet. Left and Right. True is used
@@ -82,6 +82,7 @@ class StepAdaptator
 
 public:
 
+    StepAdaptator();
     /**
      * Initialize the method
      * @param config yarp searchable configuration variable.
@@ -114,7 +115,7 @@ public:
      * @return true/false in case of success/failure.
      */
     bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues);
-    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed);
+    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt,const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed);
 };
 
 #endif
