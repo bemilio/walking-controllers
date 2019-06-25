@@ -14,6 +14,23 @@
 #include <StepAdaptator.hpp>
 #include <Utils.hpp>
 
+StepAdaptator::StepAdaptator()
+    : m_xPositionsBuffer(2)
+    , m_yPositionsBuffer(2)
+    , m_zPositionsBuffer(3)
+    , m_zzPositionsBuffer(2)
+    , m_yawsBuffer(2)
+    , m_timesBuffer(2)
+    , m_zTimesBuffer(3)
+    ,m_zzTimesBuffer(2)
+    //    , xSpline(2)
+    //    , ySpline(2)
+    //    , zSpline(3)
+    //    , yawSpline(2)
+{}
+
+
+
 
 bool StepAdaptator::initialize(const yarp::os::Searchable &config){
     //This method will be called in configure function of walkingmodule
@@ -146,30 +163,50 @@ bool StepAdaptator::getControllerOutput(iDynTree::Vector3& controllerOutput)
 }
 
 
-bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iDynTree::Transform& adaptatedFootTransform,iDynTree::Twist& adaptedFootTwist, const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,const iDynTree::Transform& finalFootTransform,const double& timePassed ){
-//remember you should also add acceleration as output!!!!
+bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,const iDynTree::VectorFixSize<5>& nominalValues,iDynTree::Transform& adaptatedFootTransform,iDynTree::Twist& adaptedFootTwist, const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,const iDynTree::Transform& finalFootTransform,const double& timePassed ){
+    //remember you should also add acceleration as output!!!!
+    iDynTree::CubicSpline xSpline, ySpline, zSpline, yawSpline;
 
-    if (timePassed<=((timePassed+m_outputStepAdaptator(0))/2)) {
-        m_zPositionsBuffer(3);
-        m_zTimesBuffer(3);
+
+    if (timePassed<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)+0.005) {
+        yInfo()<<"timinghhhh"<<log(m_outputStepAdaptator(1))/nominalValues(4)<<m_outputStepAdaptator(1);
+
 
         m_zTimesBuffer(0)=0.0;
-        m_zTimesBuffer(1)=(timePassed+m_outputStepAdaptator(0))/2;
-        m_zTimesBuffer(2)=m_outputStepAdaptator(1);
+        m_zTimesBuffer(1)=(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2;
+        m_zTimesBuffer(2)=log(m_outputStepAdaptator(1))/nominalValues(4);
 
         m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
         m_zPositionsBuffer(1)=maxFootHeight;
         m_zPositionsBuffer(2)= finalFootTransform.getPosition()(2);
+
+        zSpline.setFinalConditions(0.0,0.0);
+        zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
+
+        if (!zSpline.setData(m_zTimesBuffer, m_zPositionsBuffer)){
+            std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
+            return false;
+        }
     }
-    else {
-        m_zPositionsBuffer(2);
-        m_zTimesBuffer(2);
+    else if (timePassed>((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)+0.005 && timePassed<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)-0.005) {
 
-        m_zTimesBuffer(0)=0.0;
-        m_zTimesBuffer(1)=m_outputStepAdaptator(1);
+    }
 
-        m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
-        m_zPositionsBuffer(1)= finalFootTransform.getPosition()(2);
+    else{
+
+
+
+        m_zzTimesBuffer(0)=0.0;
+        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4);
+        iDynTree::Position PositionsBuffer=currentFootTransform.getPosition();
+        m_zzPositionsBuffer(0)=PositionsBuffer(2);
+        m_zzPositionsBuffer(1)= finalFootTransform.getPosition()(2);
+        zSpline.setFinalConditions(0.0,0.0);
+        zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
+        if (!zSpline.setData(m_zzTimesBuffer, m_zzPositionsBuffer)){
+            std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
+            return false;
+        }
     }
 
     m_xPositionsBuffer(0)= currentFootTransform.getPosition()(0);
@@ -183,10 +220,10 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iD
     m_yawsBuffer(1)=finalFootTransform.getRotation().asRPY()(2);
 
     m_timesBuffer(0) = 0.0;
-    m_timesBuffer(1) = m_outputStepAdaptator(1);
+    m_timesBuffer(1) = log(m_outputStepAdaptator(1))/nominalValues(4);
 
     double yawAngle;
-    iDynTree::CubicSpline xSpline, ySpline, zSpline, yawSpline;
+
     iDynTree::AngularMotionVector3 rightTrivializedAngVelocity;
     iDynTree::Vector3 rpyDerivativeCurrent;
     iDynTree::Vector3 rpyDerivative;
@@ -194,14 +231,11 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iD
 
     xSpline.setInitialConditions(currentFootTwist.getLinearVec3()(0), 0.0);
     ySpline.setInitialConditions(currentFootTwist.getLinearVec3()(1), 0.0);
-    zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
     yawSpline.setInitialConditions(rpyDerivativeCurrent(2), 0.0);
 
     xSpline.setFinalConditions(0.0,0.0);
     ySpline.setFinalConditions(0.0,0.0);
-    zSpline.setFinalConditions(0.0,0.0);
     yawSpline.setFinalConditions(0.0, 0.0);
-
 
 
 
@@ -213,17 +247,11 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iD
         std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the y-dimension spline." << std::endl;
         return false;
     }
-    if (!zSpline.setData(m_timesBuffer, m_zPositionsBuffer)){
-        std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
-        return false;
-    }
+
     if (!yawSpline.setData(m_timesBuffer, m_yawsBuffer)){
         std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the yaw-dimension spline." << std::endl;
         return false;
     }
-
-
-
 
 
 
@@ -233,7 +261,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,iD
     iDynTree::Vector3 linearAcceleration;
     iDynTree::Vector3 rpySecondDerivative;
 
-//adaptatedFootTransform
+    //adaptatedFootTransform
     newPosition(0) = xSpline.evaluatePoint(dt, linearVelocity(0), linearAcceleration(0));
     newPosition(1) = ySpline.evaluatePoint(dt, linearVelocity(1), linearAcceleration(1));
     newPosition(2) = zSpline.evaluatePoint(dt, linearVelocity(2), linearAcceleration(2));
