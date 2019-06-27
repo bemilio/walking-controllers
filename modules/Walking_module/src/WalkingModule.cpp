@@ -730,6 +730,7 @@ bool WalkingModule::updateModule()
             m_DCMSubTrajectories[tempsize-2]->getDCMPosition(/*(firstDS.first + firstDS.second) / 2*/firstSS.first+m_stepTimingIndexL*m_dT*1,DCM1,false);
             m_DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
 
+
             sigma=exp(omega*stepTiming);
             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
             stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
@@ -741,7 +742,7 @@ bool WalkingModule::updateModule()
             }
             m_tempDCM=DCM1(0);
             if (m_stepTimingIndexL>=20) {
-             m_tempDCM=DCM1(0)+0;
+             m_tempDCM=DCM1(0)+0.1;
             }
 
             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
