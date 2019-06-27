@@ -729,6 +729,7 @@ bool WalkingModule::updateModule()
             m_DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
             m_DCMSubTrajectories[tempsize-2]->getDCMPosition(/*(firstDS.first + firstDS.second) / 2*/firstSS.first+m_stepTimingIndexL*m_dT*1,DCM1,false);
             m_DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
+            
 
             sigma=exp(omega*stepTiming);
             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);

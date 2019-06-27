@@ -152,6 +152,7 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &no
         m_lowerBound<<1*currentValuesVector(0),
                 (nominalValuesVector(0)-tolerenceOfBounds(1)),
                 exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+        yInfo()<<"miladddd cherra"<<"chera"<<StepDuration-tolerenceOfBounds(3);
 //    }
 //    else
 //    {

@@ -30,6 +30,8 @@ class QPSolver
     Eigen::VectorXd m_lowerBound; /**< Lower bound vector. */
     Eigen::VectorXd m_upperBound; /**< Upper bound vector. */
 
+
+    int m_shirinkingBoundIndexL;
     int m_inputSize; /**< Size of the controlled input vector (2). */
 
     /**
@@ -123,7 +125,7 @@ public:
      * @param tolerenceOfBounds This vector includes the tolerence between nominal value and the maximum and minimum value constraint    ;
      * @return true/false in case of success/failure.
      */
-    bool setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5>& nominalValuesVector, const iDynTree::Vector3 &currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds);
+    bool setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5>& nominalValuesVector, const iDynTree::Vector3 &currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds, const double deltaDS, const double timeRemained, const int index);
 };
 
 #endif
