@@ -44,6 +44,9 @@ class StepAdaptator
      * The value of change of the ZMP during single support phase
      */
     double m_delta;
+
+
+
     /**
      * The vector of the tolerance of the bound of inequality constraint relative to nominal value.
      */
@@ -114,8 +117,8 @@ public:
      * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
      * @return true/false in case of success/failure.
      */
-    bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues);
-    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt,const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed);
+    bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues, const double deltaDS, const double remainedTime, const int index);
+    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed, const double deltaDS);
 };
 
 #endif

@@ -14,7 +14,7 @@ QPSolver::QPSolver(const int& inputSize,
     // instantiate the solver class
     m_QPSolver = std::make_unique<OsqpEigen::Solver>();
 
-
+  m_shirinkingBoundIndexL=0;
     //set the number of deceision variables of QP problem
     m_QPSolver->data()->setNumberOfVariables(inputSize);
 
@@ -109,7 +109,7 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector
     return true;
 }
 
-bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &nominalValuesVector,const iDynTree::Vector3& currentValuesVector,const iDynTree::Vector4& tolerenceOfBounds){
+bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &nominalValuesVector, const iDynTree::Vector3& currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds, const double deltaDS,const double timeremained,const int index){
 
     //    Eigen::Vector5d lowerBounds;
     //  Eigen::VectorFix upperBounds;
@@ -125,6 +125,8 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &no
     //yInfo()<<StepDuration<<StepDuration<<StepDuration<<StepDuration<<StepDuration;
 
 
+
+    // yInfo()<<"miladddd cherra"<<"chera"<<StepDuration-tolerenceOfBounds(3);
     m_upperBound<<1*currentValuesVector(0),
             (nominalValuesVector(0)+tolerenceOfBounds(0)),
             exp((StepDuration+tolerenceOfBounds(2))*nominalValuesVector(4));
@@ -144,14 +146,25 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5> &no
 //        }
 
 
-            if((StepDuration-tolerenceOfBounds(3))<-0.0001){
+//            if((StepDuration-tolerenceOfBounds(3))<-0.0001){
 
-  //            yInfo()<<StepDuration<<"ajaaaaaaaaaaaaaaaaaaaaaaab";
-            }
+//  //            yInfo()<<StepDuration<<"ajaaaaaaaaaaaaaaaaaaaaaaab";
+//            }
 
+
+double timingTolerence=tolerenceOfBounds(3);
+
+if (index==0) {
+m_shirinkingBoundIndexL=0;
+}
+if (timeremained<=timingTolerence+deltaDS) {
+m_shirinkingBoundIndexL=m_shirinkingBoundIndexL+1;
+timingTolerence=timingTolerence-m_shirinkingBoundIndexL*0.01-0.01;
+}
+//yInfo()<<"new tolerence"<<timingTolerence<<timingTolerence+deltaDS<<StepDuration<<timeremained<<"step duration"<<m_shirinkingBoundIndexL<<"index";
         m_lowerBound<<1*currentValuesVector(0),
                 (nominalValuesVector(0)-tolerenceOfBounds(1)),
-                exp((StepDuration-tolerenceOfBounds(3))*nominalValuesVector(4));
+                exp((StepDuration-timingTolerence)*nominalValuesVector(4));
 //    }
 //    else
 //    {

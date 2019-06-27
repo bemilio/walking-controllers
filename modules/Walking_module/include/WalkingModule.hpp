@@ -62,6 +62,7 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     int m_numberStep;
     int indexmilad;
     int m_stepTimingIndexL;
+
     iDynTree::Twist m_adaptatedFootLeftTwist;
     double m_tempCoP;
     double m_tempDCM;

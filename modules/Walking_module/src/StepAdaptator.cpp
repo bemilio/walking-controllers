@@ -100,13 +100,13 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config){
 }
 
 
-bool StepAdaptator::RunStepAdaptator(const iDynTree::VectorFixSize<5>& nominalValues,const iDynTree::Vector3& currentValues)
+bool StepAdaptator::RunStepAdaptator(const iDynTree::VectorFixSize<5>& nominalValues,const iDynTree::Vector3& currentValues,const double deltaDS,const double remainedTime,const int index)
 {
     if (!m_currentQPSolver->setGradientVector(m_gainVector,nominalValues)) {
         yError() << "[StepAdaptator::RunStepAdaptator] Unable to set the Gradient Vector";
         return false;
     }
-    if (!m_currentQPSolver->setBoundsVectorOfConstraints(nominalValues,currentValues,m_constraintTolerance)) {
+    if (!m_currentQPSolver->setBoundsVectorOfConstraints(nominalValues,currentValues,m_constraintTolerance,deltaDS,remainedTime,index)) {
         yError() << "[StepAdaptator::RunStepAdaptator] Unable to set the Bounds Vector Of Constraints";
         return false;
     }
@@ -163,46 +163,45 @@ bool StepAdaptator::getControllerOutput(iDynTree::Vector3& controllerOutput)
 }
 
 
-bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,const iDynTree::VectorFixSize<5>& nominalValues,iDynTree::Transform& adaptatedFootTransform,iDynTree::Twist& adaptedFootTwist, const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,const iDynTree::Transform& finalFootTransform,const double& timePassed ){
+bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,const iDynTree::VectorFixSize<5>& nominalValues,iDynTree::Transform& adaptatedFootTransform,iDynTree::Twist& adaptedFootTwist, const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,const iDynTree::Transform& finalFootTransform,const double& timePassed, const double deltaDS ){
     //remember you should also add acceleration as output!!!!
     iDynTree::CubicSpline xSpline, ySpline, zSpline, yawSpline;
-
-
-    if (timePassed<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)+0.005) {
-        yInfo()<<"timinghhhh"<<log(m_outputStepAdaptator(1))/nominalValues(4)<<m_outputStepAdaptator(1);
-
+    //yInfo()<<maxFootHeight<<"maxxxxx fooottt height";
+    if (timePassed<=((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)*0.8)) {
+        //     yInfo()<<"okkkkkk"<<(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2;
+        //yInfo()<<"salam00"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<dt;
+        //yInfo()<<currentFootTwist.getLinearVec3()(2)<<"velocity z";
 
         m_zTimesBuffer(0)=0.0;
-        m_zTimesBuffer(1)=(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2;
-        m_zTimesBuffer(2)=log(m_outputStepAdaptator(1))/nominalValues(4);
-
+        m_zTimesBuffer(1)=(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)*0.8-timePassed;
+        m_zTimesBuffer(2)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
+        yInfo()<<m_zTimesBuffer(0)<<m_zTimesBuffer(1)<<m_zTimesBuffer(2)<<"timeeeeeeeeee00000";
         m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
         m_zPositionsBuffer(1)=maxFootHeight;
         m_zPositionsBuffer(2)= finalFootTransform.getPosition()(2);
 
-        zSpline.setFinalConditions(0.0,0.0);
         zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
+        zSpline.setFinalConditions(0.0,0.0);
+
 
         if (!zSpline.setData(m_zTimesBuffer, m_zPositionsBuffer)){
             std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
             return false;
         }
     }
-    else if (timePassed>((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)+0.005 && timePassed<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2)-0.005) {
 
-    }
 
     else{
-
-
-
         m_zzTimesBuffer(0)=0.0;
-        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4);
+        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
         iDynTree::Position PositionsBuffer=currentFootTransform.getPosition();
         m_zzPositionsBuffer(0)=PositionsBuffer(2);
         m_zzPositionsBuffer(1)= finalFootTransform.getPosition()(2);
-        zSpline.setFinalConditions(0.0,0.0);
+        yInfo()<<m_zzTimesBuffer(0)<<m_zzTimesBuffer(1)<<deltaDS<<m_outputStepAdaptator(1)<<"timeeeeeeeeee111111";
+        yInfo()<<"salam11"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<PositionsBuffer(2)<<currentFootTwist.getLinearVec3()(2);
         zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
+        zSpline.setFinalConditions(0.0,0.0);
+
         if (!zSpline.setData(m_zzTimesBuffer, m_zzPositionsBuffer)){
             std::cerr << "[StepAdaptator::getAdaptatedFootTrajectory] Failed to initialize the z-dimension spline." << std::endl;
             return false;
