@@ -169,7 +169,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
     //yInfo()<<maxFootHeight<<"maxxxxx fooottt height";
     if (timePassed<=((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)*0.8)) {
         //     yInfo()<<"okkkkkk"<<(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2;
-        //yInfo()<<"salam00"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<dt;
+        yInfo()<<"salam00"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<dt;
         //yInfo()<<currentFootTwist.getLinearVec3()(2)<<"velocity z";
 
         m_zTimesBuffer(0)=0.0;
@@ -193,7 +193,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
 
     else{
         m_zzTimesBuffer(0)=0.0;
-        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
+        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS+0.01;
         iDynTree::Position PositionsBuffer=currentFootTransform.getPosition();
         m_zzPositionsBuffer(0)=PositionsBuffer(2);
         m_zzPositionsBuffer(1)= finalFootTransform.getPosition()(2);
@@ -213,13 +213,13 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
 
     m_yawsBuffer(0)=currentFootTransform.getRotation().asRPY()(2);
 
-    m_xPositionsBuffer(1)= m_outputStepAdaptator(0);
+    m_xPositionsBuffer(1)= m_outputStepAdaptator(0)-0.03;
     m_yPositionsBuffer(1)= finalFootTransform.getPosition()(1);
 
     m_yawsBuffer(1)=finalFootTransform.getRotation().asRPY()(2);
 
     m_timesBuffer(0) = 0.0;
-    m_timesBuffer(1) = log(m_outputStepAdaptator(1))/nominalValues(4);
+    m_timesBuffer(1) = log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS+0.02;
 
     double yawAngle;
 
