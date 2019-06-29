@@ -62,19 +62,27 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     int m_numberStep;
     int indexmilad;
     int m_stepTimingIndexL;
+    int m_stepTimingIndexR;
 
-    iDynTree::Twist m_adaptatedFootLeftTwist;
+
     double m_tempCoP;
     double m_tempDCM;
-    iDynTree::VectorFixSize<5> m_nominalValues;
+    iDynTree::VectorFixSize<5> m_nominalValuesLeft;
+    iDynTree::VectorFixSize<5> m_nominalValuesRight;
     iDynTree::Vector3 m_currentValues;
     iDynTree::Vector3 leftAdaptedStepParameters;
     std::vector<std::shared_ptr<GeneralSupportTrajectory>> m_DCMSubTrajectories;
-            iDynTree::Transform m_adaptatedFootLeftTransform;
+    iDynTree::Transform m_adaptatedFootLeftTransform;
+    iDynTree::Twist m_adaptatedFootLeftTwist;
+    std::shared_ptr<FootPrint> m_jleftFootprints;
+    StepList m_jLeftstepList;
 
-            std::shared_ptr<FootPrint> m_jleftFootprints;
+    iDynTree::Vector3 rightAdaptedStepParameters;
+    iDynTree::Transform m_adaptatedFootRightTransform;
+    iDynTree::Twist m_adaptatedFootRightTwist;
+    std::shared_ptr<FootPrint> m_jRightFootprints;
+    StepList m_jRightstepList;
 
-            StepList m_jLeftstepList;
     //following three lines  added for filtering the global zmp to decrease the vibration during walking
     yarp::sig::Vector m_zmpFiltered; /**< Vector containing the filtered evaluated ZMP. */
     std::unique_ptr<iCub::ctrl::FirstOrderLowPassFilter> m_ZMPFilter; /**< ZMP low pass filter .*/
