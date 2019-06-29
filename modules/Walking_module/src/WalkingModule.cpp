@@ -126,6 +126,22 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 
     m_nominalValuesLeft.zero();
     m_nominalValuesRight.zero();
+    m_currentValues.zero();
+
+    m_adaptatedFootLeftTwist.zero();
+    m_adaptatedFootRightTwist.zero();
+    m_currentFootLeftTwist.zero();
+    m_currentFootRightTwist.zero();
+
+    iDynTree::Position tempTemp;
+    iDynTree::Rotation tempRot;
+//    tempRot.
+    tempTemp.zero();
+    m_adaptatedFootLeftTransform.setPosition(tempTemp);
+    m_currentFootLeftTransform.setPosition(tempTemp);
+
+    m_adaptatedFootRightTransform.setPosition(tempTemp);
+    m_currentFootRightTransform.setPosition(tempTemp);
     m_numberStep=1;
     m_stepTimingIndexL=0;
     m_stepTimingIndexR=0;
@@ -424,21 +440,21 @@ bool WalkingModule::solveQPIK(const std::unique_ptr<WalkingQPIK>& solver, const 
     iDynTree::LinVelocity newRightFootVel;
     iDynTree::LinVelocity newLeftFootVel;
 
-    newLeftFoot(0)=m_adaptatedFootLeftTransform.getPosition()(0);
+    newLeftFoot(0)=m_currentFootLeftTransform.getPosition()(0);
     newLeftFoot(1)=m_leftTrajectory.front().getPosition()(1);
-    newLeftFoot(2)=m_adaptatedFootLeftTransform.getPosition()(2);
+    newLeftFoot(2)=m_currentFootLeftTransform.getPosition()(2);
 
-    newRightFoot(0)=m_adaptatedFootRightTransform.getPosition()(0);
+    newRightFoot(0)=m_currentFootRightTransform.getPosition()(0);
     newRightFoot(1)=m_rightTrajectory.front().getPosition()(1);
-    newRightFoot(2)=m_adaptatedFootRightTransform.getPosition()(2);
+    newRightFoot(2)=m_currentFootRightTransform.getPosition()(2);
 
-    newLeftFootVel(0)=m_adaptatedFootLeftTwist.getLinearVec3()(0);
+    newLeftFootVel(0)=m_currentFootLeftTwist.getLinearVec3()(0);
     newLeftFootVel(1)=m_leftTwistTrajectory.front().getLinearVec3()(1);
-    newLeftFootVel(2)=m_adaptatedFootLeftTwist.getLinearVec3()(2);
+    newLeftFootVel(2)=m_currentFootLeftTwist.getLinearVec3()(2);
 
-    newRightFootVel(0)=m_adaptatedFootRightTwist.getLinearVec3()(0);
+    newRightFootVel(0)=m_currentFootRightTwist.getLinearVec3()(0);
     newRightFootVel(1)=m_rightTwistTrajectory.front().getLinearVec3()(1);
-    newRightFootVel(2)=m_adaptatedFootRightTwist.getLinearVec3()(2);
+    newRightFootVel(2)=m_currentFootRightTwist.getLinearVec3()(2);
 
 
 
@@ -449,9 +465,6 @@ bool WalkingModule::solveQPIK(const std::unique_ptr<WalkingQPIK>& solver, const 
     m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
 
 
-//    m_adaptatedFootLeftTransform;
-//            ;
-//            m_adaptatedFootRightTwist;
     solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
                                          m_rightTrajectory.front());
 
@@ -716,6 +729,8 @@ bool WalkingModule::updateModule()
 
 
         if (!m_leftInContact.front()) {
+            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
             int tempsize=m_DCMSubTrajectories.size();
             const std::pair<double,double> firstSS=m_DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
             const std::pair<double,double> secondSS=m_DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
@@ -821,8 +836,11 @@ bool WalkingModule::updateModule()
             }
             m_adaptatedFootLeftTwist=adaptatedFootLeftTwist;
 
+
         }
         else{
+            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
             m_stepTimingIndexL=0;
         }
 
@@ -831,6 +849,8 @@ bool WalkingModule::updateModule()
 
 
         if (!m_rightInContact.front()) {
+            m_currentFootRightTwist=m_adaptatedFootRightTwist;
+            m_currentFootRightTransform=m_adaptatedFootRightTransform;
             int tempsize=m_DCMSubTrajectories.size();
             const std::pair<double,double> firstSS=m_DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
             const std::pair<double,double> secondSS=m_DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
@@ -937,6 +957,8 @@ bool WalkingModule::updateModule()
 
         }
         else{
+            m_currentFootRightTwist=m_adaptatedFootRightTwist;
+            m_currentFootRightTransform=m_adaptatedFootRightTransform;
             m_stepTimingIndexR=0;
         }
 

@@ -74,6 +74,10 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::vector<std::shared_ptr<GeneralSupportTrajectory>> m_DCMSubTrajectories;
     iDynTree::Transform m_adaptatedFootLeftTransform;
     iDynTree::Twist m_adaptatedFootLeftTwist;
+    iDynTree::Transform m_currentFootLeftTransform;
+    iDynTree::Twist m_currentFootLeftTwist;
+    iDynTree::Transform m_currentFootRightTransform;
+    iDynTree::Twist m_currentFootRightTwist;
     std::shared_ptr<FootPrint> m_jleftFootprints;
     StepList m_jLeftstepList;
 

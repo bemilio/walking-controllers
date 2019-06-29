@@ -193,7 +193,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
 
     else{
         m_zzTimesBuffer(0)=0.0;
-        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS+0.01;
+        m_zzTimesBuffer(1)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
         iDynTree::Position PositionsBuffer=currentFootTransform.getPosition();
         m_zzPositionsBuffer(0)=PositionsBuffer(2);
         m_zzPositionsBuffer(1)= finalFootTransform.getPosition()(2);
