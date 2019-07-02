@@ -135,14 +135,14 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 
     iDynTree::Position tempTemp;
     iDynTree::Rotation tempRot;
-//    tempRot.
+    //    tempRot.
     tempTemp.zero();
     m_adaptatedFootLeftTransform.setPosition(tempTemp);
     m_currentFootLeftTransform.setPosition(tempTemp);
 
     m_adaptatedFootRightTransform.setPosition(tempTemp);
     m_currentFootRightTransform.setPosition(tempTemp);
-    m_numberStep=1;
+    m_numberStep=0;
     m_stepTimingIndexL=0;
     m_stepTimingIndexR=0;
     // module name (used as prefix for opened ports)
@@ -622,7 +622,6 @@ bool WalkingModule::updateModule()
             {
                 double initTimeTrajectory;
 
-
                 initTimeTrajectory = m_time + m_newTrajectoryMergeCounter * m_dT;
                 m_startOfWalkingTime=initTimeTrajectory;
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
@@ -767,6 +766,13 @@ bool WalkingModule::updateModule()
                 m_tempDCM=DCM1(0)+0.0000000000;
             }
 
+            if (m_numberStep==5) {
+
+                if (m_stepTimingIndexL>=20) {
+                    m_tempDCM=DCM1(0)+0.00;
+                }
+            }
+
             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
             m_currentValues(0)=zmp1(0);//m_tempCoP;
             m_currentValues(1)=m_tempDCM;//m_tempDCM;//DCM1(0);//m_tempDCM;
@@ -776,6 +782,7 @@ bool WalkingModule::updateModule()
             m_nominalValuesLeft(1)=sigma;
             m_nominalValuesLeft(2)=nominalDCMOffset;
             m_nominalValuesLeft(3)=0;
+
 
             if(m_useStepAdaptation)
             {
@@ -821,6 +828,7 @@ bool WalkingModule::updateModule()
 
             finalFootLeftTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jLeftstepList.at(1).angle));
             if ( m_stepTimingIndexL==1) {
+                m_numberStep++;
                 currentFootLeftTwist=m_leftTwistTrajectory.front();
                 currentFootLeftTransform=m_leftTrajectory.front();
             }
@@ -940,6 +948,7 @@ bool WalkingModule::updateModule()
 
             finalFootRightTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jRightstepList.at(1).angle));
             if ( m_stepTimingIndexR==1) {
+                m_numberStep++;
                 currentFootRightTwist=m_rightTwistTrajectory.front();
                 currentFootRightTransform=m_rightTrajectory.front();
             }
