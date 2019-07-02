@@ -219,7 +219,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
     m_yawsBuffer(1)=finalFootTransform.getRotation().asRPY()(2);
 
     m_timesBuffer(0) = 0.0;
-    m_timesBuffer(1) = log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS+0.02;
+    m_timesBuffer(1) = log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
 
     double yawAngle;
 

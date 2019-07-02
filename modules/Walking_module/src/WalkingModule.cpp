@@ -804,16 +804,16 @@ bool WalkingModule::updateModule()
                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
             }
             m_tempDCM=DCM1(0);
-            if (m_stepTimingIndexL>=10) {
-                m_tempDCM=DCM1(0)+0.0000000000;
-            }
+//            if (m_stepTimingIndexL>=10) {
+//                m_tempDCM=DCM1(0)+0.0000000000;
+//            }
 
-            if (m_numberStep==5) {
+//            if (m_numberStep==5) {
 
-                if (m_stepTimingIndexL>=10) {
-                    m_tempDCM=DCM1(0)+0.00;
-                }
-            }
+//                if (m_stepTimingIndexL>=10) {
+//                    m_tempDCM=DCM1(0)+0.00;
+//                }
+//            }
 
             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
             m_currentValues(0)=zmp1(0);//m_tempCoP;
@@ -934,9 +934,9 @@ bool WalkingModule::updateModule()
                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
             }
             m_tempDCM=DCM1(0);
-            if (m_stepTimingIndexR>=10) {
-                m_tempDCM=DCM1(0)+0.000000;
-            }
+//            if (m_stepTimingIndexR>=10) {
+//                m_tempDCM=DCM1(0)+0.000000;
+//            }
 
             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
             m_currentValues(0)=zmp1(0);//m_tempCoP;
@@ -1223,7 +1223,7 @@ bool WalkingModule::updateModule()
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
             iDynTree::Vector2 yawAdapted;
             yawAdapted(0)=m_adaptatedFootLeftTransform.getRotation().asRPY()(2);
-            m_walkingLogger->sendData(yawAdapted,m_adaptatedFootRightTransform.getPosition(),rightAdaptedStepParameters,m_nominalValuesRight,m_currentFootLeftTransform.getPosition(),leftAdaptedStepParameters,m_nominalValuesLeft,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
+            m_walkingLogger->sendData(yawAdapted,m_currentFootRightTransform.getPosition(),rightAdaptedStepParameters,m_nominalValuesRight,m_currentFootLeftTransform.getPosition(),leftAdaptedStepParameters,m_nominalValuesLeft,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
                                       measuredZMP, desiredZMP, measuredCoM,
                                       desiredCoMPositionXY, desiredCoMVelocityXY,
                                       leftFoot.getPosition(),
