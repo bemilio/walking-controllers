@@ -136,6 +136,7 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 
     iDynTree::Position tempTemp;
     iDynTree::Rotation tempRot;
+    tempRot.Identity();
     //    tempRot.
     tempTemp.zero();
     m_adaptatedFootLeftTransform.setPosition(tempTemp);
@@ -143,6 +144,13 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 
     m_adaptatedFootRightTransform.setPosition(tempTemp);
     m_currentFootRightTransform.setPosition(tempTemp);
+
+    m_currentFootLeftTransform.setRotation(tempRot);
+    m_adaptatedFootLeftTransform.setRotation(tempRot);
+
+    m_currentFootRightTransform.setRotation(tempRot);
+    m_adaptatedFootRightTransform.setRotation(tempRot);
+
     m_numberStep=0;
     m_stepTimingIndexL=0;
     m_stepTimingIndexR=0;
@@ -604,15 +612,24 @@ bool WalkingModule::updateModule()
         if(m_newTrajectoryRequired)
         {
             // when we are near to the merge point the new trajectory is evaluated
-            if(m_newTrajectoryMergeCounter == 20)
+            if(m_newTrajectoryMergeCounter == 10)
             {
                 double initTimeTrajectory;
 
                 initTimeTrajectory = m_time + m_newTrajectoryMergeCounter * m_dT;
                 m_startOfWalkingTime=initTimeTrajectory;
+                iDynTree::Transform TempRightFoot;
+                iDynTree::Transform TempLeftFoot;
+
+
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
-                                     m_FKSolver->getRightFootToWorldTransform():
-                                     m_FKSolver->getLeftFootToWorldTransform();
+                           m_rightTrajectory[m_newTrajectoryMergeCounter]:
+                           m_leftTrajectory[m_newTrajectoryMergeCounter];
+
+//                                     m_FKSolver->getRightFootToWorldTransform():
+//                                     m_FKSolver->getLeftFootToWorldTransform();
+
+
 
 //                m_rightTrajectory[m_newTrajectoryMergeCounter] :
 //                m_leftTrajectory[m_newTrajectoryMergeCounter];
@@ -627,6 +644,17 @@ bool WalkingModule::updateModule()
                 }
             }
 
+
+            if (m_newTrajectoryMergeCounter <=10) {
+                if(!m_isLeftFixedFrame.front() ){
+                yInfo()<<"leftIsNotFixed";
+                yInfo()<<m_FKSolver->getLeftFootToWorldTransform().getPosition()(0);
+                yInfo()<<m_leftTrajectory[m_newTrajectoryMergeCounter].getPosition()(0);
+                yInfo()<<m_currentFootLeftTransform.getPosition()(0);
+                yInfo()<<m_newTrajectoryMergeCounter;
+
+                }
+            }
             if(m_newTrajectoryMergeCounter == 2)
             {
                 if(!updateTrajectories(m_newTrajectoryMergeCounter))
@@ -660,7 +688,7 @@ bool WalkingModule::updateModule()
         }
 
         // get feedbacks and evaluate useful quantities
-        if(!m_robotControlHelper->getFeedbacks(10))
+        if(!m_robotControlHelper->getFeedbacks(20))
         {
             yError() << "[updateModule] Unable to get the feedback.";
             return false;
@@ -776,13 +804,13 @@ bool WalkingModule::updateModule()
                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
             }
             m_tempDCM=DCM1(0);
-            if (m_stepTimingIndexL>=20) {
+            if (m_stepTimingIndexL>=10) {
                 m_tempDCM=DCM1(0)+0.0000000000;
             }
 
             if (m_numberStep==5) {
 
-                if (m_stepTimingIndexL>=20) {
+                if (m_stepTimingIndexL>=10) {
                     m_tempDCM=DCM1(0)+0.00;
                 }
             }
@@ -857,13 +885,14 @@ bool WalkingModule::updateModule()
                 return false;
             }
             m_adaptatedFootLeftTwist=adaptatedFootLeftTwist;
-
+    yInfo()<<"single left Support";
 
         }
         else{
             m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
             m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
             m_stepTimingIndexL=0;
+            yInfo()<<"double left Support";
         }
 
 
@@ -905,7 +934,7 @@ bool WalkingModule::updateModule()
                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
             }
             m_tempDCM=DCM1(0);
-            if (m_stepTimingIndexR>=20) {
+            if (m_stepTimingIndexR>=10) {
                 m_tempDCM=DCM1(0)+0.000000;
             }
 
@@ -1711,13 +1740,13 @@ bool WalkingModule::setPlannerInput(double x, double y)
             return true;
 
         // Since the evaluation of a new trajectory takes time the new trajectory will be merged after x cycles
-        m_newTrajectoryMergeCounter = 20;
+        m_newTrajectoryMergeCounter = 10;
     }
 
     // the trajectory was not finished the new trajectory will be attached at the next merge point
     else
     {
-        if(m_mergePoints.front() > 20){
+        if(m_mergePoints.front() > 10){
             m_newTrajectoryMergeCounter = m_mergePoints.front();
         }
         else if(m_mergePoints.size() > 1)
@@ -1734,7 +1763,7 @@ bool WalkingModule::setPlannerInput(double x, double y)
             if(m_newTrajectoryRequired)
                 return true;
 
-            m_newTrajectoryMergeCounter = 20;
+            m_newTrajectoryMergeCounter = 10;
 
         }
     }

@@ -169,13 +169,13 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
     //yInfo()<<maxFootHeight<<"maxxxxx fooottt height";
     if (timePassed<=((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)*0.8)) {
         //     yInfo()<<"okkkkkk"<<(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4))/2;
-        yInfo()<<"salam00"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<dt;
+       // yInfo()<<"salam00"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<dt;
         //yInfo()<<currentFootTwist.getLinearVec3()(2)<<"velocity z";
 
         m_zTimesBuffer(0)=0.0;
         m_zTimesBuffer(1)=(timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)*0.8-timePassed;
         m_zTimesBuffer(2)=log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS;
-        yInfo()<<m_zTimesBuffer(0)<<m_zTimesBuffer(1)<<m_zTimesBuffer(2)<<"timeeeeeeeeee00000";
+       // yInfo()<<m_zTimesBuffer(0)<<m_zTimesBuffer(1)<<m_zTimesBuffer(2)<<"timeeeeeeeeee00000";
         m_zPositionsBuffer(0)= currentFootTransform.getPosition()(2);
         m_zPositionsBuffer(1)=maxFootHeight;
         m_zPositionsBuffer(2)= finalFootTransform.getPosition()(2);
@@ -197,8 +197,8 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight,double dt,co
         iDynTree::Position PositionsBuffer=currentFootTransform.getPosition();
         m_zzPositionsBuffer(0)=PositionsBuffer(2);
         m_zzPositionsBuffer(1)= finalFootTransform.getPosition()(2);
-        yInfo()<<m_zzTimesBuffer(0)<<m_zzTimesBuffer(1)<<deltaDS<<m_outputStepAdaptator(1)<<"timeeeeeeeeee111111";
-        yInfo()<<"salam11"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<PositionsBuffer(2)<<currentFootTwist.getLinearVec3()(2);
+      //  yInfo()<<m_zzTimesBuffer(0)<<m_zzTimesBuffer(1)<<deltaDS<<m_outputStepAdaptator(1)<<"timeeeeeeeeee111111";
+      //  yInfo()<<"salam11"<<timePassed<<((timePassed+log(m_outputStepAdaptator(1))/nominalValues(4)-deltaDS)/2)<<PositionsBuffer(2)<<currentFootTwist.getLinearVec3()(2);
         zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
         zSpline.setFinalConditions(0.0,0.0);
 
