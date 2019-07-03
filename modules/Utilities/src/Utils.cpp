@@ -19,6 +19,39 @@
 #include <iDynTree/Core/EigenHelpers.h>
 #include <Utils.hpp>
 
+bool YarpHelper::yarpListToiDynTreeVectorDynSize(const yarp::os::Value& input, iDynTree::VectorDynSize& output)
+{
+    if (input.isNull())
+    {
+        yError() << "[yarpListToiDynTreeVectorDynSize] Empty input value.";
+        return false;
+    }
+    if (!input.isList() || !input.asList())
+    {
+        yError() << "[yarpListToiDynTreeVectorDynSize] Unable to read the input list.";
+        return false;
+    }
+    yarp::os::Bottle *inputPtr = input.asList();
+
+    if (inputPtr->size() != output.size())
+    {
+        yError() << "[yarpListToiDynTreeVectorDynSize] The size of the iDynTree vector and the size of "
+                 << "the YARP list are not coherent.";
+        return false;
+    }
+
+    for (int i = 0; i < inputPtr->size(); i++)
+    {
+        if (!inputPtr->get(i).isDouble() && !inputPtr->get(i).isInt())
+        {
+            yError() << "[yarpListToiDynTreeVectorDynSize] The input is expected to be a double or a int";
+            return false;
+        }
+        output(i) = inputPtr->get(i).asDouble();
+    }
+    return true;
+}
+
 iDynTree::Matrix3x3 iDynTreeHelper::Rotation::skewSymmetric(const iDynTree::Matrix3x3& input)
 {
     iDynTree::Matrix3x3 output;
@@ -116,39 +149,6 @@ iDynSparseMatrix iDynTreeHelper::SparseMatrix::fromEigen(const Eigen::SparseMatr
     iDynTreeSparseMatrix.setFromConstTriplets(triplets);
 
     return iDynTreeSparseMatrix;
-}
-
-bool YarpHelper::yarpListToiDynTreeVectorDynSize(const yarp::os::Value& input, iDynTree::VectorDynSize& output)
-{
-    if (input.isNull())
-    {
-        yError() << "[yarpListToiDynTreeVectorDynSize] Empty input value.";
-        return false;
-    }
-    if (!input.isList() || !input.asList())
-    {
-        yError() << "[yarpListToiDynTreeVectorDynSize] Unable to read the input list.";
-        return false;
-    }
-    yarp::os::Bottle *inputPtr = input.asList();
-
-    if (inputPtr->size() != output.size())
-    {
-        yError() << "[yarpListToiDynTreeVectorDynSize] The size of the iDynTree vector and the size of "
-                 << "the YARP list are not coherent.";
-        return false;
-    }
-
-    for (int i = 0; i < inputPtr->size(); i++)
-    {
-        if (!inputPtr->get(i).isDouble() && !inputPtr->get(i).isInt())
-        {
-            yError() << "[yarpListToiDynTreeVectorDynSize] The input is expected to be a double or a int";
-            return false;
-        }
-        output(i) = inputPtr->get(i).asDouble();
-    }
-    return true;
 }
 
 bool YarpHelper::addVectorOfStringToProperty(yarp::os::Property& prop, const std::string& key,
