@@ -811,7 +811,7 @@ bool WalkingModule::updateModule()
             //     dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
             // }
 
-            m_stepAdaptator->setCurrentDcmPosition(dcmCurrentDesired);
+            m_stepAdaptator->setCurrentDcmPosition(measuredDCM);
 
             iDynTree::Vector2 dcmAtTimeAlpha;
             double timeAlpha = (secondDS->getTrajectoryDomain().second + secondDS->getTrajectoryDomain().first) / 2;
