@@ -479,18 +479,25 @@ bool WalkingModule::solveQPIK(const std::shared_ptr<WalkingQPIK> solver, const i
 
 
 
-    // m_leftTrajectory.front().setPosition(newLeftFoot);
-    // m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
+//    m_leftTrajectory.front().setPosition(newLeftFoot);
+//    m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
 
-    // m_rightTrajectory.front().setPosition(newRightFoot);
-    // m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
+//    m_rightTrajectory.front().setPosition(newRightFoot);
+//    m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
 
 
-    solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
+    solver->setDesiredFeetTransformation(m_currentFootLeftTransform,
                                          m_rightTrajectory.front());
 
-    solver->setDesiredFeetTwist(m_leftTwistTrajectory.front(),
+    solver->setDesiredFeetTwist(m_currentFootLeftTwist,
                                 m_rightTwistTrajectory.front());
+
+    // solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
+    //                                      m_rightTrajectory.front());
+
+    // solver->setDesiredFeetTwist(m_leftTwistTrajectory.front(),
+    //                             m_rightTwistTrajectory.front());
+
 
     solver->setDesiredCoMVelocity(desiredCoMVelocity);
 
@@ -801,11 +808,11 @@ bool WalkingModule::updateModule()
                 yError() << " strange " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().first << " " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().second;
                 return false;
             }
-            if(m_time - timeOffset > 0.6)
-            {
-                yInfo() << "push ";
-                dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
-            }
+            // if(m_time - timeOffset > 0.6)
+            // {
+            //     yInfo() << "push ";
+            //     dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
+            // }
 
             m_stepAdaptator->setCurrentDcmPosition(dcmCurrentDesired);
 
@@ -832,6 +839,29 @@ bool WalkingModule::updateModule()
 
             zmpNominal = nextZmpPosition;
             zmpAdjusted = m_stepAdaptator->getDesiredZmp();
+
+            // TODO REMOVE MAGIC NUMBERS
+            iDynTree::Vector2 zmpOffset;
+            zmpOffset.zero();
+            zmpOffset(0) = 0.03;
+
+            iDynTree::Transform temp = m_adaptatedFootLeftTransform;
+            iDynTree::Twist tempTwist = m_adaptatedFootLeftTwist;
+            if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
+                                                            m_jLeftstepList.at(1).angle,
+                                                            zmpOffset, temp, tempTwist,
+                                                            m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist ))
+            {
+                yError() << "error write something usefull";
+                return false;
+            }
+        }
+        else
+        {
+            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
+            m_stepTimingIndexL=0;
+            yInfo()<<"double left Support";
         }
 //             sigma=exp(omega*stepTiming);
 //             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
@@ -1272,7 +1302,9 @@ bool WalkingModule::updateModule()
 
 
             m_walkingLogger->sendData(yarp::sig::Vector(1, impactTimeNominal), yarp::sig::Vector(1, impactTimeAdjusted),
-                                      zmpNominal, zmpAdjusted);
+                                      zmpNominal, zmpAdjusted,
+                                      m_currentFootLeftTransform.getPosition(), m_leftTrajectory.front().getPosition(),
+                                      m_currentFootLeftTransform.getRotation().asRPY(), m_leftTrajectory.front().getRotation().asRPY());
 
 
         }
@@ -1644,11 +1676,21 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     // StepList jLeftstepList=jleftFootprints->getSteps();
     m_jLeftstepList=m_jleftFootprints->getSteps();
 
+
     m_trajectoryGenerator->getLeftFootprint(m_jRightFootprints);
     m_jRightstepList=m_jRightFootprints->getSteps();
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();
     m_mergePoints.size();
+
+
+    m_adaptatedFootLeftTwist.zero();
+    m_adaptatedFootRightTwist.zero();
+
+    m_adaptatedFootLeftTransform = leftTrajectory.front();
+    m_adaptatedFootRightTransform = rightTrajectory.front();
+    m_adaptatedFootRightTwist.zero();
+
     return true;
 }
 
@@ -1757,9 +1799,15 @@ bool WalkingModule::startWalking()
         //                               "lf_des_x", "lf_des_y", "lf_des_z",
         //                               "rf_des_x", "rf_des_y", "rf_des_z"});
 
+// m_currentFootRightTransform.getPosition(),m_leftTrajectory.front().getPosition(),
+//                                       m_currentFootRightTransform.getRotation().asRPY(),m_leftTrajectory.front().getRotation().asRPY(),
+//                                       m_currentFootRightTwist.getLinearVec3(),m_leftTwistTrajectory.front().getLinearVec3(),
+//                                       m_currentFootRightTwist.getAngularVec3(), m_leftTwistTrajectory.front().getAngularVec3()
 
         m_walkingLogger->startRecord({"record", "nominal_impact_time", "adjusted_impact_time",
-                    "zmp_x_nom", "zmp_y_nom", "zmp_x_adj", "zmp_y_adj"});
+                    "zmp_x_nom", "zmp_y_nom", "zmp_x_adj", "zmp_y_adj",
+                    "leftFootX_adj","leftFootY_adj","leftFootZ_adj", "leftFootX","leftFootY","leftFootZ",
+                    "leftFootRoll_adj","leftFootPitch_adj","leftFootYaw_adj", "leftFootRoll","leftFootPitch","leftFootYaw"});
     }
 
     // if the robot was only prepared the filters has to be reseted
