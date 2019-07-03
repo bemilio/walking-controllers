@@ -128,7 +128,6 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
-
     // TODO REMOVE ME
     impactTimeNominal = 0;
     impactTimeAdjusted = 0;
@@ -486,10 +485,10 @@ bool WalkingModule::solveQPIK(const std::unique_ptr<WalkingQPIK>& solver, const 
 
 
     solver->setDesiredFeetTransformation(m_currentFootLeftTransform,
-                                         m_rightTrajectory.front());
+                                         m_currentFootRightTransform);
 
     solver->setDesiredFeetTwist(m_currentFootLeftTwist,
-                                m_rightTwistTrajectory.front());
+                                m_currentFootRightTwist);
 
     // solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
     //                                      m_rightTrajectory.front());
@@ -761,11 +760,9 @@ bool WalkingModule::updateModule()
 
         omega=sqrt(9.81 / comHeight);
 
-        m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
-        m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
-
-        if (!m_leftInContact.front())
+        if (!m_leftInContact.front() || !m_rightInContact.front())
         {
+
             int numberOfSubTrajectories = m_DCMSubTrajectories.size();
             auto firstSS = m_DCMSubTrajectories[numberOfSubTrajectories-2];
             auto secondSS = m_DCMSubTrajectories[numberOfSubTrajectories-4];
@@ -821,27 +818,54 @@ bool WalkingModule::updateModule()
             zmpNominal = nextZmpPosition;
             zmpAdjusted = m_stepAdaptator->getDesiredZmp();
 
-            // TODO REMOVE MAGIC NUMBERS
-            iDynTree::Vector2 zmpOffset;
-            zmpOffset.zero();
-            zmpOffset(0) = 0.03;
-
-            iDynTree::Transform temp = m_adaptatedFootLeftTransform;
-            iDynTree::Twist tempTwist = m_adaptatedFootLeftTwist;
-            if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
-                                                            m_jLeftstepList.at(1).angle,
-                                                            zmpOffset, temp, tempTwist,
-                                                            m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist ))
+            if (!m_leftInContact.front())
             {
-                yError() << "error write something usefull";
-                return false;
+                // TODO REMOVE MAGIC NUMBERS
+                iDynTree::Vector2 zmpOffset;
+                zmpOffset.zero();
+                zmpOffset(0) = 0.03;
+
+                m_currentFootLeftTransform = m_adaptatedFootLeftTransform;
+                m_currentFootLeftTwist = m_adaptatedFootLeftTwist;
+                if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
+                                                                m_jLeftstepList.at(1).angle,
+                                                                zmpOffset, m_currentFootLeftTransform, m_currentFootLeftTwist,
+                                                                m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist ))
+                {
+                    yError() << "error write something usefull";
+                    return false;
+                }
             }
+            else
+            {
+                // TODO REMOVE MAGIC NUMBERS
+                iDynTree::Vector2 zmpOffset;
+                zmpOffset.zero();
+                zmpOffset(0) = 0.03;
+
+                m_currentFootRightTransform = m_adaptatedFootRightTransform;
+                m_currentFootRightTwist = m_adaptatedFootRightTwist;
+                if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
+                                                                m_jRightstepList.at(1).angle,
+                                                                zmpOffset, m_currentFootRightTransform, m_currentFootRightTwist,
+                                                                m_adaptatedFootRightTransform, m_adaptatedFootRightTwist ))
+                {
+                    yError() << "error write something usefull right";
+                    return false;
+                }
+            }
+
+
         }
+
         else
         {
             m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
             m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
-            m_stepTimingIndexL=0;
+
+            m_currentFootRightTwist=m_adaptatedFootRightTwist;
+            m_currentFootRightTransform=m_adaptatedFootRightTransform;
+
             yInfo()<<"double left Support";
         }
 //             sigma=exp(omega*stepTiming);
