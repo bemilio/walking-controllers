@@ -104,8 +104,6 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition,
     m_constraintsMatrix.coeffRef(0, 2) = temp(0);
     m_constraintsMatrix.coeffRef(1, 2) = temp(1);
 
-    std::cerr << Eigen::MatrixXd(m_constraintsMatrix) << std::endl;
-
     if(m_QPSolver->isInitialized())
     {
         if(!m_QPSolver->updateLinearConstraintsMatrix(m_constraintsMatrix)){

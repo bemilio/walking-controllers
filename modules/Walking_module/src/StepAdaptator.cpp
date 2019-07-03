@@ -186,8 +186,9 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight, double dt, 
     //yInfo()<<maxFootHeight<<"maxxxxx fooottt height";
 
     double maxFootHeightTime = (getDesiredImpactTime() - takeOffTime) * 0.8 + takeOffTime;
-    if (m_currentTime <= maxFootHeightTime)
+    if (m_currentTime < maxFootHeightTime)
     {
+
         m_zTimesBuffer(0)= m_currentTime;
         m_zTimesBuffer(1)= maxFootHeightTime;
         m_zTimesBuffer(2)= getDesiredImpactTime();
@@ -198,6 +199,7 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight, double dt, 
         zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
         zSpline.setFinalConditions(0.0,0.0);
 
+        yInfo() << "a " << m_zTimesBuffer.toString();
 
         if (!zSpline.setData(m_zTimesBuffer, m_zPositionsBuffer))
         {
@@ -215,6 +217,8 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight, double dt, 
         m_zzPositionsBuffer(1)= 0;
         zSpline.setInitialConditions(currentFootTwist.getLinearVec3()(2), 0.0);
         zSpline.setFinalConditions(0.0,0.0);
+
+        yInfo() << "b " << m_zzTimesBuffer.toString();
 
         if (!zSpline.setData(m_zzTimesBuffer, m_zzPositionsBuffer))
         {
