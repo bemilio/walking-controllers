@@ -24,27 +24,14 @@ class QPSolver
      * Pointer to the optimization solver
      */
     std::unique_ptr<OsqpEigen::Solver> m_QPSolver;
-     Eigen::SparseMatrix<double> m_constraintsMAtrix;
+    Eigen::SparseMatrix<double> m_constraintsMatrix;
     Eigen::VectorXd m_gradient;
-    Eigen::Matrix3d  m_hessian;
     Eigen::VectorXd m_lowerBound; /**< Lower bound vector. */
     Eigen::VectorXd m_upperBound; /**< Upper bound vector. */
 
-
-    int m_shirinkingBoundIndexL;
     int m_inputSize; /**< Size of the controlled input vector (2). */
+    int m_numberOfConstraints; /**< Size of the controlled input vector (2). */
 
-    /**
-     * Evaluation and returning the the part of constraints matrix(A) that is related to the inequality constraints
-     * @return the part of constraints matrix(A) that is related to the inequality constraints   .
-     */
-    Eigen::Matrix<double,4,3> evaluateInEqualityPartOfConstraintsMatrix();
-    /**
-     * Evaluation and returning constraints matrix(A) related to equality and inequality constraints(C<Ax<B)
-     * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
-     * @return the constraints matrix(A).
-     */
-       Eigen::SparseMatrix<double> evaluateConstraintsMatrix(const iDynTree::Vector3 &currentValuesVector);
 public:
 
     /**
@@ -52,16 +39,16 @@ public:
      * @param numberOfAllConstraints number of equality and inequality constraints!
      * @param inputSize size of the controlled input vector;
      */
-    QPSolver(const int& inputSize,
-             const int& numberOfAllConstraints);
+    QPSolver(const int& inputSize, const int& numberOfAllConstraints);
 
     /**
+       // TODO
      * Set the hessian matrix.
      * Please do not call this function to update the hessian matrix! It can be set only once.
      * @param hessian hessian matrix.
      * @return true/false in case of success/failure.
      */
-    bool setHessianMatrix(const iDynTree::Vector4& alphaVector);
+    bool setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight);
 
     /**
      * Set or update the linear constraints matrix(A) related to equality and inequality constraints(C<Ax<B)
@@ -70,7 +57,7 @@ public:
      * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
      * @return true/false in case of success/failure.
      */
-    bool setConstraintsMatrix(const iDynTree::Vector3& currentValuesVector);
+    bool setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition, const iDynTree::Vector2& currentZmpPosition);
 
     /**
      * Set or update the gradient
@@ -78,21 +65,20 @@ public:
      * @param nominalValuesVector Vector that includes the Desired Value of DCM at the landing moment of foot, StepTiming and next StepPosition and next DCM Offset;
      * @return true/false in case of success/failure.
      */
-    bool setGradientVector(const iDynTree::Vector4 &alphaVector,const iDynTree::VectorFixSize<5>& nominalValuesVector );
+    bool setGradientVector(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight,
+                           const iDynTree::Vector2& zmpNominal, const iDynTree::Vector2& dcmOffsetNominal, const double& sigmaNominal);
 
     /**
-     * Get the primal variable.
-     * @param primalVariable primal variable vector
+     * Set or update the lower and the upper bounds
+     * @param nominalValuesVector Vector that includes the Desired Value of DCM at the landing moment of foot, StepTiming and next StepPosition and next DCM Offset;
+     * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
+     * @param tolerenceOfBounds This vector includes the tolerence between nominal value and the maximum and minimum value constraint    ;
      * @return true/false in case of success/failure.
      */
-    bool getPrimalVariable(Eigen::VectorXd& primalVariable);
-
-    /**
-     * Set the primal variable.
-     * @param primalVariable primal variable vector
-     * @return true/false in case of success/failure.
-     */
-    bool setPrimalVariable(const Eigen::VectorXd& primalVariable);
+    bool setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition, const iDynTree::Vector2& zmpPositionNominal,
+                                      const iDynTree::Vector2& zmpPositionTollerance,
+                                      const double& stepDuration, const double& stepDurationTollerance,
+                                      const double& remainingSingleSupportDuration, const double& omega);
 
     /**
      * Get the state of the solver.
@@ -118,14 +104,7 @@ public:
      */
     iDynTree::VectorDynSize getSolution();
 
-    /**
-     * Set or update the lower and the upper bounds
-     * @param nominalValuesVector Vector that includes the Desired Value of DCM at the landing moment of foot, StepTiming and next StepPosition and next DCM Offset;
-     * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
-     * @param tolerenceOfBounds This vector includes the tolerence between nominal value and the maximum and minimum value constraint    ;
-     * @return true/false in case of success/failure.
-     */
-    bool setBoundsVectorOfConstraints(const iDynTree::VectorFixSize<5>& nominalValuesVector, const iDynTree::Vector3 &currentValuesVector, const iDynTree::Vector4& tolerenceOfBounds, const double deltaDS, const double timeRemained, const int index);
+
 };
 
 #endif
