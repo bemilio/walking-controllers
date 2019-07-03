@@ -43,23 +43,26 @@ class StepAdaptator
     /**
      * The value of change of the ZMP during single support phase
      */
-    double m_delta;
+    iDynTree::Vector2 m_zmpPositionNominal;
+    iDynTree::Vector2 m_dcmOffsetNominal;
+    double m_sigmaNominal;
 
+    iDynTree::Vector2 m_zmpPositionWeight;
+    iDynTree::Vector2 m_dcmOffsetWeight;
+    double m_sigmaWeight;
 
+    iDynTree::Vector2 m_currentZmpPosition;
+    iDynTree::Vector2 m_currentDcmPosition;
 
-    /**
-     * The vector of the tolerance of the bound of inequality constraint relative to nominal value.
-     */
-    iDynTree::Vector4 m_constraintTolerance;
+    iDynTree::Vector2 m_zmpPositionTollerance;
 
-    /**
-     * The vector of gains of the QP problem.
-     */
-    iDynTree::Vector4 m_gainVector;
-    /**
-     * The hessian matrix of the QP problem. It is the same for all controllers.
-     */
-    iDynSparseMatrix m_hessianMatrix;
+    double m_stepTiming;
+    double m_stepDurationTolerance;
+    double m_remainingSingleSupportDuration;
+    double m_omega;
+
+    double m_currentTime;
+    double m_nextDoubleSupportDuration;
 
     int m_inputSize;  /**< Size of the input vector. It is equal to 3 now!!!!. */
     int m_numberOfConstraint;  /**< Size of the input vector. It is equal to 5 now!!!!. */
@@ -76,16 +79,13 @@ class StepAdaptator
      * Pointer to the current QPSolver.
      * A new MPC solver is initialized when a new phase occurs.
      */
-    std::shared_ptr<QPSolver> m_currentQPSolver;
 
-    /**
-     * Vector containing the output of the setp adaptator.
- */
-    iDynTree::Vector3 m_outputStepAdaptator;
+    std::shared_ptr<QPSolver> m_currentQPSolver;
 
 public:
 
     StepAdaptator();
+
     /**
      * Initialize the method
      * @param config yarp searchable configuration variable.
@@ -101,13 +101,6 @@ public:
     bool solve();
 
     /**
-     * Get the output of the controller.
-     * @param controllerOutput is the vector containing the output the controller.
-     * @return true/false in case of success/failure.
-     */
-    bool getControllerOutput(iDynTree::Vector3& controllerOutput);
-
-    /**
      * Reset the controller
      */
     void reset();
@@ -117,8 +110,32 @@ public:
      * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
      * @return true/false in case of success/failure.
      */
-    bool RunStepAdaptator(const iDynTree::VectorFixSize<5> &nominalValues, const iDynTree::Vector3 &currentValues, const double deltaDS, const double remainedTime, const int index);
-    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed, const double deltaDS);
+
+    // bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed, const double deltaDS);
+
+
+
+    void setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition);
+
+    void setTimings(const double & omega, const double & currentTime, const double& nextImpactTime,
+                    const double &nextDoubleSupportDuration);
+
+    void setNominalDcmOffset(const iDynTree::Vector2& nominalDcmOffset);
+
+    void setCurrentZmpPosition(const iDynTree::Vector2& currentZmpPosition);
+
+    void setCurrentDcmPosition(const iDynTree::Vector2& currentDcmPosition);
+
+    /**
+     * Get the output of the controller.
+     * @param controllerOutput is the vector containing the output the controller.
+     * @return true/false in case of success/failure.
+     */
+    bool getControllerOutput(iDynTree::Vector3& controllerOutput);
+
+    double getDesiredImpactTime();
+
+    iDynTree::Vector2 getDesiredZmpg();
 };
 
 #endif

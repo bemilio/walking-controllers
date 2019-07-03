@@ -26,6 +26,11 @@
 #include <WalkingModule.hpp>
 #include <Utils.hpp>
 
+double timeOffset;
+
+double impactTimeNominal, impactTimeAdjusted;
+iDynTree::Vector2 zmpNominal, zmpAdjusted;
+
 void WalkingModule::propagateTime()
 {
     // propagate time
@@ -124,6 +129,13 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
+
+    // TODO REMOVE ME
+    impactTimeNominal = 0;
+    impactTimeAdjusted = 0;
+
+    zmpNominal.zero();
+    zmpAdjusted.zero();
 
     m_nominalValuesLeft.zero();
     m_nominalValuesRight.zero();
@@ -467,11 +479,11 @@ bool WalkingModule::solveQPIK(const std::shared_ptr<WalkingQPIK> solver, const i
 
 
 
-    m_leftTrajectory.front().setPosition(newLeftFoot);
-    m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
+    // m_leftTrajectory.front().setPosition(newLeftFoot);
+    // m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
 
-    m_rightTrajectory.front().setPosition(newRightFoot);
-    m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
+    // m_rightTrajectory.front().setPosition(newRightFoot);
+    // m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
 
 
     solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
@@ -744,8 +756,7 @@ bool WalkingModule::updateModule()
         }
 
 
-
-        double switchOverSwingRatio;
+        // step adjustment
         double comHeight;
         double stepTiming;
         double nomStepTiming;
@@ -760,259 +771,287 @@ bool WalkingModule::updateModule()
             return false;
         }
 
-        if(!m_trajectoryGenerator->getSwitchOverSwingRatio(switchOverSwingRatio)){
-            yError() << "[updateModule] Unable to get the ratio of double support to single support!";
-            return false;
-        }
-        omega=sqrt(9.81/comHeight);
-        m_nominalValuesLeft(4)=omega;
-        m_nominalValuesRight(4)=omega;
+        omega=sqrt(9.81 / comHeight);
 
+        m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+        m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
 
-        if (!m_leftInContact.front()) {
-            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
-            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
-            int tempsize=m_DCMSubTrajectories.size();
-            const std::pair<double,double> firstSS=m_DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
-            const std::pair<double,double> secondSS=m_DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
+        if (!m_leftInContact.front())
+        {
+            int numberOfSubTrajectories = m_DCMSubTrajectories.size();
+            auto firstSS = m_DCMSubTrajectories[numberOfSubTrajectories-2];
+            auto secondSS = m_DCMSubTrajectories[numberOfSubTrajectories-4];
 
-            const std::pair<double,double> secondDS=m_DCMSubTrajectories[tempsize-3]->getTrajectoryDomain();
-            const std::pair<double,double> firstDS=m_DCMSubTrajectories[tempsize-1]->getTrajectoryDomain();
+            auto secondDS = m_DCMSubTrajectories[numberOfSubTrajectories-3];
+            auto firstDS = m_DCMSubTrajectories[numberOfSubTrajectories-1];
 
-            stepTiming =(secondDS.first + secondDS.second) / 2 -(firstSS.first)-m_stepTimingIndexL*m_dT*1;
-            double timeAlpha=(secondDS.second+secondDS.first)/2;
-            double deltaDS=(secondDS.second-secondDS.first);
+            iDynTree::Vector2 nextZmpPosition, currentZmpPosition;
+            bool checkFeasibility = false;
+            secondSS->getZMPPosition(0, nextZmpPosition, checkFeasibility);
+            m_stepAdaptator->setNominalNextStepPosition(nextZmpPosition);
 
-            iDynTree::Vector2 zmp1;
-            iDynTree::Vector2 zmpT;
-            iDynTree::Vector2 DCMT;
-            iDynTree::Vector2 DCM1;
+            firstSS->getZMPPosition(0, currentZmpPosition, checkFeasibility);
+            m_stepAdaptator->setCurrentZmpPosition(currentZmpPosition);
 
-            m_DCMSubTrajectories[tempsize-2]->getZMPPosition(0,zmp1,false);
-            m_DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
-            m_DCMSubTrajectories[tempsize-2]->getDCMPosition(/*(firstDS.first + firstDS.second) / 2*/firstSS.first+m_stepTimingIndexL*m_dT*1,DCM1,false);
-            m_DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
+            // TODO this is a test
 
-
-            sigma=exp(omega*stepTiming);
-            nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
-            stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
-
-
-            if (true) {
-                //  m_tempCoP=m_ZMPPositionDesired.front()(0);//measuredZMP(0);
-                //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
-            }
-            m_tempDCM=DCM1(0);
-//            if (m_stepTimingIndexL>=10) {
-//                m_tempDCM=DCM1(0)+0.0000000000;
-//            }
-
-//            if (m_numberStep==5) {
-
-//                if (m_stepTimingIndexL>=10) {
-//                    m_tempDCM=DCM1(0)+0.00;
-//                }
-//            }
-
-            nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
-            m_currentValues(0)=zmp1(0);//m_tempCoP;
-            m_currentValues(1)=m_tempDCM;//m_tempDCM;//DCM1(0);//m_tempDCM;
-            m_currentValues(2)=0;
-
-            m_nominalValuesLeft(0)=nextStepPosition;
-            m_nominalValuesLeft(1)=sigma;
-            m_nominalValuesLeft(2)=nominalDCMOffset;
-            m_nominalValuesLeft(3)=0;
-
-
-            if(m_useStepAdaptation)
+            iDynTree::Vector2 dcmCurrentDesired;
+            if(!m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(m_time - timeOffset, dcmCurrentDesired, false))
             {
-
-                if(!m_stepAdaptator->RunStepAdaptator(m_nominalValuesLeft,m_currentValues,deltaDS/2,stepTiming,m_stepTimingIndexL))
-                {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
-                }
-
-
-                if(!m_stepAdaptator->solve())
-                {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
-                }
-
-                if(!m_stepAdaptator->getControllerOutput(leftAdaptedStepParameters))
-                {
-                    yError() << "[updateModule] Unable to get the step adaptation output.";
-                    return false;
-                }
-
-            }
-            else{
-                yInfo()<<"step adaptation is not active";
-            }
-
-            m_stepTimingIndexL++;
-
-            iDynTree::Transform finalFootLeftTransform;
-            iDynTree::Twist adaptatedFootLeftTwist;
-            iDynTree::Twist currentFootLeftTwist;
-            iDynTree::Transform currentFootLeftTransform;
-            // iDynTree::Twist currentFootRightTwist;
-
-
-            iDynTree::Position finalFootPosition;
-            finalFootPosition(0)=leftAdaptedStepParameters(0);
-            finalFootPosition(1)=m_leftTrajectory.front().getPosition()(1);
-            finalFootPosition(2)=0;
-            finalFootLeftTransform.setPosition(finalFootPosition);
-
-            finalFootLeftTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jLeftstepList.at(1).angle));
-            if ( m_stepTimingIndexL==1) {
-                m_numberStep++;
-                currentFootLeftTwist=m_leftTwistTrajectory.front();
-                currentFootLeftTransform=m_leftTrajectory.front();
-            }
-            else {
-                currentFootLeftTwist=m_adaptatedFootLeftTwist;
-                currentFootLeftTransform=m_adaptatedFootLeftTransform;
-            }
-
-            if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight,m_dT,m_nominalValuesLeft,m_adaptatedFootLeftTransform,adaptatedFootLeftTwist,currentFootLeftTransform/*m_FKSolver->getLeftFootToWorldTransform()*/,currentFootLeftTwist,finalFootLeftTransform,(m_stepTimingIndexL-1)*m_dT,deltaDS/2))
-            {
-                yError() << "[updateModule] Unable to get the adaptated foot trajectory.";
+                yError() << " strange " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().first << " " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().second;
                 return false;
             }
-            m_adaptatedFootLeftTwist=adaptatedFootLeftTwist;
-    yInfo()<<"single left Support";
-
-        }
-        else{
-            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
-            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
-            m_stepTimingIndexL=0;
-            yInfo()<<"double left Support";
-        }
-
-
-
-
-
-        if (!m_rightInContact.front()) {
-            m_currentFootRightTwist=m_adaptatedFootRightTwist;
-            m_currentFootRightTransform=m_adaptatedFootRightTransform;
-            int tempsize=m_DCMSubTrajectories.size();
-            const std::pair<double,double> firstSS=m_DCMSubTrajectories[tempsize-2]->getTrajectoryDomain();
-            const std::pair<double,double> secondSS=m_DCMSubTrajectories[tempsize-4]->getTrajectoryDomain();
-
-            const std::pair<double,double> secondDS=m_DCMSubTrajectories[tempsize-3]->getTrajectoryDomain();
-            const std::pair<double,double> firstDS=m_DCMSubTrajectories[tempsize-1]->getTrajectoryDomain();
-
-            stepTiming =(secondDS.first + secondDS.second) / 2 -(firstSS.first)-m_stepTimingIndexR*m_dT*1;
-            double timeAlpha=(secondDS.second+secondDS.first)/2;
-            double deltaDS=(secondDS.second-secondDS.first);
-
-            iDynTree::Vector2 zmp1;
-            iDynTree::Vector2 zmpT;
-            iDynTree::Vector2 DCMT;
-            iDynTree::Vector2 DCM1;
-
-            m_DCMSubTrajectories[tempsize-2]->getZMPPosition(0,zmp1,false);
-            m_DCMSubTrajectories[tempsize-4]->getZMPPosition(0,zmpT,false);
-            m_DCMSubTrajectories[tempsize-2]->getDCMPosition(/*(firstDS.first + firstDS.second) / 2*/firstSS.first+m_stepTimingIndexR*m_dT*1,DCM1,false);
-            m_DCMSubTrajectories[tempsize-2]->getDCMPosition(timeAlpha,DCMT,false);
-
-
-            sigma=exp(omega*stepTiming);
-            nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
-            stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
-
-
-            if (true) {
-                //  m_tempCoP=m_ZMPPositionDesired.front()(0);//measuredZMP(0);
-                //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
-            }
-            m_tempDCM=DCM1(0);
-//            if (m_stepTimingIndexR>=10) {
-//                m_tempDCM=DCM1(0)+0.000000;
-//            }
-
-            nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
-            m_currentValues(0)=zmp1(0);//m_tempCoP;
-            m_currentValues(1)=m_tempDCM;//m_tempDCM;//DCM1(0);//m_tempDCM;
-            m_currentValues(2)=0;
-
-            m_nominalValuesRight(0)=nextStepPosition;
-            m_nominalValuesRight(1)=sigma;
-            m_nominalValuesRight(2)=nominalDCMOffset;
-            m_nominalValuesRight(3)=0;
-
-            if(m_useStepAdaptation)
+            if(m_time - timeOffset > 0.6)
             {
-
-                if(!m_stepAdaptator->RunStepAdaptator(m_nominalValuesRight,m_currentValues,deltaDS/2,stepTiming,m_stepTimingIndexR))
-                {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
-                }
-
-
-                if(!m_stepAdaptator->solve())
-                {
-                    yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
-                    return false;
-                }
-
-                if(!m_stepAdaptator->getControllerOutput(rightAdaptedStepParameters))
-                {
-                    yError() << "[updateModule] Unable to get the step adaptation output.";
-                    return false;
-                }
-
-            }
-            else{
-                yInfo()<<"step adaptation is not active";
+                yInfo() << "push ";
+                dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
             }
 
-            m_stepTimingIndexR++;
+            m_stepAdaptator->setCurrentDcmPosition(dcmCurrentDesired);
 
-            iDynTree::Transform finalFootRightTransform;
-            iDynTree::Twist adaptatedFootRightTwist;
-            iDynTree::Twist currentFootRightTwist;
-            iDynTree::Transform currentFootRightTransform;
+            iDynTree::Vector2 dcmAtTimeAlpha;
+            double timeAlpha = (secondDS->getTrajectoryDomain().second + secondDS->getTrajectoryDomain().first) / 2;
+            m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(timeAlpha, dcmAtTimeAlpha, checkFeasibility);
+
+            iDynTree::Vector2 nominalDcmOffset;
+            iDynTree::toEigen(nominalDcmOffset) = iDynTree::toEigen(dcmAtTimeAlpha) - iDynTree::toEigen(nextZmpPosition);
+            m_stepAdaptator->setNominalDcmOffset(nominalDcmOffset);
+
+            m_stepAdaptator->setTimings(omega, m_time - timeOffset, firstSS->getTrajectoryDomain().second,
+                                        secondDS->getTrajectoryDomain().second - secondDS->getTrajectoryDomain().first);
 
 
-            iDynTree::Position finalFootPosition;
-            finalFootPosition(0)=rightAdaptedStepParameters(0);
-            finalFootPosition(1)=m_rightTrajectory.front().getPosition()(1);
-            finalFootPosition(2)=0;
-            finalFootRightTransform.setPosition(finalFootPosition);
-
-            finalFootRightTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jRightstepList.at(1).angle));
-            if ( m_stepTimingIndexR==1) {
-                m_numberStep++;
-                currentFootRightTwist=m_rightTwistTrajectory.front();
-                currentFootRightTransform=m_rightTrajectory.front();
-            }
-            else {
-                currentFootRightTwist=m_adaptatedFootRightTwist;
-                currentFootRightTransform=m_adaptatedFootRightTransform;
-            }
-
-            if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight,m_dT,m_nominalValuesRight,m_adaptatedFootRightTransform,adaptatedFootRightTwist,currentFootRightTransform/*m_FKSolver->getLeftFootToWorldTransform()*/,currentFootRightTwist,finalFootRightTransform,(m_stepTimingIndexR-1)*m_dT,deltaDS/2))
+            if(!m_stepAdaptator->solve())
             {
-                yError() << "[updateModule] Unable to get the adaptated foot trajectory.";
+                yError() << "unable to solve the problem step adjustment";
                 return false;
             }
-            m_adaptatedFootRightTwist=adaptatedFootRightTwist;
 
+            impactTimeNominal = firstSS->getTrajectoryDomain().second + timeOffset;
+            impactTimeAdjusted = m_stepAdaptator->getDesiredImpactTime() + timeOffset;
+
+            zmpNominal = nextZmpPosition;
+            zmpAdjusted = m_stepAdaptator->getDesiredZmp();
         }
-        else{
-            m_currentFootRightTwist=m_adaptatedFootRightTwist;
-            m_currentFootRightTransform=m_adaptatedFootRightTransform;
-            m_stepTimingIndexR=0;
-        }
+//             sigma=exp(omega*stepTiming);
+//             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
+//             stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+
+
+//             if (true) {
+//                 //  m_tempCoP=m_ZMPPositionDesired.front()(0);//measuredZMP(0);
+//                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
+//             }
+//             m_tempDCM=DCM1(0);
+// //            if (m_stepTimingIndexL>=10) {
+// //                m_tempDCM=DCM1(0)+0.0000000000;
+// //            }
+
+// //            if (m_numberStep==5) {
+
+// //                if (m_stepTimingIndexL>=10) {
+// //                    m_tempDCM=DCM1(0)+0.00;
+// //                }
+// //            }
+
+//             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
+//             m_currentValues(0)=zmp1(0);//m_tempCoP;
+//             m_currentValues(1)=m_tempDCM;//m_tempDCM;//DCM1(0);//m_tempDCM;
+//             m_currentValues(2)=0;
+
+//             m_nominalValuesLeft(0)=nextStepPosition;
+//             m_nominalValuesLeft(1)=sigma;
+//             m_nominalValuesLeft(2)=nominalDCMOffset;
+//             m_nominalValuesLeft(3)=0;
+
+
+//             if(m_useStepAdaptation)
+//             {
+
+//                 if(!m_stepAdaptator->RunStepAdaptator(m_nominalValuesLeft,m_currentValues,deltaDS/2,stepTiming,m_stepTimingIndexL))
+//                 {
+//                     yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+//                     return false;
+//                 }
+
+
+//                 if(!m_stepAdaptator->solve())
+//                 {
+//                     yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+//                     return false;
+//                 }
+
+//                 if(!m_stepAdaptator->getControllerOutput(leftAdaptedStepParameters))
+//                 {
+//                     yError() << "[updateModule] Unable to get the step adaptation output.";
+//                     return false;
+//                 }
+
+//             }
+//             else{
+//                 yInfo()<<"step adaptation is not active";
+//             }
+
+//             m_stepTimingIndexL++;
+
+//             iDynTree::Transform finalFootLeftTransform;
+//             iDynTree::Twist adaptatedFootLeftTwist;
+//             iDynTree::Twist currentFootLeftTwist;
+//             iDynTree::Transform currentFootLeftTransform;
+//             // iDynTree::Twist currentFootRightTwist;
+
+
+//             iDynTree::Position finalFootPosition;
+//             finalFootPosition(0)=leftAdaptedStepParameters(0);
+//             finalFootPosition(1)=m_leftTrajectory.front().getPosition()(1);
+//             finalFootPosition(2)=0;
+//             finalFootLeftTransform.setPosition(finalFootPosition);
+
+//             finalFootLeftTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jLeftstepList.at(1).angle));
+//             if ( m_stepTimingIndexL==1) {
+//                 m_numberStep++;
+//                 currentFootLeftTwist=m_leftTwistTrajectory.front();
+//                 currentFootLeftTransform=m_leftTrajectory.front();
+//             }
+//             else {
+//                 currentFootLeftTwist=m_adaptatedFootLeftTwist;
+//                 currentFootLeftTransform=m_adaptatedFootLeftTransform;
+//             }
+
+//             if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight,m_dT,m_nominalValuesLeft,m_adaptatedFootLeftTransform,adaptatedFootLeftTwist,currentFootLeftTransform/*m_FKSolver->getLeftFootToWorldTransform()*/,currentFootLeftTwist,finalFootLeftTransform,(m_stepTimingIndexL-1)*m_dT,deltaDS/2))
+//             {
+//                 yError() << "[updateModule] Unable to get the adaptated foot trajectory.";
+//                 return false;
+//             }
+//             m_adaptatedFootLeftTwist=adaptatedFootLeftTwist;
+//     yInfo()<<"single left Support";
+
+//         }
+//         else{
+//             m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+//             m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
+//             m_stepTimingIndexL=0;
+//             yInfo()<<"double left Support";
+//         }
+
+
+
+
+
+//         if (!m_rightInContact.front()) {
+//             m_currentFootRightTwist=m_adaptatedFootRightTwist;
+//             m_currentFootRightTransform=m_adaptatedFootRightTransform;
+//             int numberOfSubTrajectories=m_DCMSubTrajectories.size();
+//             const std::pair<double,double> firstSS=m_DCMSubTrajectories[numberOfSubTrajectories-2]->getTrajectoryDomain();
+//             const std::pair<double,double> secondSS=m_DCMSubTrajectories[numberOfSubTrajectories-4]->getTrajectoryDomain();
+
+//             const std::pair<double,double> secondDS=m_DCMSubTrajectories[numberOfSubTrajectories-3]->getTrajectoryDomain();
+//             const std::pair<double,double> firstDS=m_DCMSubTrajectories[numberOfSubTrajectories-1]->getTrajectoryDomain();
+
+//             stepTiming =(secondDS.first + secondDS.second) / 2 -(firstSS.first)-m_stepTimingIndexR*m_dT*1;
+//             double timeAlpha=(secondDS.second+secondDS.first)/2;
+//             double deltaDS=(secondDS.second-secondDS.first);
+
+//             iDynTree::Vector2 zmp1;
+//             iDynTree::Vector2 zmpT;
+//             iDynTree::Vector2 DCMT;
+//             iDynTree::Vector2 DCM1;
+
+//             m_DCMSubTrajectories[numberOfSubTrajectories-2]->getZMPPosition(0,zmp1,false);
+//             m_DCMSubTrajectories[numberOfSubTrajectories-4]->getZMPPosition(0,zmpT,false);
+//             m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(/*(firstDS.first + firstDS.second) / 2*/firstSS.first+m_stepTimingIndexR*m_dT*1,DCM1,false);
+//             m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(timeAlpha,DCMT,false);
+
+
+//             sigma=exp(omega*stepTiming);
+//             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
+//             stepLength=zmpT(0)-zmp1(0);//(jLeftstepList.at(1).position(0)-jRightstepList.at(0).position(0));
+
+
+//             if (true) {
+//                 //  m_tempCoP=m_ZMPPositionDesired.front()(0);//measuredZMP(0);
+//                 //m_tempDCM=measuredDCM(0);//m_DCMPositionDesired.front()(0);/*measuredDCM(0);*//*desiredCoMPositionXY(0)+desiredCoMVelocityXY(0)/omega;*///measuredCoM(0)+desiredCoMVelocityXY(0)/omega;//measuredDCM(0);
+//             }
+//             m_tempDCM=DCM1(0);
+// //            if (m_stepTimingIndexR>=10) {
+// //                m_tempDCM=DCM1(0)+0.000000;
+// //            }
+
+//             nominalDCMOffset=DCMT(0)-zmpT(0);//stepLength/(exp(omega*nomStepTiming)-1);
+//             m_currentValues(0)=zmp1(0);//m_tempCoP;
+//             m_currentValues(1)=m_tempDCM;//m_tempDCM;//DCM1(0);//m_tempDCM;
+//             m_currentValues(2)=0;
+
+//             m_nominalValuesRight(0)=nextStepPosition;
+//             m_nominalValuesRight(1)=sigma;
+//             m_nominalValuesRight(2)=nominalDCMOffset;
+//             m_nominalValuesRight(3)=0;
+
+//             if(m_useStepAdaptation)
+//             {
+
+//                 if(!m_stepAdaptator->RunStepAdaptator(m_nominalValuesRight,m_currentValues,deltaDS/2,stepTiming,m_stepTimingIndexR))
+//                 {
+//                     yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+//                     return false;
+//                 }
+
+
+//                 if(!m_stepAdaptator->solve())
+//                 {
+//                     yError() << "[updateModule] Unable to solve the QP problem of step adaptation.";
+//                     return false;
+//                 }
+
+//                 if(!m_stepAdaptator->getControllerOutput(rightAdaptedStepParameters))
+//                 {
+//                     yError() << "[updateModule] Unable to get the step adaptation output.";
+//                     return false;
+//                 }
+
+//             }
+//             else{
+//                 yInfo()<<"step adaptation is not active";
+//             }
+
+//             m_stepTimingIndexR++;
+
+//             iDynTree::Transform finalFootRightTransform;
+//             iDynTree::Twist adaptatedFootRightTwist;
+//             iDynTree::Twist currentFootRightTwist;
+//             iDynTree::Transform currentFootRightTransform;
+
+
+//             iDynTree::Position finalFootPosition;
+//             finalFootPosition(0)=rightAdaptedStepParameters(0);
+//             finalFootPosition(1)=m_rightTrajectory.front().getPosition()(1);
+//             finalFootPosition(2)=0;
+//             finalFootRightTransform.setPosition(finalFootPosition);
+
+//             finalFootRightTransform.setRotation(iDynTree::Rotation::RPY(0.0, 0.0,m_jRightstepList.at(1).angle));
+//             if ( m_stepTimingIndexR==1) {
+//                 m_numberStep++;
+//                 currentFootRightTwist=m_rightTwistTrajectory.front();
+//                 currentFootRightTransform=m_rightTrajectory.front();
+//             }
+//             else {
+//                 currentFootRightTwist=m_adaptatedFootRightTwist;
+//                 currentFootRightTransform=m_adaptatedFootRightTransform;
+//             }
+
+//             if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight,m_dT,m_nominalValuesRight,m_adaptatedFootRightTransform,adaptatedFootRightTwist,currentFootRightTransform/*m_FKSolver->getLeftFootToWorldTransform()*/,currentFootRightTwist,finalFootRightTransform,(m_stepTimingIndexR-1)*m_dT,deltaDS/2))
+//             {
+//                 yError() << "[updateModule] Unable to get the adaptated foot trajectory.";
+//                 return false;
+//             }
+//             m_adaptatedFootRightTwist=adaptatedFootRightTwist;
+
+//         }
+//         else{
+//             m_currentFootRightTwist=m_adaptatedFootRightTwist;
+//             m_currentFootRightTransform=m_adaptatedFootRightTransform;
+//             m_stepTimingIndexR=0;
+//         }
 
 
 
@@ -1223,13 +1262,19 @@ bool WalkingModule::updateModule()
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
             iDynTree::Vector2 yawAdapted;
             yawAdapted(0)=m_adaptatedFootLeftTransform.getRotation().asRPY()(2);
-            m_walkingLogger->sendData(yawAdapted,m_currentFootRightTransform.getPosition(),rightAdaptedStepParameters,m_nominalValuesRight,m_currentFootLeftTransform.getPosition(),leftAdaptedStepParameters,m_nominalValuesLeft,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
-                                      measuredZMP, desiredZMP, measuredCoM,
-                                      desiredCoMPositionXY, desiredCoMVelocityXY,
-                                      leftFoot.getPosition(),
-                                      rightFoot.getPosition(),
-                                      m_leftTrajectory.front().getPosition(),
-                                      m_rightTrajectory.front().getPosition());
+            // m_walkingLogger->sendData(yawAdapted,m_currentFootRightTransform.getPosition(),rightAdaptedStepParameters,m_nominalValuesRight,m_currentFootLeftTransform.getPosition(),leftAdaptedStepParameters,m_nominalValuesLeft,m_ZMPPositionDesired.front(),measuredDCM, m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
+            //                           measuredZMP, desiredZMP, measuredCoM,
+            //                           desiredCoMPositionXY, desiredCoMVelocityXY,
+            //                           leftFoot.getPosition(),
+            //                           rightFoot.getPosition(),
+            //                           m_leftTrajectory.front().getPosition(),
+            //                           m_rightTrajectory.front().getPosition());
+
+
+            m_walkingLogger->sendData(yarp::sig::Vector(1, impactTimeNominal), yarp::sig::Vector(1, impactTimeAdjusted),
+                                      zmpNominal, zmpAdjusted);
+
+
         }
 
         propagateTime();
@@ -1546,6 +1591,7 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     std::vector<bool> isLeftFixedFrame;
 
 
+    timeOffset = m_time + mergePoint * m_dT;
 
 
     //m_trajectoryGenerator->
@@ -1698,18 +1744,22 @@ bool WalkingModule::startWalking()
         // yInfo() << "record!!!!!!";
 
 
-        m_walkingLogger->startRecord({"record","yaw_adapted_left","yaw_adapted_right","footxr","footyr","footzr","foot_pos_xr","step_timing_xr","dcm_offset_xr","nom_foot_pos_xr","nom_stepr_timing","nom_dcm_offset_xr","nom_dcmr","omegar","footxl","footyl","footzl","foot_pos_xl","step_timing_xl","dcm_offset_xl","nom_foot_pos_xl","nom_stepl_timing","nom_dcm_offset_xl","nom_dcml","omegal","nom_zmp_x","nom_zmp_y","dcm_x", "dcm_y",
-                                      "dcm_des_x", "dcm_des_y",
-                                      "dcm_des_dx", "dcm_des_dy",
-                                      "zmp_x", "zmp_y",
-                                      "zmp_des_x", "zmp_des_y",
-                                      "com_x", "com_y", "com_z",
-                                      "com_des_x", "com_des_y",
-                                      "com_des_dx", "com_des_dy",
-                                      "lf_x", "lf_y", "lf_z",
-                                      "rf_x", "rf_y", "rf_z",
-                                      "lf_des_x", "lf_des_y", "lf_des_z",
-                                      "rf_des_x", "rf_des_y", "rf_des_z"});
+        // m_walkingLogger->startRecord({"record","yaw_adapted_left","yaw_adapted_right","footxr","footyr","footzr","foot_pos_xr","step_timing_xr","dcm_offset_xr","nom_foot_pos_xr","nom_stepr_timing","nom_dcm_offset_xr","nom_dcmr","omegar","footxl","footyl","footzl","foot_pos_xl","step_timing_xl","dcm_offset_xl","nom_foot_pos_xl","nom_stepl_timing","nom_dcm_offset_xl","nom_dcml","omegal","nom_zmp_x","nom_zmp_y","dcm_x", "dcm_y",
+        //                               "dcm_des_x", "dcm_des_y",
+        //                               "dcm_des_dx", "dcm_des_dy",
+        //                               "zmp_x", "zmp_y",
+        //                               "zmp_des_x", "zmp_des_y",
+        //                               "com_x", "com_y", "com_z",
+        //                               "com_des_x", "com_des_y",
+        //                               "com_des_dx", "com_des_dy",
+        //                               "lf_x", "lf_y", "lf_z",
+        //                               "rf_x", "rf_y", "rf_z",
+        //                               "lf_des_x", "lf_des_y", "lf_des_z",
+        //                               "rf_des_x", "rf_des_y", "rf_des_z"});
+
+
+        m_walkingLogger->startRecord({"record", "nominal_impact_time", "adjusted_impact_time",
+                    "zmp_x_nom", "zmp_y_nom", "zmp_x_adj", "zmp_y_adj"});
     }
 
     // if the robot was only prepared the filters has to be reseted
