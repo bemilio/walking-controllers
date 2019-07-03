@@ -111,9 +111,10 @@ public:
      * @return true/false in case of success/failure.
      */
 
-    // bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, const iDynTree::VectorFixSize<5>& nominalValues, iDynTree::Transform &adaptatedFootTransform, iDynTree::Twist &adaptedFootTwist, const iDynTree::Transform &currentFootTransform, const iDynTree::Twist &currentFootTwist, const iDynTree::Transform &finalFootTransform, const double &timePassed, const double deltaDS);
 
-
+    bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, double takeOffTime, double yawAngleAtImpact, iDynTree::Vector2 zmpOffset,
+                                    const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,
+                                    iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist);
 
     void setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition);
 
@@ -135,7 +136,7 @@ public:
 
     double getDesiredImpactTime();
 
-    iDynTree::Vector2 getDesiredZmpg();
+    iDynTree::Vector2 getDesiredZmp();
 };
 
 #endif

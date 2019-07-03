@@ -478,18 +478,25 @@ bool WalkingModule::solveQPIK(const std::unique_ptr<WalkingQPIK>& solver, const 
 
 
 
-    // m_leftTrajectory.front().setPosition(newLeftFoot);
-    // m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
+//    m_leftTrajectory.front().setPosition(newLeftFoot);
+//    m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
 
-    // m_rightTrajectory.front().setPosition(newRightFoot);
-    // m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
+//    m_rightTrajectory.front().setPosition(newRightFoot);
+//    m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
 
 
-    solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
+    solver->setDesiredFeetTransformation(m_currentFootLeftTransform,
                                          m_rightTrajectory.front());
 
-    solver->setDesiredFeetTwist(m_leftTwistTrajectory.front(),
+    solver->setDesiredFeetTwist(m_currentFootLeftTwist,
                                 m_rightTwistTrajectory.front());
+
+    // solver->setDesiredFeetTransformation(m_leftTrajectory.front(),
+    //                                      m_rightTrajectory.front());
+
+    // solver->setDesiredFeetTwist(m_leftTwistTrajectory.front(),
+    //                             m_rightTwistTrajectory.front());
+
 
     solver->setDesiredCoMVelocity(desiredCoMVelocity);
     solver->setDesiredCoMPosition(desiredCoMPosition);
@@ -782,11 +789,11 @@ bool WalkingModule::updateModule()
                 yError() << " strange " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().first << " " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().second;
                 return false;
             }
-            if(m_time - timeOffset > 0.6)
-            {
-                yInfo() << "push ";
-                dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
-            }
+            // if(m_time - timeOffset > 0.6)
+            // {
+            //     yInfo() << "push ";
+            //     dcmCurrentDesired(0) = dcmCurrentDesired(0) + 0.05;
+            // }
 
             m_stepAdaptator->setCurrentDcmPosition(dcmCurrentDesired);
 
@@ -813,6 +820,29 @@ bool WalkingModule::updateModule()
 
             zmpNominal = nextZmpPosition;
             zmpAdjusted = m_stepAdaptator->getDesiredZmp();
+
+            // TODO REMOVE MAGIC NUMBERS
+            iDynTree::Vector2 zmpOffset;
+            zmpOffset.zero();
+            zmpOffset(0) = 0.03;
+
+            iDynTree::Transform temp = m_adaptatedFootLeftTransform;
+            iDynTree::Twist tempTwist = m_adaptatedFootLeftTwist;
+            if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
+                                                            m_jLeftstepList.at(1).angle,
+                                                            zmpOffset, temp, tempTwist,
+                                                            m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist ))
+            {
+                yError() << "error write something usefull";
+                return false;
+            }
+        }
+        else
+        {
+            m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
+            m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
+            m_stepTimingIndexL=0;
+            yInfo()<<"double left Support";
         }
 //             sigma=exp(omega*stepTiming);
 //             nextStepPosition=zmpT(0);//jRightstepList.at(1).position(0);
@@ -1576,11 +1606,21 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     // StepList jLeftstepList=jleftFootprints->getSteps();
     m_jLeftstepList=m_jleftFootprints->getSteps();
 
+
     m_trajectoryGenerator->getLeftFootprint(m_jRightFootprints);
     m_jRightstepList=m_jRightFootprints->getSteps();
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();
     m_mergePoints.size();
+
+
+    m_adaptatedFootLeftTwist.zero();
+    m_adaptatedFootRightTwist.zero();
+
+    m_adaptatedFootLeftTransform = leftTrajectory.front();
+    m_adaptatedFootRightTransform = rightTrajectory.front();
+    m_adaptatedFootRightTwist.zero();
+
     return true;
 }
 
