@@ -547,16 +547,26 @@ bool WalkingModule::evaluateAdmittanceControl(const iDynTree::Rotation& desiredN
                                                       m_rightInContact.front());
 
     // TODO add acceleration
-    iDynTree::Vector6 dummy;
+    iDynTree::SpatialAcc dummy;
     dummy.zero();
 
-    ok &= m_walkingAdmittanceController->setDesiredFeetTrajectory(m_leftTrajectory.front(),
-                                                                  m_leftTwistTrajectory.front(),
-                                                                  m_leftAccelerationTrajectory.front(),
+    // ok &= m_walkingAdmittanceController->setDesiredFeetTrajectory(m_leftTrajectory.front(),
+    //                                                               m_leftTwistTrajectory.front(),
+    //                                                               m_leftAccelerationTrajectory.front(),
+    //                                                               m_contactWrenchMapping->getDesiredLeftWrench(),
+    //                                                               m_rightTrajectory.front(),
+    //                                                               m_rightTwistTrajectory.front(),
+    //                                                               m_rightAccelerationTrajectory.front(),
+    //                                                               m_contactWrenchMapping->getDesiredRightWrench());
+
+
+    ok &= m_walkingAdmittanceController->setDesiredFeetTrajectory(m_currentFootLeftTransform,
+                                                                  m_currentFootLeftTwist,
+                                                                  dummy,
                                                                   m_contactWrenchMapping->getDesiredLeftWrench(),
-                                                                  m_rightTrajectory.front(),
-                                                                  m_rightTwistTrajectory.front(),
-                                                                  m_rightAccelerationTrajectory.front(),
+                                                                  m_currentFootRightTransform,
+                                                                  m_currentFootRightTwist,
+                                                                  dummy,
                                                                   m_contactWrenchMapping->getDesiredRightWrench());
 
 
@@ -604,35 +614,6 @@ bool WalkingModule::solveQPIK(const std::unique_ptr<WalkingQPIK>& solver, const 
                                 m_FKSolver->getCoMPosition());
 
     solver->setDesiredNeckOrientation(desiredNeckOrientation.inverse());
-    iDynTree::Position newRightFoot;
-    iDynTree::Position newLeftFoot;
-    iDynTree::LinVelocity newRightFootVel;
-    iDynTree::LinVelocity newLeftFootVel;
-
-    newLeftFoot(0)=m_currentFootLeftTransform.getPosition()(0);
-    newLeftFoot(1)=m_leftTrajectory.front().getPosition()(1);
-    newLeftFoot(2)=m_currentFootLeftTransform.getPosition()(2);
-
-    newRightFoot(0)=m_currentFootRightTransform.getPosition()(0);
-    newRightFoot(1)=m_rightTrajectory.front().getPosition()(1);
-    newRightFoot(2)=m_currentFootRightTransform.getPosition()(2);
-
-    newLeftFootVel(0)=m_currentFootLeftTwist.getLinearVec3()(0);
-    newLeftFootVel(1)=m_leftTwistTrajectory.front().getLinearVec3()(1);
-    newLeftFootVel(2)=m_currentFootLeftTwist.getLinearVec3()(2);
-
-    newRightFootVel(0)=m_currentFootRightTwist.getLinearVec3()(0);
-    newRightFootVel(1)=m_rightTwistTrajectory.front().getLinearVec3()(1);
-    newRightFootVel(2)=m_currentFootRightTwist.getLinearVec3()(2);
-
-
-
-//    m_leftTrajectory.front().setPosition(newLeftFoot);
-//    m_leftTwistTrajectory.front().setLinearVec3(newLeftFootVel);
-
-//    m_rightTrajectory.front().setPosition(newRightFoot);
-//    m_rightTwistTrajectory.front().setLinearVec3(newRightFootVel);
-
 
     solver->setDesiredFeetTransformation(m_currentFootLeftTransform,
                                          m_currentFootRightTransform);
@@ -762,8 +743,6 @@ bool WalkingModule::updateModule()
     }
     else if(m_robotState == WalkingFSM::Walking)
     {
-
-        //  indexmilad=indexmilad+1;
         iDynTree::Vector2 measuredZMP;
         bool resetTrajectory = false;
 
@@ -805,9 +784,15 @@ bool WalkingModule::updateModule()
                 iDynTree::Transform TempLeftFoot;
 
 
+                // iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
+                //     m_rightTrajectory[m_newTrajectoryMergeCounter] :
+                //     m_leftTrajectory[m_newTrajectoryMergeCounter];
+
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
-                    m_rightTrajectory[m_newTrajectoryMergeCounter] :
-                    m_leftTrajectory[m_newTrajectoryMergeCounter];
+                    // m_currentFootRightTransform : m_currentFootLeftTransform;
+                    m_FKSolver->getRightFootToWorldTransform() :
+                    m_FKSolver->getLeftFootToWorldTransform();
+
 
                 // ask for a new trajectory
                 if(!askNewTrajectories(initTimeTrajectory, !m_isLeftFixedFrame.front(),
@@ -925,7 +910,10 @@ bool WalkingModule::updateModule()
                 return false;
             }
 
-            m_stepAdaptator->setCurrentDcmPosition(dcmCurrentDesired);
+            iDynTree::Vector2 dcmMeasured2D;
+            dcmMeasured2D(0) = m_FKSolver->getDCM()(0);
+            dcmMeasured2D(1) = m_FKSolver->getDCM()(1);
+            m_stepAdaptator->setCurrentDcmPosition(dcmMeasured2D);
 
             iDynTree::Vector2 dcmAtTimeAlpha;
             double timeAlpha = (secondDS->getTrajectoryDomain().second + secondDS->getTrajectoryDomain().first) / 2;
@@ -1265,24 +1253,16 @@ bool WalkingModule::updateModule()
         // send data to the WalkingLogger
         if(m_dumpData)
         {
-            // iDynTree::Vector2 desiredZMP;
-            // if(m_useMPC)
-            //     desiredZMP = m_walkingController->getControllerOutput();
-            // else
-            //     desiredZMP = m_walkingDCMReactiveController->getControllerOutput();
-
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
-
-            m_walkingLogger->sendData(m_FKSolver->getDCM(), m_DCMPositionDesired.front(), m_DCMVelocityDesired.front(),
-                                      measuredZMP, desiredZMP, m_FKSolver->getCoMPosition(),
-                                      m_stableDCMModel->getCoMPosition(),
-                                      m_stableDCMModel->getCoMVelocity(),
-                                      leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
-                                      rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
+            m_walkingLogger->sendData(m_FKSolver->getDCM(), m_DCMPositionDesired.front(),
                                       m_leftTrajectory.front().getPosition(), m_leftTrajectory.front().getRotation().asRPY(),
                                       m_rightTrajectory.front().getPosition(), m_rightTrajectory.front().getRotation().asRPY(),
-                                      errorL, errorR);
+                                      m_currentFootLeftTransform.getPosition(), m_currentFootLeftTransform.getRotation().asRPY(),
+                                      m_currentFootRightTransform.getPosition(), m_currentFootRightTransform.getRotation().asRPY(),
+                                      leftFoot.getPosition(), leftFoot.getRotation().asRPY(),
+                                      rightFoot.getPosition(), rightFoot.getRotation().asRPY(),
+                                      yarp::sig::Vector(1, impactTimeNominal), yarp::sig::Vector(1, impactTimeAdjusted), zmpNominal, zmpAdjusted);
         }
 
         propagateTime();
@@ -1707,10 +1687,13 @@ bool WalkingModule::startWalking()
     {
         m_walkingLogger->startRecord({"record","dcm_x", "dcm_y", "dcm_z",
                     "dcm_des_x", "dcm_des_y",
-                    "lf_force_des_x", "lf_force_des_y", "lf_force_des_z", "lf_torque_des_x", "lf_torque_des_y", "lf_torque_des_z",
-                    "rf_force_des_x", "rf_force_des_y", "rf_force_des_z", "rf_torque_des_x", "rf_torque_des_y", "rf_torque_des_z",
-                    "lf_force_x", "lf_force_y", "lf_force_z", "lf_torque_x", "lf_torque_y", "lf_torque_z",
-                    "rf_force_x", "rf_force_y", "rf_force_z", "rf_torque_x", "rf_torque_y", "rf_torque_z"});
+                    "lf_position_nom_x", "lf_position_nom_y", "lf_position_nom_z", "lf_orientation_nom_x", "lf_orientation_nom_y", "lf_orientation_nom_z",
+                    "rf_position_nom_x", "rf_position_nom_y", "rf_position_nom_z", "rf_orientation_nom_x", "rf_orientation_nom_y", "rf_orientation_nom_z",
+                    "lf_position_adj_x", "lf_position_adj_y", "lf_position_adj_z", "lf_orientation_adj_x", "lf_orientation_adj_y", "lf_orientation_adj_z",
+                    "rf_position_adj_x", "rf_position_adj_y", "rf_position_adj_z", "rf_orientation_adj_x", "rf_orientation_adj_y", "rf_orientation_adj_z",
+                    "lf_position_x", "lf_position_y", "lf_position_z", "lf_orientation_x", "lf_orientation_y", "lf_orientation_z",
+                    "rf_position_x", "rf_position_y", "rf_position_z", "rf_orientation_x", "rf_orientation_y", "rf_orientation_z", "impact_time_nom", "impact_time_adj", "zmp_nom_x", "zmp_nom_y",
+                    "zmp_adj_x", "zmp_adj_y"});
     }
 
     // if the robot was only prepared the filters has to be reseted

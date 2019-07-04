@@ -125,19 +125,16 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition
                                             const double& stepDuration, const double& stepDurationTollerance, const double& remainingSingleSupportDuration, const double& omega)
 {
     // Two equality constraints and three inequality constraint
-    m_lowerBound.resize(m_numberOfConstraints);
-    m_upperBound.resize(m_numberOfConstraints);
 
     // equality constraint
     m_upperBound.segment(0, 2) = iDynTree::toEigen(zmpPosition);
     m_lowerBound.segment(0, 2) = iDynTree::toEigen(zmpPosition);
 
-    // inequality constraints
     m_upperBound.segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
     m_lowerBound.segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
 
     m_upperBound(4) = std::exp((stepDuration + stepDurationTollerance) * omega);
-    m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration)) * omega);
+    m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration) + 0.05) * omega);
 
     if (m_QPSolver->isInitialized())
     {
