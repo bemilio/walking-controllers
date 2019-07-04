@@ -20,6 +20,7 @@ QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     m_QPSolver->data()->setNumberOfConstraints(numberOfConstraints);
 
     m_QPSolver->settings()->setVerbosity(false);
+    m_QPSolver->settings()->setPolish(true);
 
     m_constraintsMatrix.resize(numberOfConstraints, inputSize);
     m_upperBound.resize(numberOfConstraints);
@@ -37,21 +38,21 @@ QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     m_constraintsMatrix.insert(3, 1) = 1;
 
     m_constraintsMatrix.insert(4, 2) = 1;
+
+    m_hessianMatrix.resize(m_inputSize, m_inputSize);
 }
 
 bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight)
 {
-    Eigen::SparseMatrix<double> Hessian;
-    Hessian.resize(m_inputSize, m_inputSize);
-    Hessian.reserve(m_inputSize);
+    m_hessianMatrix.reserve(m_inputSize);
 
-    Hessian.insert(0,0) = zmpWeight(0);
-    Hessian.insert(1,1) = zmpWeight(1);
+    m_hessianMatrix.insert(0,0) = zmpWeight(0);
+    m_hessianMatrix.insert(1,1) = zmpWeight(1);
 
-    Hessian.insert(2,2) = sigmaWeight;
+    m_hessianMatrix.insert(2,2) = sigmaWeight;
 
-    Hessian.insert(3,3) = dcmOffsetWeight(0);
-    Hessian.insert(4,4) = dcmOffsetWeight(1);
+    m_hessianMatrix.insert(3,3) = dcmOffsetWeight(0);
+    m_hessianMatrix.insert(4,4) = dcmOffsetWeight(1);
 
 
     if (m_QPSolver->isInitialized())
@@ -61,7 +62,7 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTr
     }
     else
     {
-        if (!(m_QPSolver->data()->setHessianMatrix(Hessian)))
+        if (!(m_QPSolver->data()->setHessianMatrix(m_hessianMatrix)))
         {
             yError()<<"[QPslover::setHessianMatrix]Unable to set first time the hessian matrix.";
             return false;

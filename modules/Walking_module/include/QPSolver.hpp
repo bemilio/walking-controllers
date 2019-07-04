@@ -25,6 +25,7 @@ class QPSolver
      */
     std::unique_ptr<OsqpEigen::Solver> m_QPSolver;
     Eigen::SparseMatrix<double> m_constraintsMatrix;
+    Eigen::SparseMatrix<double> m_hessianMatrix;
     Eigen::VectorXd m_gradient;
     Eigen::VectorXd m_lowerBound; /**< Lower bound vector. */
     Eigen::VectorXd m_upperBound; /**< Upper bound vector. */
