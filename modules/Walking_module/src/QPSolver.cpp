@@ -7,6 +7,8 @@
 #include <QPSolver.hpp>
 #include <Utils.hpp>
 
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixXd;
+
 QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     :m_inputSize(inputSize), m_numberOfConstraints(numberOfConstraints)
 {
@@ -42,6 +44,13 @@ QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     m_hessianMatrix.resize(m_inputSize, m_inputSize);
 
     m_solution.resize(m_inputSize);
+
+    // qpoases
+    m_QPSolver_qpOASES = std::make_unique<qpOASES::SQProblem>(inputSize,
+                                                              m_numberOfConstraints);
+
+    m_QPSolver_qpOASES->setPrintLevel(qpOASES::PL_LOW);
+    m_isFirstTime = true;
 }
 
 bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight)
@@ -53,21 +62,19 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTr
 
     m_hessianMatrix(3,3) = dcmOffsetWeight(0);
     m_hessianMatrix(4,4) = dcmOffsetWeight(1);
-
-
-    if (m_QPSolver->isInitialized())
-    {
-        yWarning()<<"[QPslover::setHessianMatrix] The Hessian Matrix should be set just one time! In step adaptation the hessian matrix is constant and just depend on the gains of cost funtion.";
-        //        return  false;
-    }
-    else
-    {
-        if (!(m_QPSolver->data()->setHessianMatrix(iDynTree::toEigen(m_hessianMatrix))))
-        {
-            yError()<<"[QPslover::setHessianMatrix]Unable to set first time the hessian matrix.";
-            return false;
-        };
-    }
+    // if (m_QPSolver->isInitialized())
+    // {
+    //     yWarning()<<"[QPslover::setHessianMatrix] The Hessian Matrix should be set just one time! In step adaptation the hessian matrix is constant and just depend on the gains of cost funtion.";
+    //     //        return  false;
+    // }
+    // else
+    // {
+    //     if (!(m_QPSolver->data()->setHessianMatrix(iDynTree::toEigen(m_hessianMatrix))))
+    //     {
+    //         yError()<<"[QPslover::setHessianMatrix]Unable to set first time the hessian matrix.";
+    //         return false;
+    //     };
+    // }
     return true;
 }
 
@@ -105,22 +112,22 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition,
     m_constraintsMatrix(0, 2) = temp(0);
     m_constraintsMatrix(1, 2) = temp(1);
 
-    if(m_QPSolver->isInitialized())
-    {
-        if(!m_QPSolver->updateLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
-        {
-            yError()<<"[setConstraintsMatrix] unable to update the linear constraints matrix of QPSolver corresponding to step adaptator!";
-            return false;
-        }
-    }
-    else
-    {
-        if (!m_QPSolver->data()->setLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
-        {
-            yError()<<"[setConstraintsMatrix] unable to set the the linear constraints matrix of QPSolver corresponding to step adaptator for the first time ";
-            return false;
-        }
-    }
+    // if(m_QPSolver->isInitialized())
+    // {
+    //     if(!m_QPSolver->updateLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
+    //     {
+    //         yError()<<"[setConstraintsMatrix] unable to update the linear constraints matrix of QPSolver corresponding to step adaptator!";
+    //         return false;
+    //     }
+    // }
+    // else
+    // {
+    //     if (!m_QPSolver->data()->setLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
+    //     {
+    //         yError()<<"[setConstraintsMatrix] unable to set the the linear constraints matrix of QPSolver corresponding to step adaptator for the first time ";
+    //         return false;
+    //     }
+    // }
     return true;
 }
 
@@ -143,27 +150,27 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition
     // std::cerr << "u = [" << m_upperBound << "];";
     // std::cerr << "l = [" << m_lowerBound << "];";
 
-    if (m_QPSolver->isInitialized())
-    {
-        if (!m_QPSolver->updateBounds(iDynTree::toEigen(m_lowerBound),iDynTree::toEigen(m_upperBound)))
-        {
-            yError()<<"[setBoundsVectorOfConstraints]Unable to update the bounds of constraints in QP problem in step adaptation";
-            return false;
-        }
-    }
-    else
-    {
-        if (!m_QPSolver->data()->setLowerBound(iDynTree::toEigen(m_lowerBound)))
-        {
-            yError()<<"[setBoundsVectorOfConstraints] Unable to set the lower bounds of constraints in QP problem in step adaptation ";
-            return false;
-        }
-        if (!m_QPSolver->data()->setUpperBound(iDynTree::toEigen(m_upperBound)))
-        {
-            yError()<<"[setBoundsVectorOfConstraints] Unable to set the  upper bounds of constraints in QP problem in step adaptation";
-            return false;
-        }
-    }
+    // if (m_QPSolver->isInitialized())
+    // {
+    //     if (!m_QPSolver->updateBounds(iDynTree::toEigen(m_lowerBound),iDynTree::toEigen(m_upperBound)))
+    //     {
+    //         yError()<<"[setBoundsVectorOfConstraints]Unable to update the bounds of constraints in QP problem in step adaptation";
+    //         return false;
+    //     }
+    // }
+    // else
+    // {
+    //     if (!m_QPSolver->data()->setLowerBound(iDynTree::toEigen(m_lowerBound)))
+    //     {
+    //         yError()<<"[setBoundsVectorOfConstraints] Unable to set the lower bounds of constraints in QP problem in step adaptation ";
+    //         return false;
+    //     }
+    //     if (!m_QPSolver->data()->setUpperBound(iDynTree::toEigen(m_upperBound)))
+    //     {
+    //         yError()<<"[setBoundsVectorOfConstraints] Unable to set the  upper bounds of constraints in QP problem in step adaptation";
+    //         return false;
+    //     }
+    // }
     return true;
 }
 
@@ -179,18 +186,51 @@ bool QPSolver::initialize()
 
 bool QPSolver::solve()
 {
-    if (!m_QPSolver->isInitialized())
+    // if (!m_QPSolver->isInitialized())
+    // {
+    //     yError()<<"[solve in QPSolver.cpp] The solver has not initilialized";
+    //     return false;
+    // }
+    // if(!m_QPSolver->solve())
+    // {
+    //     yError() << "[QPSolver::solve] Unable to solve the problem";
+    //     return false;
+    // }
+
+
+        // convert sparse matrix into a dense matrix
+    MatrixXd constraintMatrix = MatrixXd(iDynTree::toEigen(m_constraintsMatrix));
+    MatrixXd hessianMatrix = MatrixXd(iDynTree::toEigen(m_hessianMatrix));
+
+    int nWSR = 100;
+    if(!m_isFirstTime)
     {
-        yError()<<"[solve in QPSolver.cpp] The solver has not initilialized";
-        return false;
+        if(m_QPSolver_qpOASES->hotstart(hessianMatrix.data(), m_gradient.data(), constraintMatrix.data(),
+                                 nullptr, nullptr,
+                                 m_lowerBound.data(), m_upperBound.data(), nWSR, 0)
+           != qpOASES::SUCCESSFUL_RETURN)
+        {
+            yError() << "[solve] Unable to solve the problem.";
+            return false;
+        }
     }
-    if(!m_QPSolver->solve())
+    else
     {
-        yError() << "[QPSolver::solve] Unable to solve the problem";
-        return false;
+        if(m_QPSolver_qpOASES->init(hessianMatrix.data(), m_gradient.data(), constraintMatrix.data(),
+                             nullptr, nullptr,
+                             m_lowerBound.data(), m_upperBound.data(), nWSR, 0)
+           != qpOASES::SUCCESSFUL_RETURN)
+        {
+            yError() << "[solve] Unable to solve the problem.";
+            return false;
+        }
+
+        m_isFirstTime = false;
     }
 
-    iDynTree::toEigen(m_solution) = m_QPSolver->getSolution();
+    m_QPSolver_qpOASES->getPrimalSolution(m_solution.data());
+
+    //iDynTree::toEigen(m_solution) = m_QPSolver->getSolution();
 
     return true;
 }

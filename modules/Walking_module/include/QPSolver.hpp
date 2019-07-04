@@ -14,6 +14,7 @@
 // osqp-eigen
 #include <OsqpEigen/OsqpEigen.h>
 
+#include <qpOASES.hpp>
 #include <Utils.hpp>
 
 /**
@@ -36,6 +37,9 @@ class QPSolver
 
     int m_inputSize; /**< Size of the controlled input vector (2). */
     int m_numberOfConstraints; /**< Size of the controlled input vector (2). */
+
+    std::unique_ptr<qpOASES::SQProblem> m_QPSolver_qpOASES{nullptr}; /**< Optimization solver. */
+    bool m_isFirstTime;
 
 public:
 

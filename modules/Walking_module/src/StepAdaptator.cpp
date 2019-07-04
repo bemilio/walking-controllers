@@ -141,14 +141,14 @@ bool StepAdaptator::solve()
 
 
     m_isSolutionEvaluated = false;
-    if(!m_currentQPSolver->isInitialized())
-    {
-        if(!m_currentQPSolver->initialize())
-        {
-            yError() << "[StepAdaptator::solve] Unable to initialize the QP solver.";
-            return false;
-        }
-    }
+    // if(!m_currentQPSolver->isInitialized())
+    // {
+    //     if(!m_currentQPSolver->initialize())
+    //     {
+    //         yError() << "[StepAdaptator::solve] Unable to initialize the QP solver.";
+    //         return false;
+    //     }
+    // }
 
     if(!m_currentQPSolver->solve())
     {
