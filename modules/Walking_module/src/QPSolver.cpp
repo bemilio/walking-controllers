@@ -28,31 +28,31 @@ QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     m_gradient.resize(inputSize);
 
     // set the constant elements of the constraint matrix
-    m_constraintsMatrix.insert(0, 0) = 1;
-    m_constraintsMatrix.insert(1, 1) = 1;
+    m_constraintsMatrix(0, 0) = 1;
+    m_constraintsMatrix(1, 1) = 1;
 
-    m_constraintsMatrix.insert(0, 3) = 1;
-    m_constraintsMatrix.insert(1, 4) = 1;
+    m_constraintsMatrix(0, 3) = 1;
+    m_constraintsMatrix(1, 4) = 1;
 
-    m_constraintsMatrix.insert(2, 0) = 1;
-    m_constraintsMatrix.insert(3, 1) = 1;
+    m_constraintsMatrix(2, 0) = 1;
+    m_constraintsMatrix(3, 1) = 1;
 
-    m_constraintsMatrix.insert(4, 2) = 1;
+    m_constraintsMatrix(4, 2) = 1;
 
     m_hessianMatrix.resize(m_inputSize, m_inputSize);
+
+    m_solution.resize(m_inputSize);
 }
 
 bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight)
 {
-    m_hessianMatrix.reserve(m_inputSize);
+    m_hessianMatrix(0,0) = zmpWeight(0);
+    m_hessianMatrix(1,1) = zmpWeight(1);
 
-    m_hessianMatrix.insert(0,0) = zmpWeight(0);
-    m_hessianMatrix.insert(1,1) = zmpWeight(1);
+    m_hessianMatrix(2,2) = sigmaWeight;
 
-    m_hessianMatrix.insert(2,2) = sigmaWeight;
-
-    m_hessianMatrix.insert(3,3) = dcmOffsetWeight(0);
-    m_hessianMatrix.insert(4,4) = dcmOffsetWeight(1);
+    m_hessianMatrix(3,3) = dcmOffsetWeight(0);
+    m_hessianMatrix(4,4) = dcmOffsetWeight(1);
 
 
     if (m_QPSolver->isInitialized())
@@ -62,7 +62,7 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTr
     }
     else
     {
-        if (!(m_QPSolver->data()->setHessianMatrix(m_hessianMatrix)))
+        if (!(m_QPSolver->data()->setHessianMatrix(iDynTree::toEigen(m_hessianMatrix))))
         {
             yError()<<"[QPslover::setHessianMatrix]Unable to set first time the hessian matrix.";
             return false;
@@ -74,13 +74,13 @@ bool QPSolver::setHessianMatrix(const iDynTree::Vector2& zmpWeight, const iDynTr
 bool QPSolver::setGradientVector(const iDynTree::Vector2& zmpWeight, const iDynTree::Vector2& dcmOffsetWeight, const double& sigmaWeight,
                                  const iDynTree::Vector2& zmpNominal, const iDynTree::Vector2& dcmOffsetNominal, const double& sigmaNominal)
 {
-    m_gradient.segment(0, 2) = -(iDynTree::toEigen(zmpWeight).asDiagonal() * iDynTree::toEigen(zmpNominal));
+    iDynTree::toEigen(m_gradient).segment(0, 2) = -(iDynTree::toEigen(zmpWeight).asDiagonal() * iDynTree::toEigen(zmpNominal));
     m_gradient(2) = -sigmaWeight * sigmaNominal;
-    m_gradient.segment(3, 2)  = -(iDynTree::toEigen(dcmOffsetWeight).asDiagonal() * iDynTree::toEigen(dcmOffsetNominal));
+    iDynTree::toEigen(m_gradient).segment(3, 2)  = -(iDynTree::toEigen(dcmOffsetWeight).asDiagonal() * iDynTree::toEigen(dcmOffsetNominal));
 
     if(m_QPSolver->isInitialized())
     {
-        if(!m_QPSolver->updateGradient<Eigen::Dynamic>(m_gradient))
+        if(!m_QPSolver->updateGradient(iDynTree::toEigen(m_gradient)))
         {
             yError()<<"[QPSolver::setGradientVector]:unable to update the Gradient Vector";
             return false;
@@ -88,7 +88,7 @@ bool QPSolver::setGradientVector(const iDynTree::Vector2& zmpWeight, const iDynT
     }
     else
     {
-        if(!m_QPSolver->data()->setGradient<Eigen::Dynamic>(m_gradient))
+        if(!m_QPSolver->data()->setGradient(iDynTree::toEigen(m_gradient)))
         {
             yError()<<"[QPSolver::setGradientVector]:unable to set the Gradient Vector for the first time";
             return false;
@@ -102,19 +102,21 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition,
     iDynTree::Vector2 temp;
     iDynTree::toEigen(temp) = iDynTree::toEigen(currentZmpPosition) - iDynTree::toEigen(currentDcmPosition);
 
-    m_constraintsMatrix.coeffRef(0, 2) = temp(0);
-    m_constraintsMatrix.coeffRef(1, 2) = temp(1);
+    m_constraintsMatrix(0, 2) = temp(0);
+    m_constraintsMatrix(1, 2) = temp(1);
 
     if(m_QPSolver->isInitialized())
     {
-        if(!m_QPSolver->updateLinearConstraintsMatrix(m_constraintsMatrix)){
+        if(!m_QPSolver->updateLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
+        {
             yError()<<"[setConstraintsMatrix] unable to update the linear constraints matrix of QPSolver corresponding to step adaptator!";
             return false;
         }
     }
     else
     {
-        if (!m_QPSolver->data()->setLinearConstraintsMatrix(m_constraintsMatrix)) {
+        if (!m_QPSolver->data()->setLinearConstraintsMatrix(iDynTree::toEigen(m_constraintsMatrix)))
+        {
             yError()<<"[setConstraintsMatrix] unable to set the the linear constraints matrix of QPSolver corresponding to step adaptator for the first time ";
             return false;
         }
@@ -128,18 +130,22 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition
     // Two equality constraints and three inequality constraint
 
     // equality constraint
-    m_upperBound.segment(0, 2) = iDynTree::toEigen(zmpPosition);
-    m_lowerBound.segment(0, 2) = iDynTree::toEigen(zmpPosition);
+    iDynTree::toEigen(m_upperBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
+    iDynTree::toEigen(m_lowerBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
 
-    m_upperBound.segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
-    m_lowerBound.segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
+    yInfo() << zmpPositionTollerance.toString();
+    iDynTree::toEigen(m_upperBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
+    iDynTree::toEigen(m_lowerBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
 
     m_upperBound(4) = std::exp((stepDuration + stepDurationTollerance) * omega);
     m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration) + 0.05) * omega);
 
+    // std::cerr << "u = [" << m_upperBound << "];";
+    // std::cerr << "l = [" << m_lowerBound << "];";
+
     if (m_QPSolver->isInitialized())
     {
-        if (!m_QPSolver->updateBounds(m_lowerBound,m_upperBound))
+        if (!m_QPSolver->updateBounds(iDynTree::toEigen(m_lowerBound),iDynTree::toEigen(m_upperBound)))
         {
             yError()<<"[setBoundsVectorOfConstraints]Unable to update the bounds of constraints in QP problem in step adaptation";
             return false;
@@ -147,12 +153,12 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition
     }
     else
     {
-        if (!m_QPSolver->data()->setLowerBound(m_lowerBound))
+        if (!m_QPSolver->data()->setLowerBound(iDynTree::toEigen(m_lowerBound)))
         {
             yError()<<"[setBoundsVectorOfConstraints] Unable to set the lower bounds of constraints in QP problem in step adaptation ";
             return false;
         }
-        if (!m_QPSolver->data()->setUpperBound(m_upperBound))
+        if (!m_QPSolver->data()->setUpperBound(iDynTree::toEigen(m_upperBound)))
         {
             yError()<<"[setBoundsVectorOfConstraints] Unable to set the  upper bounds of constraints in QP problem in step adaptation";
             return false;
@@ -173,18 +179,23 @@ bool QPSolver::initialize()
 
 bool QPSolver::solve()
 {
-    if (!m_QPSolver->isInitialized()) {
+    if (!m_QPSolver->isInitialized())
+    {
         yError()<<"[solve in QPSolver.cpp] The solver has not initilialized";
         return false;
     }
-    return m_QPSolver->solve();
+    if(!m_QPSolver->solve())
+    {
+        yError() << "[QPSolver::solve] Unable to solve the problem";
+        return false;
+    }
+
+    iDynTree::toEigen(m_solution) = m_QPSolver->getSolution();
+
+    return true;
 }
 
 iDynTree::VectorDynSize QPSolver::getSolution()
 {
-    Eigen::VectorXd solutionEigen = m_QPSolver->getSolution();
-    int solutionSize=m_inputSize;
-    iDynTree::VectorDynSize solution(solutionSize);
-    iDynTree::toEigen(solution)=solutionEigen;
-    return solution;
+    return m_solution;
 }

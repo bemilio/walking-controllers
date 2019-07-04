@@ -9,6 +9,7 @@
 // iDynTree
 #include <iDynTree/Core/SparseMatrix.h>
 #include <iDynTree/Core/VectorDynSize.h>
+#include <iDynTree/Core/MatrixDynSize.h>
 
 // osqp-eigen
 #include <OsqpEigen/OsqpEigen.h>
@@ -24,11 +25,14 @@ class QPSolver
      * Pointer to the optimization solver
      */
     std::unique_ptr<OsqpEigen::Solver> m_QPSolver;
-    Eigen::SparseMatrix<double> m_constraintsMatrix;
-    Eigen::SparseMatrix<double> m_hessianMatrix;
-    Eigen::VectorXd m_gradient;
-    Eigen::VectorXd m_lowerBound; /**< Lower bound vector. */
-    Eigen::VectorXd m_upperBound; /**< Upper bound vector. */
+    iDynSparseMatrix m_hessianMatrix;
+    iDynSparseMatrix m_constraintsMatrix;
+
+    iDynTree::VectorDynSize m_gradient;
+    iDynTree::VectorDynSize m_lowerBound; /**< Lower bound vector. */
+    iDynTree::VectorDynSize m_upperBound; /**< Upper bound vector. */
+
+    iDynTree::VectorDynSize m_solution;
 
     int m_inputSize; /**< Size of the controlled input vector (2). */
     int m_numberOfConstraints; /**< Size of the controlled input vector (2). */
