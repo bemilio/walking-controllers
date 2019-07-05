@@ -248,6 +248,8 @@ public:
      */
     bool getMergePoints(std::vector<size_t>& mergePoints);
 
+    bool generateTrajectoriesFromFootprints(std::shared_ptr<FootPrint> left, std::shared_ptr<FootPrint> right, const double &initTime);
+
     /**
      * Reset the planner
      */

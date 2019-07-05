@@ -445,7 +445,7 @@ bool TrajectoryGenerator::updateTrajectories(double initTime, const iDynTree::Ve
 
     iDynTree::Vector2 desredPositionFromStanceFoot;
     iDynTree::toEigen(desredPositionFromStanceFoot) = iDynTree::toEigen(unicyclePositionFromStanceFoot)
-            + iDynTree::toEigen(m_referencePointDistance) + iDynTree::toEigen(desiredPosition);
+        + iDynTree::toEigen(m_referencePointDistance) + iDynTree::toEigen(desiredPosition);
 
     // prepare the rotation matrix w_R_{unicycle}
     double theta = measured.getRotation().asRPY()(2);
@@ -458,9 +458,9 @@ bool TrajectoryGenerator::updateTrajectories(double initTime, const iDynTree::Ve
 
         // apply the homogeneous transformation w_H_{unicycle}
         m_desiredPoint(0) = c_theta * desredPositionFromStanceFoot(0)
-                - s_theta * desredPositionFromStanceFoot(1) + measured.getPosition()(0);
+            - s_theta * desredPositionFromStanceFoot(1) + measured.getPosition()(0);
         m_desiredPoint(1) = s_theta * desredPositionFromStanceFoot(0)
-                + c_theta * desredPositionFromStanceFoot(1) + measured.getPosition()(1);
+            + c_theta * desredPositionFromStanceFoot(1) + measured.getPosition()(1);
 
         m_initTime = initTime;
 
@@ -495,6 +495,18 @@ bool TrajectoryGenerator::isTrajectoryAsked()
     return m_generatorState == GeneratorState::Called;
 }
 
+bool TrajectoryGenerator::generateTrajectoriesFromFootprints(std::shared_ptr<FootPrint> left, std::shared_ptr<FootPrint> right,
+                                                             const double &initTime)
+{
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[generateTrajectoriesFromFootprints] I cannot generate a new trajectory for you. Please wait";
+        return false;
+    }
+
+    return m_trajectoryGenerator.generateFromFootPrints(left, right, initTime, m_dT);
+}
+
 bool TrajectoryGenerator::getDCMPositionTrajectory(std::vector<iDynTree::Vector2>& DCMPositionTrajectory)
 {
     if(!isTrajectoryComputed())
@@ -515,7 +527,7 @@ bool TrajectoryGenerator::getZMPPositionTrajectory(std::vector<iDynTree::Vector2
         return false;
     }
 
-   ZMPPositionTrajectory = m_dcmGenerator->getZMPPosition();
+    ZMPPositionTrajectory = m_dcmGenerator->getZMPPosition();
     return true;
 }
 
@@ -535,7 +547,7 @@ bool TrajectoryGenerator::getDCMVelocityTrajectory(std::vector<iDynTree::Vector2
 bool TrajectoryGenerator::getDCMSubTrajectory(std::vector<std::shared_ptr<GeneralSupportTrajectory>> & dcmSubTrajectories){
 
 
-  dcmSubTrajectories= m_dcmGenerator->getDCMSubTrajectories();
+    dcmSubTrajectories= m_dcmGenerator->getDCMSubTrajectories();
 }
 
 bool TrajectoryGenerator::getFeetTrajectories(std::vector<iDynTree::Transform>& lFootTrajectory,
@@ -579,6 +591,7 @@ bool TrajectoryGenerator::getFeetAcceleration(std::vector<iDynTree::SpatialAcc>&
 
     return true;
 }
+
 
 bool TrajectoryGenerator::getWhenUseLeftAsFixed(std::vector<bool>& isLeftFixedFrame)
 {
@@ -664,7 +677,8 @@ void TrajectoryGenerator::reset()
     m_generatorState = GeneratorState::FirstStep;
 }
 
-bool TrajectoryGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases){
+bool TrajectoryGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std::vector<StepPhase> &rightPhases)
+{
     if(!isTrajectoryComputed())
     {
         yError() << "[getStepPhases] No trajectories are available";
@@ -674,38 +688,39 @@ bool TrajectoryGenerator::getStepPhases(std::vector<StepPhase> &leftPhases, std:
     m_trajectoryGenerator.getStepPhases(leftPhases,rightPhases);
 }
 
+bool TrajectoryGenerator::getLeftFootprint(std::shared_ptr<FootPrint>& leftFootPrint)
+{
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[getLeftFootprint] No trajectories are available";
+        return false;
+    }
+    leftFootPrint=m_trajectoryGenerator.getLeftFootPrint();
 
+    return true;
+}
 
- bool TrajectoryGenerator::getLeftFootprint(std::shared_ptr<FootPrint>& leftFootPrint){
-     if(!isTrajectoryComputed())
-     {
-         yError() << "[getLeftFootprint] No trajectories are available";
-         return false;
-     }
- leftFootPrint=m_trajectoryGenerator.getLeftFootPrint();
+bool TrajectoryGenerator::getRightFootprint(std::shared_ptr<FootPrint>& rightFootPrint)
+{
+    if(!isTrajectoryComputed())
+    {
+        yError() << "[getRightFootprint] No trajectories are available";
+        return false;
+    }
+    rightFootPrint=m_trajectoryGenerator.getRightFootPrint();
 
- return true;
+    return true;
+}
+
+bool TrajectoryGenerator::getNominalCoMHeight(double& nominalCoMHeight)
+{
+    nominalCoMHeight=m_nominalCoMHeight;
+    return true;
 }
 
 
- bool TrajectoryGenerator::getRightFootprint(std::shared_ptr<FootPrint>& rightFootPrint){
-     if(!isTrajectoryComputed())
-     {
-         yError() << "[getRightFootprint] No trajectories are available";
-         return false;
-     }
-rightFootPrint=m_trajectoryGenerator.getRightFootPrint();
-
- return true;
-}
-
-bool TrajectoryGenerator::getNominalCoMHeight(double& nominalCoMHeight){
-nominalCoMHeight=m_nominalCoMHeight;
-return true;
-}
-
-
-bool TrajectoryGenerator::getSwitchOverSwingRatio(double& switchOverSwingRatio){
-switchOverSwingRatio=m_switchOverSwingRatio;
-return true;
+bool TrajectoryGenerator::getSwitchOverSwingRatio(double& switchOverSwingRatio)
+{
+    switchOverSwingRatio=m_switchOverSwingRatio;
+    return true;
 }
