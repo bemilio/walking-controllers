@@ -139,13 +139,11 @@ bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition
     // equality constraint
     iDynTree::toEigen(m_upperBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
     iDynTree::toEigen(m_lowerBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
-
-    yInfo() << zmpPositionTollerance.toString();
     iDynTree::toEigen(m_upperBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
     iDynTree::toEigen(m_lowerBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
 
     m_upperBound(4) = std::exp((stepDuration + stepDurationTollerance) * omega);
-    m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration) + 0.05) * omega);
+    m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration)) * omega);
 
     // std::cerr << "u = [" << m_upperBound << "];";
     // std::cerr << "l = [" << m_lowerBound << "];";
