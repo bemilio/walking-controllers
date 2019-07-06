@@ -35,7 +35,7 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config)
     m_inputSize = 5;
 
     // constraints are dynamics (2) zmp position (2) impact time(1)
-    m_numberOfConstraint = 5;
+    m_numberOfConstraint = 7;
 
     m_currentQPSolver = std::make_shared<QPSolver>(m_inputSize, m_numberOfConstraint);
 
@@ -58,11 +58,31 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config)
         return false;
     }
 
-    if(!YarpHelper::getVectorFromSearchable(config, "zmp_position_tolerance",  m_zmpPositionTollerance))
+    m_feetExtendedPolygon.resize(2);
+    iDynTree::Polygon foot;
+    iDynTree::Vector4 zmpOffsetLeftFoot;
+    if(!YarpHelper::getVectorFromSearchable(config, "zmp_offset_leftFoot",  zmpOffsetLeftFoot))
     {
         yError() << "[StepAdaptator::initialize] Unable to get the vector";
         return false;
     }
+
+    foot = iDynTree::Polygon::XYRectangleFromOffsets(zmpOffsetLeftFoot(0), zmpOffsetLeftFoot(1),
+                                                     zmpOffsetLeftFoot(2), zmpOffsetLeftFoot(3));
+    m_feetExtendedPolygon[0] = foot;
+
+    iDynTree::Vector4 zmpOffsetRightFoot;
+    if(!YarpHelper::getVectorFromSearchable(config, "zmp_offset_rightFoot", zmpOffsetRightFoot))
+    {
+        yError() << "[StepAdaptator::initialize] Unable to get the vector";
+        return false;
+    }
+
+    foot = iDynTree::Polygon::XYRectangleFromOffsets(zmpOffsetRightFoot(0), zmpOffsetRightFoot(1),
+                                                     zmpOffsetRightFoot(2), zmpOffsetRightFoot(3));
+
+    m_feetExtendedPolygon[1] = foot;
+
 
     if(!YarpHelper::getNumberFromSearchable(config, "step_duration_tolerance", m_stepDurationTolerance))
     {
@@ -83,9 +103,11 @@ bool StepAdaptator::initialize(const yarp::os::Searchable &config)
 
 }
 
-void StepAdaptator::setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition)
+void StepAdaptator::setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition, const double& angle)
 {
     m_zmpPositionNominal = nominalZmpPosition;
+    m_footTransform.setPosition(iDynTree::Position(nominalZmpPosition(0), nominalZmpPosition(1), 0));
+    m_footTransform.setRotation(iDynTree::Rotation::RPY(0, 0, angle));
 }
 
 void StepAdaptator::setTimings(const double & omega, const double & currentTime, const double& nextImpactTime,
@@ -116,8 +138,46 @@ void StepAdaptator::setCurrentDcmPosition(const iDynTree::Vector2& currentDcmPos
     m_currentDcmPosition = currentDcmPosition;
 }
 
-bool StepAdaptator::solve()
+bool StepAdaptator::solve(bool isLeft)
 {
+
+    // generate the convex hull
+    iDynTree::Direction xAxis, yAxis;
+    xAxis.zero();
+    xAxis(0) = 1;
+    yAxis.zero();
+    yAxis(1) = 1;
+
+    // initilize plane origin
+    iDynTree::Position planeOrigin;
+    planeOrigin.zero();
+
+    std::vector<iDynTree::Transform> feetTransforms;
+    feetTransforms.push_back(m_footTransform);
+
+    if(isLeft)
+    {
+        yInfo() << "left";
+        if(!m_convexHullComputer.buildConvexHull(xAxis, yAxis, planeOrigin,
+                                                 std::vector<iDynTree::Polygon>(1, m_feetExtendedPolygon[0]),
+                                                 feetTransforms))
+        {
+            yInfo() << "unable to build the convex hull (left)";
+            return false;
+        }
+    }
+    else
+    {
+        yInfo() << "right";
+        if(!m_convexHullComputer.buildConvexHull(xAxis, yAxis, planeOrigin,
+                                                 std::vector<iDynTree::Polygon>(1, m_feetExtendedPolygon[1]),
+                                                 feetTransforms))
+        {
+            yInfo() << "unable to build the convex hull (right)";
+            return false;
+        }
+    }
+
     if (!m_currentQPSolver->setGradientVector(m_zmpPositionWeight, m_dcmOffsetWeight, m_sigmaWeight,
                                               m_zmpPositionNominal, m_dcmOffsetNominal, m_sigmaNominal))
     {
@@ -125,13 +185,13 @@ bool StepAdaptator::solve()
         return false;
     }
 
-    if(!m_currentQPSolver->setConstraintsMatrix(m_currentDcmPosition, m_currentZmpPosition))
+    if(!m_currentQPSolver->setConstraintsMatrix(m_currentDcmPosition, m_currentZmpPosition, m_convexHullComputer.A))
     {
         yError() << "[StepAdaptator::RunStepAdaptator] Unable to set the constraint matrix";
         return false;
     }
 
-    if(!m_currentQPSolver->setBoundsVectorOfConstraints(m_currentZmpPosition, m_zmpPositionNominal, m_zmpPositionTollerance,
+    if(!m_currentQPSolver->setBoundsVectorOfConstraints(m_currentZmpPosition, m_convexHullComputer.b,
                                                         m_stepTiming, m_stepDurationTolerance, m_remainingSingleSupportDuration,
                                                         m_omega))
     {

@@ -36,10 +36,7 @@ QPSolver::QPSolver(const int& inputSize, const int& numberOfConstraints)
     m_constraintsMatrix(0, 3) = 1;
     m_constraintsMatrix(1, 4) = 1;
 
-    m_constraintsMatrix(2, 0) = 1;
-    m_constraintsMatrix(3, 1) = 1;
-
-    m_constraintsMatrix(4, 2) = 1;
+    m_constraintsMatrix(6, 2) = 1;
 
     m_hessianMatrix.resize(m_inputSize, m_inputSize);
 
@@ -104,13 +101,28 @@ bool QPSolver::setGradientVector(const iDynTree::Vector2& zmpWeight, const iDynT
     return true;
 }
 
-bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition, const iDynTree::Vector2& currentZmpPosition)
+bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition, const iDynTree::Vector2& currentZmpPosition,
+                                    const iDynTree::MatrixDynSize& convexHullMatrix)
 {
+    if(convexHullMatrix.rows() != 4 || convexHullMatrix.cols() != 2)
+    {
+        yError() << "QPSolver::setConstraintsMatrix the convex hull matrix it is strange " << convexHullMatrix.toString();
+        return false;
+    }
+
     iDynTree::Vector2 temp;
     iDynTree::toEigen(temp) = iDynTree::toEigen(currentZmpPosition) - iDynTree::toEigen(currentDcmPosition);
 
     m_constraintsMatrix(0, 2) = temp(0);
     m_constraintsMatrix(1, 2) = temp(1);
+    m_constraintsMatrix(2, 0) = convexHullMatrix(0, 0);
+    m_constraintsMatrix(2, 1) = convexHullMatrix(0, 1);
+    m_constraintsMatrix(3, 0) = convexHullMatrix(1, 0);
+    m_constraintsMatrix(3, 1) = convexHullMatrix(1, 1);
+    m_constraintsMatrix(4, 0) = convexHullMatrix(2, 0);
+    m_constraintsMatrix(4, 1) = convexHullMatrix(2, 1);
+    m_constraintsMatrix(5, 0) = convexHullMatrix(3, 0);
+    m_constraintsMatrix(5, 1) = convexHullMatrix(3, 1);
 
     // if(m_QPSolver->isInitialized())
     // {
@@ -131,19 +143,32 @@ bool QPSolver::setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition,
     return true;
 }
 
-bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition, const iDynTree::Vector2& zmpPositionNominal, const iDynTree::Vector2& zmpPositionTollerance,
+bool QPSolver::setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition, const iDynTree::VectorDynSize& convexHullVector,
                                             const double& stepDuration, const double& stepDurationTollerance, const double& remainingSingleSupportDuration, const double& omega)
 {
-    // Two equality constraints and three inequality constraint
+    if(convexHullVector.size() != 4)
+    {
+        yError() << "QPSolver::setConstraintsMatrix the convex hull matrix it is strange " << convexHullVector.toString();
+        return  false;
+    }
+
+
+// Two equality constraints and three inequality constraint
 
     // equality constraint
     iDynTree::toEigen(m_upperBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
     iDynTree::toEigen(m_lowerBound).segment(0, 2) = iDynTree::toEigen(zmpPosition);
-    iDynTree::toEigen(m_upperBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
-    iDynTree::toEigen(m_lowerBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
+    iDynTree::toEigen(m_upperBound).segment(2, 4) = iDynTree::toEigen(convexHullVector);
+    m_lowerBound(2) = -qpOASES::INFTY;
+    m_lowerBound(3) = -qpOASES::INFTY;
+    m_lowerBound(4) = -qpOASES::INFTY;
+    m_lowerBound(5) = -qpOASES::INFTY;
 
-    m_upperBound(4) = std::exp((stepDuration + stepDurationTollerance) * omega);
-    m_lowerBound(4) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration)) * omega);
+    // iDynTree::toEigen(m_upperBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) + iDynTree::toEigen(zmpPositionTollerance);
+    // iDynTree::toEigen(m_lowerBound).segment(2, 2) = iDynTree::toEigen(zmpPositionNominal) - iDynTree::toEigen(zmpPositionTollerance);
+
+    m_upperBound(6) = std::exp((stepDuration + stepDurationTollerance) * omega);
+    m_lowerBound(6) = std::exp((stepDuration - std::min(stepDurationTollerance, remainingSingleSupportDuration)) * omega);
 
     // std::cerr << "u = [" << m_upperBound << "];";
     // std::cerr << "l = [" << m_lowerBound << "];";

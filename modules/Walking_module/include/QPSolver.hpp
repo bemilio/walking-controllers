@@ -66,7 +66,8 @@ public:
      * @param currentValuesVector This vector includes the current value of real ZMP, real DCM and delta(the distance that ZMP moves in the SS phase)   ;
      * @return true/false in case of success/failure.
      */
-    bool setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition, const iDynTree::Vector2& currentZmpPosition);
+    bool setConstraintsMatrix(const iDynTree::Vector2& currentDcmPosition, const iDynTree::Vector2& currentZmpPosition,
+                              const iDynTree::MatrixDynSize& convexHullMatrix);
 
     /**
      * Set or update the gradient
@@ -84,10 +85,8 @@ public:
      * @param tolerenceOfBounds This vector includes the tolerence between nominal value and the maximum and minimum value constraint    ;
      * @return true/false in case of success/failure.
      */
-    bool setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition, const iDynTree::Vector2& zmpPositionNominal,
-                                      const iDynTree::Vector2& zmpPositionTollerance,
-                                      const double& stepDuration, const double& stepDurationTollerance,
-                                      const double& remainingSingleSupportDuration, const double& omega);
+    bool setBoundsVectorOfConstraints(const iDynTree::Vector2& zmpPosition, const iDynTree::VectorDynSize& convexHullVector,
+                                      const double& stepDuration, const double& stepDurationTollerance, const double& remainingSingleSupportDuration, const double& omega);
 
     /**
      * Get the state of the solver.

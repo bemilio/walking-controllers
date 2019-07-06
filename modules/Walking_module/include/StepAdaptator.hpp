@@ -54,7 +54,12 @@ class StepAdaptator
     iDynTree::Vector2 m_currentZmpPosition;
     iDynTree::Vector2 m_currentDcmPosition;
 
-    iDynTree::Vector2 m_zmpPositionTollerance;
+    iDynTree::Vector2 m_zmpPositionTollerance_x;
+    iDynTree::Vector2 m_zmpPositionTollerance_yLeft;
+    iDynTree::Vector2 m_zmpPositionTollerance_yRight;
+
+
+    iDynTree::Vector2 m_desiredZmp;
 
     double m_stepTiming;
     double m_stepDurationTolerance;
@@ -69,6 +74,9 @@ class StepAdaptator
 
     iDynTree::VectorDynSize m_xPositionsBuffer, m_yPositionsBuffer, m_zPositionsBuffer,m_zzPositionsBuffer, m_yawsBuffer, m_timesBuffer, m_zTimesBuffer,m_zzTimesBuffer;
 
+    iDynTree::ConvexHullProjectionConstraint m_convexHullComputer; /**<iDynTree convex hull helper. */
+    std::vector<iDynTree::Polygon> m_feetExtendedPolygon;
+    iDynTree::Transform m_footTransform;
 
     std::pair<bool, bool> m_feetStatus; /**< Current status of the feet. Left and Right. True is used
                                            if the foot is in contact. */
@@ -98,7 +106,7 @@ public:
      * Solve the Optimization problem. If the QPSolver is not set It will be initialized.
      * @return true/false in case of success/failure.
      */
-    bool solve();
+    bool solve(bool isLeft);
 
     /**
      * Reset the controller
@@ -116,7 +124,7 @@ public:
                                     const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,
                                     iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist);
 
-    void setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition);
+    void setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition, const double& angle);
 
     void setTimings(const double & omega, const double & currentTime, const double& nextImpactTime,
                     const double &nextDoubleSupportDuration);

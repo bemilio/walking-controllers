@@ -907,7 +907,8 @@ bool WalkingModule::updateModule()
             iDynTree::Vector2 nextZmpPosition, currentZmpPosition;
             bool checkFeasibility = false;
             secondSS->getZMPPosition(0, nextZmpPosition, checkFeasibility);
-            m_stepAdaptator->setNominalNextStepPosition(nextZmpPosition);
+            double angle = !m_leftInContact.front()? m_jleftFootprints->getSteps()[1].angle : m_jRightFootprints->getSteps()[1].angle;
+            m_stepAdaptator->setNominalNextStepPosition(nextZmpPosition, angle);
 
             firstSS->getZMPPosition(0, currentZmpPosition, checkFeasibility);
             m_stepAdaptator->setCurrentZmpPosition(currentZmpPosition);
@@ -943,7 +944,7 @@ bool WalkingModule::updateModule()
                                         secondDS->getTrajectoryDomain().second - secondDS->getTrajectoryDomain().first);
 
 
-            if(!m_stepAdaptator->solve())
+            if(!m_stepAdaptator->solve(!m_leftInContact.front()))
             {
                 yError() << "unable to solve the problem step adjustment";
                 return false;
