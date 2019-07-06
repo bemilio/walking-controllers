@@ -141,6 +141,9 @@ class WalkingModule: public yarp::os::RFModule, public WalkingCommands
     std::deque<double> m_weightInRight; /**< Deque containing the right foot weight percentage. */
     std::deque<size_t> m_mergePoints; /**< Deque containing the time position of the merge points. */
 
+    std::deque<iDynTree::Vector2> m_DCMPositionAdjusted; /**< Deque containing the desired DCM position. */
+    std::deque<iDynTree::Vector2> m_DCMVelocityAdjusted; /**< Deque containing the desired DCM position. */
+
     std::deque<bool> m_isLeftFixedFrame; /**< Deque containing when the main frame of the left foot is the fixed frame
                                             In general a main frame of a foot is the fix frame only during the
                                             stance and the switch out phases. */

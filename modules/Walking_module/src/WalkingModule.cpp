@@ -32,6 +32,8 @@ double timeOffset;
 double impactTimeNominal, impactTimeAdjusted;
 iDynTree::Vector2 zmpNominal, zmpAdjusted;
 
+int indexPush;
+
 void WalkingModule::propagateTime()
 {
     // propagate time
@@ -85,6 +87,13 @@ bool WalkingModule::advanceReferenceSignals()
 
     m_DCMPositionDesired.pop_front();
     m_DCMPositionDesired.push_back(m_DCMPositionDesired.back());
+
+    m_DCMPositionAdjusted.pop_front();
+    m_DCMPositionAdjusted.push_back(m_DCMPositionAdjusted.back());
+
+    m_DCMVelocityAdjusted.pop_front();
+    m_DCMVelocityAdjusted.push_back(m_DCMVelocityAdjusted.back());
+
 
     m_DCMVelocityDesired.pop_front();
     m_DCMVelocityDesired.push_back(m_DCMVelocityDesired.back());
@@ -789,9 +798,7 @@ bool WalkingModule::updateModule()
                 //     m_leftTrajectory[m_newTrajectoryMergeCounter];
 
                 iDynTree::Transform measuredTransform = m_isLeftFixedFrame.front() ?
-                    // m_currentFootRightTransform : m_currentFootLeftTransform;
-                    m_FKSolver->getRightFootToWorldTransform() :
-                    m_FKSolver->getLeftFootToWorldTransform();
+                    m_currentFootRightTransform : m_currentFootLeftTransform;
 
 
                 // ask for a new trajectory
@@ -887,6 +894,9 @@ bool WalkingModule::updateModule()
 
         if (!m_leftInContact.front() || !m_rightInContact.front())
         {
+
+            indexPush++;
+
             int numberOfSubTrajectories = m_DCMSubTrajectories.size();
             auto firstSS = m_DCMSubTrajectories[numberOfSubTrajectories-2];
             auto secondSS = m_DCMSubTrajectories[numberOfSubTrajectories-4];
@@ -903,12 +913,18 @@ bool WalkingModule::updateModule()
             m_stepAdaptator->setCurrentZmpPosition(currentZmpPosition);
 
             // TODO this is a test
-            iDynTree::Vector2 dcmCurrentDesired;
-            if(!m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(m_time - timeOffset, dcmCurrentDesired, false))
-            {
-                yError() << " strange " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().first << " " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().second;
-                return false;
-            }
+            // if(!m_DCMSubTrajectories[numberOfSubTrajectories-2]->getDCMPosition(m_time - timeOffset, dcmCurrentDesired, false))
+            // {
+            //     yError() << " strange " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().first << " " << m_DCMSubTrajectories[numberOfSubTrajectories - 2]->getTrajectoryDomain().second;
+            //     return false;
+            // }
+
+
+            // if((indexPush > 5) &&  (indexPush < 10))
+            // {
+            //     yInfo() << "push";
+            //     m_DCMPositionAdjusted.front()(0) += 0.05;
+            // }
 
             iDynTree::Vector2 dcmMeasured2D;
             dcmMeasured2D(0) = m_FKSolver->getDCM()(0);
@@ -962,7 +978,7 @@ bool WalkingModule::updateModule()
                 // TODO REMOVE MAGIC NUMBERS
                 iDynTree::Vector2 zmpOffset;
                 zmpOffset.zero();
-                zmpOffset(0) = 0.03;
+                zmpOffset(0) = 0.0;
 
                 m_currentFootRightTransform = m_adaptatedFootRightTransform;
                 m_currentFootRightTwist = m_adaptatedFootRightTwist;
@@ -975,6 +991,90 @@ bool WalkingModule::updateModule()
                     return false;
                 }
             }
+
+            // adapted dcm trajectory
+
+            // add the offset on the zmp evaluated by the step adjustment for each footprint in the trajectory
+            // the same approach is used also for the impact time since the step adjustment change the impact time
+            iDynTree::Vector2 adaptedZMPOffset;
+            iDynTree::toEigen(adaptedZMPOffset) = iDynTree::toEigen(m_stepAdaptator->getDesiredZmp()) - iDynTree::toEigen(nextZmpPosition);
+            double adaptedTimeOffset;
+            adaptedTimeOffset = m_stepAdaptator->getDesiredImpactTime() - firstSS->getTrajectoryDomain().second;
+
+            // TODO REMOVE MAGIC NUMBERS
+            iDynTree::Vector2 zmpOffset;
+            zmpOffset.zero();
+            zmpOffset(0) = 0.03;
+
+            std::shared_ptr<FootPrint> leftTemp = std::make_unique<FootPrint>();
+            leftTemp->setFootName("left");
+            leftTemp->addStep(m_jleftFootprints->getSteps()[0]);
+            for(int i = 1; i < m_jleftFootprints->getSteps().size(); i++)
+            {
+                iDynTree::Vector2 position;
+                iDynTree::toEigen(position) =  iDynTree::toEigen(m_jleftFootprints->getSteps()[i].position) + iDynTree::toEigen(adaptedZMPOffset)
+                    + iDynTree::toEigen(zmpOffset);
+
+                leftTemp->addStep(position, m_jleftFootprints->getSteps()[i].angle, m_jleftFootprints->getSteps()[i].impactTime + adaptedTimeOffset);
+            }
+
+            std::shared_ptr<FootPrint> rightTemp = std::make_unique<FootPrint>();
+            rightTemp->setFootName("right");
+            rightTemp->addStep(m_jRightFootprints->getSteps()[0]);
+            for(int i = 1; i < m_jRightFootprints->getSteps().size(); i++)
+            {
+                iDynTree::Vector2 position;
+                iDynTree::toEigen(position) =  iDynTree::toEigen(m_jRightFootprints->getSteps()[i].position) + iDynTree::toEigen(adaptedZMPOffset)
+                    + iDynTree::toEigen(zmpOffset);
+
+                rightTemp->addStep(position, m_jRightFootprints->getSteps()[i].angle, m_jRightFootprints->getSteps()[i].impactTime + adaptedTimeOffset);
+            }
+
+            // generate the DCM trajectory
+            if(!m_trajectoryGenerator->generateTrajectoriesFromFootprints(leftTemp, rightTemp, timeOffset))
+            {
+                yError() << "[WalkingModule::updateModule] Generate new trajectorie after step adjustment.";
+                return false;
+            }
+
+            std::vector<iDynTree::Vector2> DCMPositionAdjusted;
+            std::vector<iDynTree::Vector2> DCMVelocityAdjusted;
+            m_trajectoryGenerator->getDCMPositionTrajectoryAdj(DCMPositionAdjusted);
+            m_trajectoryGenerator->getDCMVelocityTrajectoryAdj(DCMVelocityAdjusted);
+
+            size_t startIndexOfDCMAdjusted = (size_t)round((m_time - timeOffset) / m_dT);
+
+            // if(indexPush == 6)
+            //     yInfo() << "startIndexOfDCMAdjusted " << startIndexOfDCMAdjusted << "[ " << m_DCMPositionAdjusted.front().toString() << " ]";
+
+            m_DCMPositionAdjusted.resize(DCMPositionAdjusted.size() - startIndexOfDCMAdjusted);
+            for(int i = 0; i < m_DCMPositionAdjusted.size(); i++)
+                m_DCMPositionAdjusted[i] = DCMPositionAdjusted[i + startIndexOfDCMAdjusted];
+
+            // if(indexPush == 6)
+            // {
+
+            //     std::cerr << "DCM_ADJUSTED = [";
+            //     for(auto a : m_DCMPositionAdjusted)
+            //         std::cerr << a.toString() << std::endl;
+            //     std::cerr << "];\n";
+
+            //     std::cerr << "DCM_NOMINAL = [";
+            //     for(auto a : m_DCMPositionDesired)
+            //         std::cerr << a.toString() << std::endl;
+            //     std::cerr << "];\n";
+
+            //     return false;
+            // }
+
+
+
+            m_DCMVelocityAdjusted.resize(DCMVelocityAdjusted.size() - startIndexOfDCMAdjusted);
+            for(int i = 0; i < m_DCMVelocityAdjusted.size(); i++)
+                m_DCMVelocityAdjusted[i] = DCMVelocityAdjusted[i + startIndexOfDCMAdjusted];
+
+
+            // StdHelper::appendSubVectorToDeque(DCMAdjusted, startIndexOfDCMAdjusted, m_DCMPositionAdjusted, 0);
         }
 
         else
@@ -1024,13 +1124,13 @@ bool WalkingModule::updateModule()
         else
         {
             iDynTree::Vector3 DCMPositionDesired3D;
-            DCMPositionDesired3D(0) = m_DCMPositionDesired.front()(0);
-            DCMPositionDesired3D(1) = m_DCMPositionDesired.front()(1);
+            DCMPositionDesired3D(0) = m_DCMPositionAdjusted.front()(0);
+            DCMPositionDesired3D(1) = m_DCMPositionAdjusted.front()(1);
             DCMPositionDesired3D(2) = m_comHeightTrajectory.front();
 
             iDynTree::Vector3 DCMVelocityDesired3D;
-            DCMVelocityDesired3D(0) = m_DCMVelocityDesired.front()(0);
-            DCMVelocityDesired3D(1) = m_DCMVelocityDesired.front()(1);
+            DCMVelocityDesired3D(0) = m_DCMVelocityAdjusted.front()(0);
+            DCMVelocityDesired3D(1) = m_DCMVelocityAdjusted.front()(1);
             DCMVelocityDesired3D(2) = m_comHeightVelocity.front();
 
             m_walkingDCMReactiveController->setFeedback(m_FKSolver->getDCM());
@@ -1241,7 +1341,7 @@ bool WalkingModule::updateModule()
         m_profiler->setEndTime("Total");
 
         // print timings
-        m_profiler->profiling();
+        // m_profiler->profiling();
 
         iDynTree::VectorDynSize errorL(6), errorR(6);
         if(m_useQPIK)
@@ -1255,7 +1355,7 @@ bool WalkingModule::updateModule()
         {
             auto leftFoot = m_FKSolver->getLeftFootToWorldTransform();
             auto rightFoot = m_FKSolver->getRightFootToWorldTransform();
-            m_walkingLogger->sendData(m_FKSolver->getDCM(), m_DCMPositionDesired.front(),
+            m_walkingLogger->sendData(m_FKSolver->getDCM(), m_DCMPositionDesired.front(), m_DCMPositionAdjusted.front(),
                                       m_leftTrajectory.front().getPosition(), m_leftTrajectory.front().getRotation().asRPY(),
                                       m_rightTrajectory.front().getPosition(), m_rightTrajectory.front().getRotation().asRPY(),
                                       m_currentFootLeftTransform.getPosition(), m_currentFootLeftTransform.getRotation().asRPY(),
@@ -1270,7 +1370,7 @@ bool WalkingModule::updateModule()
         // advance all the signals
         advanceReferenceSignals();
 
-        m_retargetingClient->setRobotBaseOrientation(yawRotation.inverse());
+        // m_retargetingClient->setRobotBaseOrientation(yawRotation.inverse());
     }
     return true;
 }
@@ -1527,8 +1627,8 @@ bool WalkingModule::askNewTrajectories(const double& initTime, const bool& isLef
         return false;
     }
 
-    if(!m_trajectoryGenerator->updateTrajectories(initTime, m_DCMPositionDesired[mergePoint],
-                                                  m_DCMVelocityDesired[mergePoint], isLeftSwinging,
+    if(!m_trajectoryGenerator->updateTrajectories(initTime, m_DCMPositionAdjusted[mergePoint],
+                                                  m_DCMVelocityAdjusted[mergePoint], isLeftSwinging,
                                                   measuredTransform, desiredPosition))
     {
         yError() << "[WalkingModule::askNewTrajectories] Unable to update the trajectory.";
@@ -1590,6 +1690,9 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     // get merge points
     m_trajectoryGenerator->getMergePoints(mergePoints);
 
+    // TODO
+    indexPush = 0;
+
     // append vectors to deques
     StdHelper::appendVectorToDeque(leftTrajectory, m_leftTrajectory, mergePoint);
     StdHelper::appendVectorToDeque(rightTrajectory, m_rightTrajectory, mergePoint);
@@ -1603,6 +1706,9 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     StdHelper::appendVectorToDeque(ZMPPositionDesired, m_ZMPPositionDesired, mergePoint);
     StdHelper::appendVectorToDeque(DCMVelocityDesired, m_DCMVelocityDesired, mergePoint);
 
+    StdHelper::appendVectorToDeque(DCMPositionDesired, m_DCMPositionAdjusted, mergePoint);
+    StdHelper::appendVectorToDeque(DCMVelocityDesired, m_DCMVelocityAdjusted, mergePoint);
+
     StdHelper::appendVectorToDeque(leftInContact, m_leftInContact, mergePoint);
     StdHelper::appendVectorToDeque(rightInContact, m_rightInContact, mergePoint);
 
@@ -1611,6 +1717,13 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
 
     StdHelper::appendVectorToDeque(weightInLeft, m_weightInLeft, mergePoint);
     StdHelper::appendVectorToDeque(weightInRight, m_weightInRight, mergePoint);
+
+    // std::cerr << "DCM_NOMINAL = [";
+    // for(auto a : DCMPositionDesired)
+    //     std::cerr << a.toString() << std::endl;
+    // std::cerr << "];\n";
+
+
 
     m_mergePoints.assign(mergePoints.begin(), mergePoints.end());
     //    for(int var=0;var<m_mergePoints.size(); var++){
@@ -1621,13 +1734,24 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     m_DCMSubTrajectories.clear();
     m_trajectoryGenerator->getDCMSubTrajectory(m_DCMSubTrajectories);
 
+    std::shared_ptr<FootPrint> tempLeft;
+    m_trajectoryGenerator->getLeftFootprint(tempLeft);
+    m_jleftFootprints = std::make_shared<FootPrint>();
+    m_jleftFootprints->setFootName("left");
+    for(auto step: tempLeft->getSteps())
+        m_jleftFootprints->addStep(step);
 
-    m_trajectoryGenerator->getLeftFootprint(m_jleftFootprints);
     // StepList jLeftstepList=jleftFootprints->getSteps();
     m_jLeftstepList=m_jleftFootprints->getSteps();
 
+    std::shared_ptr<FootPrint> tempRight;
+    m_trajectoryGenerator->getRightFootprint(tempRight);
+    m_jRightFootprints = std::make_shared<FootPrint>();
+    m_jRightFootprints->setFootName("right");
+    for(auto step: tempRight->getSteps())
+        m_jRightFootprints->addStep(step);
 
-    m_trajectoryGenerator->getLeftFootprint(m_jRightFootprints);
+
     m_jRightstepList=m_jRightFootprints->getSteps();
     // the first merge point is always equal to 0
     m_mergePoints.pop_front();
@@ -1686,7 +1810,7 @@ bool WalkingModule::startWalking()
     if(m_dumpData)
     {
         m_walkingLogger->startRecord({"record","dcm_x", "dcm_y", "dcm_z",
-                    "dcm_des_x", "dcm_des_y",
+                    "dcm_des_x", "dcm_des_y", "dcm_adj_x", "dcm_adj_y",
                     "lf_position_nom_x", "lf_position_nom_y", "lf_position_nom_z", "lf_orientation_nom_x", "lf_orientation_nom_y", "lf_orientation_nom_z",
                     "rf_position_nom_x", "rf_position_nom_y", "rf_position_nom_z", "rf_orientation_nom_x", "rf_orientation_nom_y", "rf_orientation_nom_z",
                     "lf_position_adj_x", "lf_position_adj_y", "lf_position_adj_z", "lf_orientation_adj_x", "lf_orientation_adj_y", "lf_orientation_adj_z",
