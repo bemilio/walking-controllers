@@ -33,9 +33,16 @@ enum class GeneratorState {NotConfigured, Configured, FirstStep, Called, Returne
 class TrajectoryGenerator
 {
     UnicycleGenerator m_trajectoryGenerator; /**< UnicycleTrajectoryGenerator object. */
+
     std::shared_ptr<DCMTrajectoryGenerator> m_dcmGenerator;
     std::shared_ptr<CoMHeightTrajectoryGenerator> m_heightGenerator;
     std::shared_ptr<FeetGenerator> m_feetGenerator;
+
+    UnicycleGenerator m_trajectoryGeneratorStepAdj; /**< UnicycleTrajectoryGenerator object. */
+    std::shared_ptr<DCMTrajectoryGenerator> m_dcmGeneratorStepAdj;
+    std::shared_ptr<CoMHeightTrajectoryGenerator> m_heightGeneratorStepAdj;
+    std::shared_ptr<FeetGenerator> m_feetGeneratorStepAdj;
+
     bool m_useMinimumJerk;
     double m_nominalCoMHeight;
     double m_switchOverSwingRatio;
@@ -151,6 +158,25 @@ public:
      * @return true/false in case of success/failure.
      */
     bool getDCMPositionTrajectory(std::vector<iDynTree::Vector2>& DCMPositionTrajectory);
+
+    /**
+     * Get the desired 2D-DCM position trajectory
+     * @param DCMPositionTrajectory desired trajectory of the DCM.
+     * @return true/false in case of success/failure.
+     */
+    bool getDCMPositionTrajectoryAdj(std::vector<iDynTree::Vector2>& DCMPositionTrajectory);
+
+
+    bool getDCMVelocityTrajectoryAdj(std::vector<iDynTree::Vector2>& DCMVelocityTrajectory);
+
+
+    // /**
+    //  * Get the desired 2D-DCM position trajectory
+    //  * @param DCMPositionTrajectory desired trajectory of the DCM.
+    //  * @return true/false in case of success/failure.
+    //  */
+    // bool getDCMPositionTrajectoryAdj(std::vector<iDynTree::Vector2>& DCMPositionTrajectory);
+
 
     /**
      * Get the desired 2D-ZMP position trajectory
