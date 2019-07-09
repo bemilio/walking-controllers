@@ -150,8 +150,7 @@ void CartesianElement::evaluateDesiredAcceleration()
         {
             desiredAcceleration.segment(0, 3) = iDynTree::toEigen(m_controllers["force_pid"]->getControllerOutput());
             desiredAcceleration.segment(3, 3) = iDynTree::toEigen(m_controllers["orientation_pid"]->getControllerOutput());
-//            desiredAcceleration.segment(3, 3) = iDynTree::toEigen(m_controllers["couple_pid"]->getControllerOutput());
-            std::cerr << "foot rotational pid " << desiredAcceleration.segment(3, 3) << std::endl;
+            // desiredAcceleration.segment(3, 3) = iDynTree::toEigen(m_controllers["couple_pid"]->getControllerOutput());
         }
         break;
 

@@ -430,8 +430,8 @@ void WalkingModule::reset()
     if(m_useMPC)
         m_walkingController->reset();
 
-    if(m_useStepAdaptation)
-        m_stepAdaptator->reset();
+    // if(m_useStepAdaptation)
+    //     m_stepAdaptator->reset();
 
     m_trajectoryGenerator->reset();
 
@@ -930,7 +930,13 @@ bool WalkingModule::updateModule()
             iDynTree::Vector2 dcmMeasured2D;
             dcmMeasured2D(0) = m_FKSolver->getDCM()(0);
             dcmMeasured2D(1) = m_FKSolver->getDCM()(1);
-            m_stepAdaptator->setCurrentDcmPosition(dcmMeasured2D);
+            if((iDynTree::toEigen(m_DCMPositionAdjusted.front()) - iDynTree::toEigen(dcmMeasured2D)).norm() > 0.015)
+            {
+                std::cerr << "adj " << (iDynTree::toEigen(m_DCMPositionAdjusted.front()) - iDynTree::toEigen(dcmMeasured2D)).norm() << std::endl;
+                m_stepAdaptator->setCurrentDcmPosition(dcmMeasured2D);
+            }
+            else
+                m_stepAdaptator->setCurrentDcmPosition(m_DCMPositionAdjusted.front());
 
             iDynTree::Vector2 dcmAtTimeAlpha;
             double timeAlpha = (secondDS->getTrajectoryDomain().second + secondDS->getTrajectoryDomain().first) / 2;
@@ -942,7 +948,6 @@ bool WalkingModule::updateModule()
 
             m_stepAdaptator->setTimings(omega, m_time - timeOffset, firstSS->getTrajectoryDomain().second,
                                         secondDS->getTrajectoryDomain().second - secondDS->getTrajectoryDomain().first);
-
 
             if(!m_stepAdaptator->solve(!m_leftInContact.front()))
             {
@@ -961,7 +966,7 @@ bool WalkingModule::updateModule()
                 // TODO REMOVE MAGIC NUMBERS
                 iDynTree::Vector2 zmpOffset;
                 zmpOffset.zero();
-                zmpOffset(0) = 0.03;
+                // zmpOffset(0) = 0.03;
 
                 m_currentFootLeftTransform = m_adaptatedFootLeftTransform;
                 m_currentFootLeftTwist = m_adaptatedFootLeftTwist;
@@ -1005,7 +1010,7 @@ bool WalkingModule::updateModule()
             // TODO REMOVE MAGIC NUMBERS
             iDynTree::Vector2 zmpOffset;
             zmpOffset.zero();
-            zmpOffset(0) = 0.03;
+            zmpOffset(0) = 0.00;
 
             std::shared_ptr<FootPrint> leftTemp = std::make_unique<FootPrint>();
             leftTemp->setFootName("left");
@@ -1045,29 +1050,23 @@ bool WalkingModule::updateModule()
 
             size_t startIndexOfDCMAdjusted = (size_t)round((m_time - timeOffset) / m_dT);
 
+            // yInfo() << "startIndexOfDCMAdjusted " << startIndexOfDCMAdjusted;
+            // for(int i = 0; i < DCMPositionAdjusted.size(); i++ )
+            // {
+            //     if ((iDynTree::toEigen(DCMPositionAdjusted[i]) - iDynTree::toEigen(m_DCMPositionDesired.front())).norm() < 0.01)
+            //     {
+            //         std::cerr << "should be 0 " << iDynTree::toEigen(m_DCMPositionAdjusted.front()) - iDynTree::toEigen(m_DCMPositionDesired.front()) << std::endl;
+            //         std::cerr <<"index " << i << std::endl;
+            //     }
+            // }
+
+            // std::cerr << "should be 0 out" << iDynTree::toEigen(m_DCMPositionAdjusted.front()) - iDynTree::toEigen(m_DCMPositionDesired.front()) << std::endl;
             // if(indexPush == 6)
             //     yInfo() << "startIndexOfDCMAdjusted " << startIndexOfDCMAdjusted << "[ " << m_DCMPositionAdjusted.front().toString() << " ]";
 
             m_DCMPositionAdjusted.resize(DCMPositionAdjusted.size() - startIndexOfDCMAdjusted);
             for(int i = 0; i < m_DCMPositionAdjusted.size(); i++)
                 m_DCMPositionAdjusted[i] = DCMPositionAdjusted[i + startIndexOfDCMAdjusted];
-
-            // if(indexPush == 6)
-            // {
-
-            //     std::cerr << "DCM_ADJUSTED = [";
-            //     for(auto a : m_DCMPositionAdjusted)
-            //         std::cerr << a.toString() << std::endl;
-            //     std::cerr << "];\n";
-
-            //     std::cerr << "DCM_NOMINAL = [";
-            //     for(auto a : m_DCMPositionDesired)
-            //         std::cerr << a.toString() << std::endl;
-            //     std::cerr << "];\n";
-
-            //     return false;
-            // }
-
 
 
             m_DCMVelocityAdjusted.resize(DCMVelocityAdjusted.size() - startIndexOfDCMAdjusted);
@@ -1765,6 +1764,17 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
     m_adaptatedFootLeftTransform = leftTrajectory.front();
     m_adaptatedFootRightTransform = rightTrajectory.front();
     m_adaptatedFootRightTwist.zero();
+
+    // int numberOfSubTrajectories = m_DCMSubTrajectories.size();
+    // if(numberOfSubTrajectories  >=4)
+    // {
+    //     auto firstSS = m_DCMSubTrajectories[numberOfSubTrajectories-2];
+    //     auto secondSS = m_DCMSubTrajectories[numberOfSubTrajectories-4];
+
+    //     iDynTree::Vector2 zmp;
+    //     secondSS->getZMPPosition(0, zmp, false);
+    //     m_stepAdaptator->reset(zmp, firstSS->getTrajectoryDomain().second);
+    // }
 
     return true;
 }
