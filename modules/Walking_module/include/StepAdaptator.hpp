@@ -122,7 +122,8 @@ public:
 
     bool getAdaptatedFootTrajectory(double maxFootHeight, double dt, double takeOffTime, double yawAngleAtImpact, iDynTree::Vector2 zmpOffset,
                                     const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,
-                                    iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist);
+                                    iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist,
+                                    iDynTree::SpatialAcc& adaptedFootAcceleration);
 
     void setNominalNextStepPosition(const iDynTree::Vector2& nominalZmpPosition, const double& angle);
 

@@ -9,6 +9,7 @@
 
 // iDynTree
 #include <iDynTree/Core/EigenSparseHelpers.h>
+#include <iDynTree/Core/SpatialAcc.h>
 #include <iDynTree/Core/Direction.h>
 
 #include <StepAdaptator.hpp>
@@ -239,7 +240,7 @@ iDynTree::Vector2 StepAdaptator::getDesiredZmp()
 
 bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight, double dt, double takeOffTime, double yawAngleAtImpact, iDynTree::Vector2 zmpOffset,
                                                const iDynTree::Transform& currentFootTransform, const iDynTree::Twist& currentFootTwist,
-                                               iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist)
+                                               iDynTree::Transform& adaptatedFootTransform, iDynTree::Twist& adaptedFootTwist, iDynTree::SpatialAcc& adaptedFootAcceleration)
 {
     //remember you should also add acceleration as output!!!!
     iDynTree::CubicSpline xSpline, ySpline, zSpline, yawSpline;
@@ -360,6 +361,10 @@ bool StepAdaptator::getAdaptatedFootTrajectory(double maxFootHeight, double dt, 
     iDynTree::toEigen(rightTrivializedAngVelocity) = iDynTree::toEigen(iDynTree::Rotation::RPYRightTrivializedDerivative(0.0, 0.0, yawAngle)) *iDynTree::toEigen(rpyDerivative);
     adaptedFootTwist.setLinearVec3(linearVelocity);
     adaptedFootTwist.setAngularVec3(rightTrivializedAngVelocity);
+    adaptedFootAcceleration.setLinearVec3(linearAcceleration);
+    iDynTree::Vector3 vector;
+    vector.zero();
+    adaptedFootAcceleration.setAngularVec3(vector);
 
     return true;
 }

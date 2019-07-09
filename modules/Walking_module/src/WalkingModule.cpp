@@ -476,6 +476,8 @@ bool WalkingModule::close()
 
 bool WalkingModule::evaluateContactWrenchDistribution()
 {
+    bool rightInContact = m_robotControlHelper->getRightWrench().getLinearVec3()(2) > 1 ;
+    bool leftInContact = m_robotControlHelper->getLeftWrench().getLinearVec3()(2) > 1 ;
     m_contactWrenchMapping->setFeetState(m_leftInContact.front(), m_rightInContact.front());
 
     if(!m_contactWrenchMapping->setCentroidalMomentum(m_FKSolver->getCentroidalTotalMomentum()))
@@ -546,14 +548,18 @@ bool WalkingModule::evaluateAdmittanceControl(const iDynTree::Rotation& desiredN
     m_walkingAdmittanceController->setFeetBiasAcceleration(m_FKSolver->getLeftFootBiasAcceleration(),
                                                            m_FKSolver->getRightFootBiasAcceleration());
 
+    bool rightInContact = m_robotControlHelper->getRightWrench().getLinearVec3()(2) > 1 ;
+    bool leftInContact = m_robotControlHelper->getLeftWrench().getLinearVec3()(2) > 1 ;
     ok &= m_walkingAdmittanceController->setFeetState(m_FKSolver->getLeftFootToWorldTransform(),
                                                       m_FKSolver->getLeftFootVelocity(),
                                                       m_robotControlHelper->getLeftWrench(),
                                                       m_leftInContact.front(),
+                                                      // leftInContact,
                                                       m_FKSolver->getRightFootToWorldTransform(),
                                                       m_FKSolver->getRightFootVelocity(),
                                                       m_robotControlHelper->getRightWrench(),
                                                       m_rightInContact.front());
+    //rightInContact);
 
     // TODO add acceleration
     iDynTree::SpatialAcc dummy;
@@ -571,11 +577,11 @@ bool WalkingModule::evaluateAdmittanceControl(const iDynTree::Rotation& desiredN
 
     ok &= m_walkingAdmittanceController->setDesiredFeetTrajectory(m_currentFootLeftTransform,
                                                                   m_currentFootLeftTwist,
-                                                                  dummy,
+                                                                  m_currentFootLeftAcceleration,
                                                                   m_contactWrenchMapping->getDesiredLeftWrench(),
                                                                   m_currentFootRightTransform,
                                                                   m_currentFootRightTwist,
-                                                                  dummy,
+                                                                  m_currentFootRightAcceleration,
                                                                   m_contactWrenchMapping->getDesiredRightWrench());
 
 
@@ -594,6 +600,11 @@ bool WalkingModule::evaluateAdmittanceControl(const iDynTree::Rotation& desiredN
     ok &= m_FKSolver->getCoMJacobian(comJacobian);
     m_walkingAdmittanceController->setCoMJacobian(comJacobian);
     m_walkingAdmittanceController->setCoMBiasAcceleration(m_FKSolver->getCoMBiasAcceleration());
+
+    iDynTree::MatrixDynSize centroidalMomentumJacobian(6, m_robotControlHelper->getActuatedDoFs() + 6);
+    ok &= m_FKSolver->getCentroidalMomentumJacobian(centroidalMomentumJacobian);
+    m_walkingAdmittanceController->setAngularMomentumJacobian(centroidalMomentumJacobian);
+    m_walkingAdmittanceController->setCentroidalAngularMomentum(m_FKSolver->getCentroidalTotalMomentum());
 
     if(!ok)
     {
@@ -966,14 +977,15 @@ bool WalkingModule::updateModule()
                 // TODO REMOVE MAGIC NUMBERS
                 iDynTree::Vector2 zmpOffset;
                 zmpOffset.zero();
-                // zmpOffset(0) = 0.03;
+                zmpOffset(0) = 0.03;
 
                 m_currentFootLeftTransform = m_adaptatedFootLeftTransform;
                 m_currentFootLeftTwist = m_adaptatedFootLeftTwist;
+                m_currentFootLeftAcceleration = m_adaptatedFootLeftAcceleration;
                 if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
                                                                 m_jLeftstepList.at(1).angle,
                                                                 zmpOffset, m_currentFootLeftTransform, m_currentFootLeftTwist,
-                                                                m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist ))
+                                                                m_adaptatedFootLeftTransform, m_adaptatedFootLeftTwist, m_adaptatedFootLeftAcceleration ))
                 {
                     yError() << "error write something usefull";
                     return false;
@@ -984,14 +996,15 @@ bool WalkingModule::updateModule()
                 // TODO REMOVE MAGIC NUMBERS
                 iDynTree::Vector2 zmpOffset;
                 zmpOffset.zero();
-                zmpOffset(0) = 0.0;
+                zmpOffset(0) = 0.03;
 
                 m_currentFootRightTransform = m_adaptatedFootRightTransform;
                 m_currentFootRightTwist = m_adaptatedFootRightTwist;
+                m_currentFootRightAcceleration = m_adaptatedFootRightAcceleration;
                 if(!m_stepAdaptator->getAdaptatedFootTrajectory(m_stepHeight, m_dT, firstSS->getTrajectoryDomain().first,
                                                                 m_jRightstepList.at(1).angle,
                                                                 zmpOffset, m_currentFootRightTransform, m_currentFootRightTwist,
-                                                                m_adaptatedFootRightTransform, m_adaptatedFootRightTwist ))
+                                                                m_adaptatedFootRightTransform, m_adaptatedFootRightTwist, m_adaptatedFootRightAcceleration ))
                 {
                     yError() << "error write something usefull right";
                     return false;
@@ -1079,9 +1092,11 @@ bool WalkingModule::updateModule()
 
         else
         {
+            m_currentFootLeftAcceleration=m_adaptatedFootLeftAcceleration;
             m_currentFootLeftTwist=m_adaptatedFootLeftTwist;
             m_currentFootLeftTransform=m_adaptatedFootLeftTransform;
 
+            m_currentFootRightAcceleration=m_adaptatedFootRightAcceleration;
             m_currentFootRightTwist=m_adaptatedFootRightTwist;
             m_currentFootRightTransform=m_adaptatedFootRightTransform;
         }
@@ -1760,6 +1775,8 @@ bool WalkingModule::updateTrajectories(const size_t& mergePoint)
 
     m_adaptatedFootLeftTwist.zero();
     m_adaptatedFootRightTwist.zero();
+    m_adaptatedFootLeftAcceleration.zero();
+    m_adaptatedFootRightAcceleration.zero();
 
     m_adaptatedFootLeftTransform = leftTrajectory.front();
     m_adaptatedFootRightTransform = rightTrajectory.front();

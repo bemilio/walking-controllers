@@ -12,6 +12,7 @@
 #include <iDynTree/Core/Wrench.h>
 #include <iDynTree/Core/Twist.h>
 #include <iDynTree/Core/SpatialAcc.h>
+#include <iDynTree/Core/SpatialMomentum.h>
 #include <iDynTree/Core/EigenHelpers.h>
 #include <iDynTree/yarp/YARPConfigurationsLoader.h>
 
@@ -32,11 +33,13 @@ class WalkingAdmittanceController::Implementation
     iDynTree::MatrixDynSize m_rightFootJacobian;
     iDynTree::MatrixDynSize m_neckJacobian;
     iDynTree::MatrixDynSize m_comJacobian;
+    iDynTree::MatrixDynSize m_angularMomentumJacobian;
 
     iDynTree::VectorDynSize m_leftFootBiasAcceleration;
     iDynTree::VectorDynSize m_rightFootBiasAcceleration;
     iDynTree::VectorDynSize m_neckBiasAcceleration;
     iDynTree::VectorDynSize m_comBiasAcceleration;
+    iDynTree::VectorDynSize m_angularMomentumBiasAcceleration;
 
     iDynTree::Rotation m_additionalRotation;
 
@@ -122,6 +125,27 @@ class WalkingAdmittanceController::Implementation
         m_hessianMatrices["neck"].resize(m_numberOfVariables, m_numberOfVariables);
         m_gradientVectors["neck"].resize(m_numberOfVariables);
         m_gradientVectors["neck"].zero();
+    }
+
+    void instantiateAngularMomentumCostFunction(const iDynTree::Vector3& kp, const iDynTree::VectorDynSize weight)
+    {
+        std::shared_ptr<CartesianCostFunction> ptr;
+        ptr = std::make_shared<CartesianCostFunction>(CartesianElement::Type::POSITION);
+        ptr->setControlMode(CartesianElement::ControlMode::POSITION);
+        ptr->setSubMatricesStartingPosition(0, 0);
+
+        ptr->setWeight(weight);
+        ptr->setBiasAcceleration(m_angularMomentumBiasAcceleration);
+        ptr->setRoboticJacobian(m_angularMomentumJacobian);
+        iDynTree::Vector3 dummy;
+        dummy.zero();
+        ptr->positionController()->setGains(kp, dummy);
+        ptr->positionController()->setDesiredTrajectory(dummy, dummy, dummy);
+
+        m_costFunctions.insert({"angular_momentum", ptr});
+        m_hessianMatrices["angular_momentum"].resize(m_numberOfVariables, m_numberOfVariables);
+        m_gradientVectors["angular_momentum"].resize(m_numberOfVariables);
+        m_gradientVectors["angular_momentum"].zero();
     }
 
     void instantiateSystemDynamicsConstraint(const int& numberOfDofs)
@@ -364,6 +388,24 @@ class WalkingAdmittanceController::Implementation
 
         auto ptr = std::static_pointer_cast<CartesianCostFunction>(cost->second);
         ptr->orientationController()->setFeedback(neckVelocity.getAngularVec3(), neckOrientation);
+
+        return true;
+    }
+
+    bool setCentroidalAngularMomentum(const iDynTree::SpatialMomentum& centroildalMomentum)
+    {
+        auto cost = m_costFunctions.find("angular_momentum");
+        if(cost == m_costFunctions.end())
+        {
+            yError() << "[setNeckState] unable to find the angular momentum trajectory element. "
+                     << "Please call 'initialize()' method";
+            return false;
+        }
+
+        auto ptr = std::static_pointer_cast<CartesianCostFunction>(cost->second);
+        iDynTree::Vector3 dummy;
+        dummy.zero();
+        ptr->positionController()->setFeedback(dummy, centroildalMomentum.getAngularVec3());
 
         return true;
     }
@@ -765,6 +807,26 @@ bool WalkingAdmittanceController::initialize(yarp::os::Searchable &config, const
         m_pimpl->instantiateNeckCostFunction(c0, kpAngular, kdAngular, weight);
     }
 
+
+    {
+        yarp::os::Bottle& option = config.findGroup("ANGULAR_MOMENTUM");
+        iDynTree::Vector3 kp;
+
+        if(!YarpHelper::getVectorFromSearchable(option, "kp", kp))
+        {
+            yError() << "[WalkingAdmittanceController::initialize] Unable to find a vector";
+            return false;
+        }
+
+        iDynTree::VectorDynSize weight(3);
+        if(!YarpHelper::getVectorFromSearchable(option, "weight", weight))
+        {
+            yError() << "[WalkingAdmittanceController::initialize] Unable to find a vector";
+            return false;
+        }
+        m_pimpl->instantiateAngularMomentumCostFunction(kp, weight);
+    }
+
     // resize variables
     m_pimpl->m_hessianEigen.resize(m_pimpl->m_numberOfVariables, m_pimpl->m_numberOfVariables);
     m_pimpl->m_constraintMatrix.resize(m_pimpl->m_numberOfConstraints, m_pimpl->m_numberOfVariables);
@@ -787,7 +849,10 @@ bool WalkingAdmittanceController::initialize(yarp::os::Searchable &config, const
     m_pimpl->m_neckJacobian.resize(3, actuatedDoFs + 6);
     m_pimpl->m_neckBiasAcceleration.resize(3);
     m_pimpl->m_comJacobian.resize(3, actuatedDoFs + 6);
+    m_pimpl->m_angularMomentumJacobian.resize(3, actuatedDoFs + 6);
     m_pimpl->m_comBiasAcceleration.resize(3);
+    m_pimpl->m_angularMomentumBiasAcceleration.resize(3);
+    m_pimpl->m_angularMomentumBiasAcceleration.zero();
 
     // TODO move me
     m_pimpl->m_desiredJointPosition.resize(actuatedDoFs);
@@ -900,6 +965,11 @@ bool WalkingAdmittanceController::setNeckState(const iDynTree::Rotation& neckOri
     return m_pimpl->setNeckState(neckOrientation, neckVelocity);
 }
 
+bool WalkingAdmittanceController::setCentroidalAngularMomentum(const iDynTree::SpatialMomentum& centroildalMomentum)
+{
+    return m_pimpl->setCentroidalAngularMomentum(centroildalMomentum);
+}
+
 bool WalkingAdmittanceController::setDesiredNeckTrajectory(const iDynTree::Rotation& neckOrientation)
 {
     return m_pimpl->setDesiredNeckTrajectory(neckOrientation);
@@ -909,6 +979,12 @@ void WalkingAdmittanceController::setNeckJacobian(const iDynTree::MatrixDynSize&
 {
     iDynTree::toEigen(m_pimpl->m_neckJacobian) = iDynTree::toEigen(jacobian).block(3, 0,
                                                                                    3, m_pimpl->m_actuatedDoFs + 6);
+}
+
+void WalkingAdmittanceController::setAngularMomentumJacobian(const iDynTree::MatrixDynSize& jacobian)
+{
+    iDynTree::toEigen(m_pimpl->m_angularMomentumJacobian) = iDynTree::toEigen(jacobian).block(3, 0,
+                                                                                              3, m_pimpl->m_actuatedDoFs + 6);
 }
 
 void WalkingAdmittanceController::setNeckBiasAcceleration(const iDynTree::Vector6 &biasAcceleration)

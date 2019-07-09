@@ -66,6 +66,10 @@ public:
 
     void setNeckBiasAcceleration(const iDynTree::Vector6 &biasAcceleration);
 
+    void setAngularMomentumJacobian(const iDynTree::MatrixDynSize& jacobian);
+
+    bool setCentroidalAngularMomentum(const iDynTree::SpatialMomentum& centroildalMomentum);
+
     void setCoMJacobian(const iDynTree::MatrixDynSize& jacobian);
 
     void setCoMBiasAcceleration(const iDynTree::Vector3 &biasAcceleration);
