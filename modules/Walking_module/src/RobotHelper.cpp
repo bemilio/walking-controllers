@@ -49,6 +49,7 @@ bool RobotHelper::getFeedbacksRaw(unsigned int maxAttempts)
 
     bool okPosition = false;
     bool okVelocity = false;
+    bool okTorque = false;
 
     bool okLeftWrench = false;
     bool okRightWrench = false;
@@ -61,6 +62,9 @@ bool RobotHelper::getFeedbacksRaw(unsigned int maxAttempts)
 
         if(!okVelocity)
             okVelocity = m_encodersInterface->getEncoderSpeeds(m_velocityFeedbackDeg.data());
+
+        if(!okTorque)
+            okTorque = m_torqueInterface->getTorques(m_torqueFeedback.data());
 
         if(!okLeftWrench)
         {
@@ -84,7 +88,7 @@ bool RobotHelper::getFeedbacksRaw(unsigned int maxAttempts)
             }
         }
 
-        if(okPosition && okVelocity && okLeftWrench && okRightWrench)
+        if(okPosition && okVelocity && okTorque && okLeftWrench && okRightWrench)
         {
             for(unsigned j = 0 ; j < m_actuatedDOFs; j++)
             {
@@ -114,6 +118,9 @@ bool RobotHelper::getFeedbacksRaw(unsigned int maxAttempts)
 
     if(!okVelocity)
         yError() << "\t - Velocity encoders";
+
+    if(!okTorque)
+        yError() << "\t - Torque encoders";
 
     if(!okLeftWrench)
         yError() << "\t - Left wrench";
@@ -209,6 +216,12 @@ bool RobotHelper::configureRobot(const yarp::os::Searchable& config)
         return false;
     }
 
+    if(!m_robotDevice.view(m_torqueInterface) || !m_torqueInterface)
+    {
+        yError() << "[configureRobot] Cannot obtain ITorqueControl interface";
+        return false;
+    }
+
     if(!m_robotDevice.view(m_positionDirectInterface) || !m_positionDirectInterface)
     {
         yError() << "[configureRobot] Cannot obtain IPositionDirect interface";
@@ -232,6 +245,7 @@ bool RobotHelper::configureRobot(const yarp::os::Searchable& config)
     m_velocityFeedbackDeg.resize(m_actuatedDOFs, 0.0);
     m_positionFeedbackRad.resize(m_actuatedDOFs);
     m_velocityFeedbackRad.resize(m_actuatedDOFs);
+    m_torqueFeedback.resize(m_actuatedDOFs);
     m_desiredJointPositionRad.resize(m_actuatedDOFs);
     m_desiredJointValueDeg.resize(m_actuatedDOFs);
     m_jointVelocitiesBounds.resize(m_actuatedDOFs);
@@ -247,12 +261,14 @@ bool RobotHelper::configureRobot(const yarp::os::Searchable& config)
     // check if the robot is alive
     bool okPosition = false;
     bool okVelocity = false;
-    for (int i=0; i < 10 && !okPosition && !okVelocity; i++)
+    bool okTorque = false;
+    for (int i=0; i < 10 && !okPosition && !okVelocity && !okTorque; i++)
     {
         okPosition = m_encodersInterface->getEncoders(m_positionFeedbackDeg.data());
         okVelocity = m_encodersInterface->getEncoderSpeeds(m_velocityFeedbackDeg.data());
+        okTorque = m_torqueInterface->getTorques(m_torqueFeedback.data());
 
-        if(!okPosition || !okVelocity)
+        if(!okPosition || !okVelocity || !okTorque)
             yarp::os::Time::delay(0.1);
     }
     if(!okPosition)
@@ -710,9 +726,15 @@ const iDynTree::VectorDynSize& RobotHelper::getJointPosition() const
 {
     return m_positionFeedbackRad;
 }
+
 const iDynTree::VectorDynSize& RobotHelper::getJointVelocity() const
 {
     return m_velocityFeedbackRad;
+}
+
+const iDynTree::VectorDynSize& RobotHelper::getJointTorque() const
+{
+    return m_torqueFeedback;
 }
 
 const iDynTree::Wrench& RobotHelper::getLeftWrench() const

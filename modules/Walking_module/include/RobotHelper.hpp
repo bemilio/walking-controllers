@@ -20,6 +20,7 @@
 #include <yarp/dev/IPositionControl.h>
 #include <yarp/dev/IPositionDirect.h>
 #include <yarp/dev/IVelocityControl.h>
+#include <yarp/dev/ITorqueControl.h>
 #include <yarp/sig/Vector.h>
 #include <yarp/os/Timer.h>
 
@@ -41,6 +42,7 @@ class RobotHelper
     yarp::dev::IPositionDirect *m_positionDirectInterface{nullptr}; /**< Direct position control interface. */
     yarp::dev::IPositionControl *m_positionInterface{nullptr}; /**< Position control interface. */
     yarp::dev::IVelocityControl *m_velocityInterface{nullptr}; /**< Position control interface. */
+    yarp::dev::ITorqueControl *m_torqueInterface{nullptr}; /**< Torque control interface. */
     yarp::dev::IControlMode *m_controlModeInterface{nullptr}; /**< Control mode interface. */
     yarp::dev::IControlLimits *m_limitsInterface{nullptr}; /**< Encorders interface. */
 
@@ -54,6 +56,7 @@ class RobotHelper
     yarp::sig::Vector m_velocityFeedbackDeg; /**< Current joint velocity [deg/s]. */
     iDynTree::VectorDynSize m_positionFeedbackRad; /**< Current joint position [rad]. */
     iDynTree::VectorDynSize m_velocityFeedbackRad; /**< Current joint velocity [rad/s]. */
+    iDynTree::VectorDynSize m_torqueFeedback; /**< Current joint torque [Nm]. */
 
     iDynTree::VectorDynSize m_desiredJointPositionRad; /**< Desired Joint Position [rad]. */
     iDynTree::VectorDynSize m_desiredJointValueDeg; /**< Desired joint position or velocity [deg or deg/s]. */
@@ -178,6 +181,12 @@ public:
      * @return the joint velocities in radiants per second
      */
     const iDynTree::VectorDynSize& getJointVelocity() const;
+
+    /**
+     * Get the joint torques
+     * @return the joint torques in meter per second
+     */
+    const iDynTree::VectorDynSize& getJointTorque() const;
 
     /**
      * Get the joint upper limit

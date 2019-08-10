@@ -1,0 +1,283 @@
+[
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Utilities",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/UtilityLibrary.dir/src/Utils.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/src/Utils.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/src/Utils.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Utilities",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/UtilityLibrary.dir/src/TimeProfiler.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/src/TimeProfiler.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/src/TimeProfiler.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/main.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/main.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/main.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/RobotHelper.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/RobotHelper.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/RobotHelper.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/TrajectoryGenerator.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/TrajectoryGenerator.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/TrajectoryGenerator.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/MPCSolver.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/MPCSolver.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/MPCSolver.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingDCMModelPredictiveController.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingDCMModelPredictiveController.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingDCMModelPredictiveController.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingDCMReactiveController.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingDCMReactiveController.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingDCMReactiveController.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingModule.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingModule.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingModule.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingInverseKinematics.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingInverseKinematics.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingInverseKinematics.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingQPInverseKinematics.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingQPInverseKinematics_osqp.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics_osqp.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics_osqp.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingQPInverseKinematics_qpOASES.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics_qpOASES.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingQPInverseKinematics_qpOASES.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingForwardKinematics.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingForwardKinematics.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingForwardKinematics.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingZMPController.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingZMPController.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingZMPController.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/StableDCMModel.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/StableDCMModel.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/StableDCMModel.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingPIDHandler.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingPIDHandler.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/WalkingPIDHandler.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/RetargetingClient.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/RetargetingClient.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/src/RetargetingClient.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingModule.dir/src/WalkingCommands.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/src/WalkingCommands.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/src/WalkingCommands.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/LoggerClient.dir/src/LoggerClient.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/src/LoggerClient.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/src/LoggerClient.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingLoggerModule.dir/src/main.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/src/main.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/src/main.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingLoggerModule.dir/src/WalkingLoggerModule.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/src/WalkingLoggerModule.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/src/WalkingLoggerModule.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Joypad_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingJoypadModule.dir/src/main.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/src/main.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/src/main.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Joypad_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -o CMakeFiles/WalkingJoypadModule.dir/src/JoypadModule.cpp.o -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/src/JoypadModule.cpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/src/JoypadModule.cpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Utilities",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/Utils.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/Utils.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Utilities",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/Utils.tpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/Utils.tpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Utilities",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/TimeProfiler.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include/TimeProfiler.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingModule.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingModule.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/RobotHelper.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/RobotHelper.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingPIDHandler.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingPIDHandler.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/TrajectoryGenerator.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/TrajectoryGenerator.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingDCMModelPredictiveController.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingDCMModelPredictiveController.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/MPCSolver.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/MPCSolver.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingDCMReactiveController.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingDCMReactiveController.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingZMPController.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingZMPController.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingInverseKinematics.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingInverseKinematics.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics_osqp.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics_osqp.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics_qpOASES.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingQPInverseKinematics_qpOASES.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingForwardKinematics.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/WalkingForwardKinematics.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/StableDCMModel.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/StableDCMModel.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/RetargetingClient.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include/RetargetingClient.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include/LoggerClient.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include/LoggerClient.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include/LoggerClient.tpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include/LoggerClient.tpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Walking_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerClient/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include/osqp -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include/thrifts/WalkingCommands.h",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Walking_module/include/thrifts/WalkingCommands.h"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/include/WalkingLoggerModule.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/WalkingLogger_module/LoggerServer/include/WalkingLoggerModule.hpp"
+},
+
+{
+  "directory": "/home/gromualdi/robot-code/robotology-superbuild/build/robotology/walking-controllers/modules/Joypad_module",
+  "command": "/usr/bin/c++ -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/include -isystem /home/gromualdi/robot-code/robotology-superbuild/build/install/include -I/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Utilities/include -isystem /usr/include/coin -isystem /usr/include/eigen3 -O2 -g -DNDEBUG -std=gnu++14 -c /home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/include/JoypadModule.hpp",
+  "file": "/home/gromualdi/robot-code/robotology-superbuild/robotology/walking-controllers/modules/Joypad_module/include/JoypadModule.hpp"
+}
+]
