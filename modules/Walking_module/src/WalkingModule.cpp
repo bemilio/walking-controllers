@@ -878,7 +878,7 @@ bool WalkingModule::updateModule()
         if(!evaluateZMP(measuredZMP))
         {
             yError() << "[WalkingModule::updateModule] Unable to evaluate the ZMP.";
-            return false;
+            // return false;
         }
 
         iDynTree::Vector2 mildds= m_DCMPositionDesired.at((m_mergePoints.front()));
