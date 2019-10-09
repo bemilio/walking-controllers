@@ -140,6 +140,8 @@ bool WalkingModule::setRobotModel(const yarp::os::Searchable& rf)
 
 bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
 {
+    yInfo() << "[WalkingModule] Info: you are using a modified version of WalkingModule by bemilio. Press any key to continue." ;
+    getchar();
     // module name (used as prefix for opened ports)
     m_useMPC = rf.check("use_mpc", yarp::os::Value(false)).asBool();
     m_useQPIK = rf.check("use_QP-IK", yarp::os::Value(false)).asBool();
@@ -595,7 +597,7 @@ bool WalkingModule::solveTaskBased(const iDynTree::Rotation& desiredNeckOrientat
 
     if(!m_taskBasedTorqueSolver->setMassMatrix(massMatrix))
         return false;
-
+    // bemilio: this sets the centroidal momentum as a constraint
     if(!m_taskBasedTorqueSolver->setCentroidalTotalMomentum(m_FKSolver->getCentroidalTotalMomentum()))
        return false;
 
@@ -788,7 +790,7 @@ bool WalkingModule::updateModule()
                     m_robotState = WalkingFSM::Stopped;
                     return true;
                 }
-
+                // bemilio: m_qDesired is the reference on the joint positions (it should be a constant home position)
                 // send the reference again in order to reduce error
                 if(!m_robotControlHelper->setDirectPositionReferences(m_qDesired))
                 {
@@ -872,7 +874,7 @@ bool WalkingModule::updateModule()
                     return false;
                 }
             }
-
+            //bemilio: why 2?
             if(m_newTrajectoryMergeCounter == 2)
             {
                 if(!updateTrajectories(m_newTrajectoryMergeCounter))
@@ -888,7 +890,7 @@ bool WalkingModule::updateModule()
             if(!m_waitCondition)
                 m_newTrajectoryMergeCounter--;
         }
-
+        //bemilio: Update the gain schedules (I guess)
         if (m_robotControlHelper->getPIDHandler().usingGainScheduling())
         {
             if (!m_robotControlHelper->getPIDHandler().updatePhases(m_leftInContact, m_rightInContact, m_time))
@@ -929,7 +931,7 @@ bool WalkingModule::updateModule()
         checkWaitCondition(m_leftInContact, m_robotControlHelper->getLeftWrench());
         checkWaitCondition(m_rightInContact, m_robotControlHelper->getRightWrench());
 
-
+        // bemilio: get desired quantities. Maybe this is a good point to inject the new planner.
         iDynTree::Vector2 desiredCoMVelocityXY;
         iDynTree::Vector2 desiredCoMAccelerationXY;
         if(!m_waitCondition)
@@ -969,6 +971,7 @@ bool WalkingModule::updateModule()
         }
 
         // DCM controller
+
         iDynTree::Vector2 desiredZMP;
         iDynTree::Vector3 desiredVRP;
 
@@ -979,7 +982,7 @@ bool WalkingModule::updateModule()
         DCMVelocityDesired(0) = m_DCMVelocityDesired.front()(0);
         DCMVelocityDesired(1) = m_DCMVelocityDesired.front()(1);
         DCMVelocityDesired(2) = m_comHeightVelocity.front();
-
+        //bemilio: what is this??
         if(m_useMPC)
         {
             // Model predictive controller
@@ -1202,9 +1205,10 @@ bool WalkingModule::updateModule()
                 return false;
             }
         }
-        else
+        else //bemilio: case when torque control is active
         {
             // x and y are not tacking into account
+            // bemilio: the easiest thing is probably just to get these from a yarpread
             desiredCoMPosition(0) = desiredCoMPositionXY(0);
             desiredCoMPosition(1) = desiredCoMPositionXY(1);
             desiredCoMPosition(2) = m_comHeightTrajectory.front();
@@ -1227,6 +1231,7 @@ bool WalkingModule::updateModule()
                     // integrate dq because velocity control mode seems not available
                     yarp::sig::Vector bufferVelocity(m_robotControlHelper->getActuatedDoFs());
                     yarp::sig::Vector bufferPosition(m_robotControlHelper->getActuatedDoFs());
+                    // bemiio: Forward kinematics evaluations. Why do they go in desired?
                     if(!m_FKSolver->setInternalRobotState(m_qDesired, m_dqDesired))
                     {
                         yError() << "[updateModule] Unable to set the internal robot state.";
@@ -1240,9 +1245,11 @@ bool WalkingModule::updateModule()
                     }
 
                     m_FKSolver->evaluateDCM();
-
+                    // bemilio: Solve inverse kinematics. Can inject my code here. (but why isn't it inverse dyn??)
+                    // bemilio: giulio said this is just to obtain a joints configuration to use as regularization for ID
                     if(m_useOSQP)
                     {
+                        // bemilio: the last argument is the output
                         if(!solveQPIK(m_QPIKSolver_osqp, desiredCoMPosition,
                                       desiredCoMVelocity,
                                       yawRotation, m_dqDesired))
@@ -1251,7 +1258,7 @@ bool WalkingModule::updateModule()
                             return false;
                         }
                     }
-                    else
+                    else //bemilio: here it uses qpoases
                     {
                         if(!solveQPIK(m_QPIKSolver_qpOASES, desiredCoMPosition,
                                       desiredCoMVelocity,
@@ -1261,11 +1268,13 @@ bool WalkingModule::updateModule()
                             return false;
                         }
                     }
+
+                    // bemilio: IK gives you a desired dq. We integrate it to get the desired position. It will later be fed to a stacked tasks controller.
                     iDynTree::toYarp(m_dqDesired, bufferVelocity);
 
                     bufferPosition = m_velocityIntegral->integrate(bufferVelocity);
                     iDynTree::toiDynTree(bufferPosition, m_qDesired);
-
+                    // bemilio: ??? what is this?
                     if(!m_FKSolver->setInternalRobotState(m_robotControlHelper->getJointPosition(),
                                                           m_robotControlHelper->getJointVelocity()))
                     {
@@ -1309,8 +1318,10 @@ bool WalkingModule::updateModule()
                 m_profiler->setEndTime("IK");
             }
             // torque controller
+            // bemilio: Stack the tasks and solve them
             m_profiler->setInitTime("Torque");
-
+            // bemilio: this thing outputs torques, but how can you get it from a desired kinematic setup (CoM position and so)?
+            //
             if(!solveTaskBased(yawRotation, desiredCoMPosition, desiredCoMVelocity,
                                desiredCoMAcceleration, desiredZMP, desiredVRP, m_torqueDesired,
                                m_ddqDesired))
@@ -1339,6 +1350,10 @@ bool WalkingModule::updateModule()
                 yError() << "[updateModule] Unable to set the desired joint torque.";
                 return false;
             }
+
+            // bemilio: I think it's only debug stuff from now on
+/**************************************************************************************************/
+
             m_profiler->setEndTime("Torque");
         }
         m_profiler->setEndTime("Total");
