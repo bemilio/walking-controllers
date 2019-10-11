@@ -193,7 +193,11 @@ bool WalkingModule::configure(yarp::os::ResourceFinder& rf)
         return false;
     }
 
+
     std::string desiredUnyciclePositionPortName = "/" + getName() + "/goal:i";
+    std::cout << "[bemilio note: the portname for the desired CoM is " << desiredUnyciclePositionPortName;
+    getchar();
+    // bemilio: as a first solution access this port
     if(!m_desiredUnyciclePositionPort.open(desiredUnyciclePositionPortName))
     {
         yError() << "[configure] Could not open" << desiredUnyciclePositionPortName << " port.";
@@ -835,11 +839,16 @@ bool WalkingModule::updateModule()
         iDynTree::Position desiredCoMPosition;
         iDynTree::Vector3 desiredCoMVelocity;
         iDynTree::Vector3 DCMPositionDesired, DCMVelocityDesired;
+        /***************************/
+        // bemilio: TODO
+        // set desiredCoM from a yarpRead
+        /***************************/
 
         m_profiler->setInitTime("Total");
 
         // check desired planner input
         yarp::sig::Vector* desiredUnicyclePosition = nullptr;
+        // bemilio: HERE the desired position for the whole controller is given. For now I can just hijack this port.
         desiredUnicyclePosition = m_desiredUnyciclePositionPort.read(false);
         if(desiredUnicyclePosition != nullptr)
             if(!setPlannerInput((*desiredUnicyclePosition)(0), (*desiredUnicyclePosition)(1)))
@@ -850,6 +859,7 @@ bool WalkingModule::updateModule()
 
         // if a new trajectory is required check if its the time to evaluate the new trajectory or
         // the time to attach new one
+        // bemilio: This is the planner. It generates a new trajectory. For now I can leave it and just use  the CoM as a final input for it, then I will cut everything except the ID
         if(m_newTrajectoryRequired)
         {
             // when we are near to the merge point the new trajectory is evaluated
@@ -890,7 +900,9 @@ bool WalkingModule::updateModule()
             if(!m_waitCondition)
                 m_newTrajectoryMergeCounter--;
         }
-        //bemilio: Update the gain schedules (I guess)
+
+        // bemilio: Update the gain schedules (I guess)
+        // bemilio: do I need it? if it is for the simplified model controller probably not
         if (m_robotControlHelper->getPIDHandler().usingGainScheduling())
         {
             if (!m_robotControlHelper->getPIDHandler().updatePhases(m_leftInContact, m_rightInContact, m_time))
@@ -962,7 +974,7 @@ bool WalkingModule::updateModule()
             desiredCoMVelocityXY.zero();
             desiredCoMAccelerationXY.zero();
         }
-
+        // bemilio: the desired CoM gets propagated from the DCM model - should I cut the wire here?
         iDynTree::Vector2 desiredCoMPositionXY;
         if(!m_stableDCMModel->getCoMPosition(desiredCoMPositionXY))
         {
@@ -982,8 +994,9 @@ bool WalkingModule::updateModule()
         DCMVelocityDesired(0) = m_DCMVelocityDesired.front()(0);
         DCMVelocityDesired(1) = m_DCMVelocityDesired.front()(1);
         DCMVelocityDesired(2) = m_comHeightVelocity.front();
-        //bemilio: what is this??
+        //bemilio: this is the "simplified model controller" in the MPC version
         if(m_useMPC)
+        //bemilio: this is the "simplified model controller" in the PID version. It outputs a ZMP to track a given DCM
         {
             // Model predictive controller
             m_profiler->setInitTime("MPC");
@@ -1054,6 +1067,7 @@ bool WalkingModule::updateModule()
             }
 
             desiredVRP = m_walkingDCMReactiveController->getControllerOutput();
+            //bemilio: Problem. This ZMP is given as input to the optimization of the torques. How can I cut it?
             desiredZMP(0) = desiredVRP(0);
             desiredZMP(1) = desiredVRP(1);
         }
@@ -1209,6 +1223,7 @@ bool WalkingModule::updateModule()
         {
             // x and y are not tacking into account
             // bemilio: the easiest thing is probably just to get these from a yarpread
+
             desiredCoMPosition(0) = desiredCoMPositionXY(0);
             desiredCoMPosition(1) = desiredCoMPositionXY(1);
             desiredCoMPosition(2) = m_comHeightTrajectory.front();
