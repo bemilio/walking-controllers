@@ -236,6 +236,7 @@ namespace WalkingControllers
          */
         bool getIsStancePhase(std::vector<bool>& isStancePhase);
 
+        bool setOmega(double omega);
         /**
          * Reset the planner
          */

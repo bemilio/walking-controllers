@@ -678,3 +678,7 @@ bool TrajectoryGenerator::getIsStancePhase(std::vector<bool>& isStancePhase)
 
     return true;
 }
+
+bool TrajectoryGenerator::setOmega(double omega){
+    return m_dcmGenerator->setOmega(omega);
+}
