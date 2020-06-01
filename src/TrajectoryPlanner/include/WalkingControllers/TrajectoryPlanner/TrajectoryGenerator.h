@@ -38,6 +38,7 @@ namespace WalkingControllers
     {
         UnicycleGenerator m_trajectoryGenerator; /**< UnicycleTrajectoryGenerator object. */
         std::shared_ptr<DCMTrajectoryGenerator> m_dcmGenerator;
+        std::shared_ptr<ZMPTrajectoryGenerator> m_zmpGenerator;
         std::shared_ptr<CoMHeightTrajectoryGenerator> m_heightGenerator;
         std::shared_ptr<FeetGenerator> m_feetGenerator;
         bool m_useMinimumJerk;
@@ -73,6 +74,10 @@ namespace WalkingControllers
          * Main thread method.
          */
         void computeThread();
+
+        double m_minStepDuration;
+        double m_maxStepDuration;
+        double m_nominalStepDuration;
 
     public:
 
@@ -237,6 +242,11 @@ namespace WalkingControllers
         bool getIsStancePhase(std::vector<bool>& isStancePhase);
 
         bool setOmega(double omega);
+
+        bool getZMPPosition(std::vector<iDynTree::Vector2>& ZMP_position_trajectory);
+
+        bool setStepTimings(double minStepDuration, double maxStepDuration, double nominalStepDuration);
+
         /**
          * Reset the planner
          */

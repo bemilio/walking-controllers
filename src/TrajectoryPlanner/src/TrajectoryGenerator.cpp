@@ -123,6 +123,7 @@ bool TrajectoryGenerator::configurePlanner(const yarp::os::Searchable& config)
     ok = ok && unicyclePlanner->setWidthSetting(minWidth, m_nominalWidth);
     ok = ok && unicyclePlanner->setMaxAngleVariation(maxAngleVariation);
     ok = ok && unicyclePlanner->setCostWeights(positionWeight, timeWeight);
+    setStepTimings(minStepDuration, maxStepDuration, nominalDuration);
     ok = ok && unicyclePlanner->setStepTimings(minStepDuration,
                                                maxStepDuration, nominalDuration);
     ok = ok && unicyclePlanner->setPlannerPeriod(m_dT);
@@ -232,6 +233,9 @@ void TrajectoryGenerator::computeThread()
         // clear the old trajectory
         std::shared_ptr<UnicyclePlanner> unicyclePlanner = m_trajectoryGenerator.unicyclePlanner();
         unicyclePlanner->clearDesiredTrajectory();
+
+        // update timings
+        unicyclePlanner->setStepTimings(m_minStepDuration, m_maxStepDuration, m_nominalStepDuration);
 
         // add new point
         if(!unicyclePlanner->addDesiredTrajectoryPoint(endTime, desiredPoint))
@@ -682,3 +686,15 @@ bool TrajectoryGenerator::getIsStancePhase(std::vector<bool>& isStancePhase)
 bool TrajectoryGenerator::setOmega(double omega){
     return m_dcmGenerator->setOmega(omega);
 }
+
+bool   TrajectoryGenerator::getZMPPosition(std::vector<iDynTree::Vector2>& ZMP_position_trajectory){
+    std::cerr<< "zmp_position size = " << m_dcmGenerator->getZMPPosition().size();
+    ZMP_position_trajectory = m_dcmGenerator->getZMPPosition();
+}
+
+bool TrajectoryGenerator::setStepTimings(double minStepDuration, double maxStepDuration, double nominalStepDuration){
+    m_minStepDuration = minStepDuration;
+    m_maxStepDuration = maxStepDuration;
+    m_nominalStepDuration = nominalStepDuration;
+}
+
