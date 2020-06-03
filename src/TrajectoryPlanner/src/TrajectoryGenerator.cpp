@@ -136,6 +136,8 @@ bool TrajectoryGenerator::configurePlanner(const yarp::os::Searchable& config)
 
     ok = ok && m_trajectoryGenerator.setSwitchOverSwingRatio(switchOverSwingRatio);
     ok = ok && m_trajectoryGenerator.setTerminalHalfSwitchTime(lastStepSwitchTime);
+    // Bemilio: watch out, this one affects the step timings for the swing phase duration
+    // We need to call also this in the variable gravity phase (not only setStepTimings)
     ok = ok && m_trajectoryGenerator.setPauseConditions(maxStepDuration, nominalDuration);
 
     if (m_useMinimumJerk) {
@@ -243,7 +245,7 @@ void TrajectoryGenerator::computeThread()
 
         // update timings
         unicyclePlanner->setStepTimings(minStepDuration, maxStepDuration, nominalStepDuration);
-
+        m_trajectoryGenerator.setPauseConditions(maxStepDuration, nominalStepDuration);
         // add new point
         if(!unicyclePlanner->addDesiredTrajectoryPoint(endTime, desiredPoint))
         {
