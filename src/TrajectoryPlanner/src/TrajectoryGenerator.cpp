@@ -186,6 +186,9 @@ void TrajectoryGenerator::computeThread()
         double initTime;
         double endTime;
         double dT;
+        double minStepDuration;
+        double maxStepDuration;
+        double nominalStepDuration;
 
         bool correctLeft;
 
@@ -227,6 +230,10 @@ void TrajectoryGenerator::computeThread()
             measuredPositionRight(1) = m_measuredTransformRight.getPosition()(1);
             measuredAngleRight = m_measuredTransformRight.getRotation().asRPY()(2);
 
+            minStepDuration = m_minStepDuration;
+            maxStepDuration = m_maxStepDuration;
+            nominalStepDuration = m_nominalStepDuration;
+
             correctLeft = m_correctLeft;
         }
 
@@ -235,7 +242,7 @@ void TrajectoryGenerator::computeThread()
         unicyclePlanner->clearDesiredTrajectory();
 
         // update timings
-        unicyclePlanner->setStepTimings(m_minStepDuration, m_maxStepDuration, m_nominalStepDuration);
+        unicyclePlanner->setStepTimings(minStepDuration, maxStepDuration, nominalStepDuration);
 
         // add new point
         if(!unicyclePlanner->addDesiredTrajectoryPoint(endTime, desiredPoint))
